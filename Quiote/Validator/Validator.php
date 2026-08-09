@@ -1232,6 +1232,15 @@ abstract class Validator extends ParameterHolder implements ResetInterface, Vali
 		return null;
 	}
 
+	/**
+	 * Returns the validator to its uninitialized state for reuse across requests.
+	 *
+	 * Detaches the context and the parent container, and drops the name, base,
+	 * arguments, error messages, affected arguments and any incident raised on
+	 * the last run, then clears the parameters through the ParameterHolder
+	 * base. A reset validator has to go through initialize() again before it
+	 * can validate anything.
+	 */
 	#[\Override]
     public function reset(): void
 	{

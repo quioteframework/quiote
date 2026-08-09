@@ -26,6 +26,26 @@ class FormPopulationMiddleware implements MiddlewareInterface
         $this->engine->initialize($this->controller->getContext());
     }
 
+    /**
+     * Repopulates form fields and error messages in the rendered HTML response.
+     *
+     * On the way in, the canonical WebRequest is resolved (from the
+     * `quiote.request_data` attribute, else from the container), given the
+     * merged query, parsed-body and route parameters — later sources winning
+     * on key conflicts — seeded with the engine's default configuration, then
+     * published to RequestState and re-attached to the request.
+     *
+     * On the way out the response is returned untouched unless every gate
+     * passes: the Content-Type must look like HTML (a missing Content-Type is
+     * treated as HTML), the body must be non-empty, the controller's global
+     * response must still allow content mutation, and the body must actually
+     * contain a `<form` — the last check skips the DOM round-trip for the
+     * common form-free page. When population does run and changes the markup,
+     * a new body is installed and any stale `Content-Length` header is removed.
+     * The engine is reset even if population throws.
+     *
+     * @throws \RuntimeException If no canonical WebRequest can be resolved.
+     */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $webRequest = $this->resolveWebRequest($request);

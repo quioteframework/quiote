@@ -36,6 +36,13 @@ final class WorkerRuntimeRegistry
         self::$aliases[$alias] = $runtimeClass;
     }
 
+    /**
+     * Whether $alias has been registered.
+     *
+     * Only tests the alias table; a fully-qualified class name that
+     * {@see resolve()} would happily pass through is not an alias and reports
+     * false here.
+     */
     public static function has(string $alias): bool
     {
         return isset(self::$aliases[$alias]);

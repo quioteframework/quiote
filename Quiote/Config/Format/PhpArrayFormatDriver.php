@@ -13,6 +13,7 @@ use Quiote\Exception\ConfigurationException;
  */
 final class PhpArrayFormatDriver extends AbstractArrayFormatDriver implements PositionAwareFormatDriverInterface
 {
+	/** Whether the path names a `.php` file, matched case-insensitively. */
 	public function supports(string $path): bool
 	{
 		return str_ends_with(strtolower($path), '.php');

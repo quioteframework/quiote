@@ -31,6 +31,15 @@ final class ForwardedHeaderResolver
     private const PROTO_HEADERS = ['X-Forwarded-Proto'];
     private const PORT_HEADERS = ['X-Forwarded-Port'];
 
+    /**
+     * Reports the scheme, host and port the client used, per the proxy headers.
+     *
+     * Each field is taken from its X-* header if present, otherwise from the
+     * matching parameter of an RFC 7239 `Forwarded` header, using only the first
+     * entry in a comma-separated chain. A host that carries its own port wins
+     * over `X-Forwarded-Port`. When none of the three headers is present, an
+     * empty {@see ForwardedAuthority} comes back, meaning "no correction".
+     */
     public function resolve(ServerRequestInterface $request): ForwardedAuthority
     {
         $hostRaw = $this->headerOrForwarded($request, self::HOST_HEADERS, 'host');

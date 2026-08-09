@@ -12,6 +12,31 @@ use Quiote\Exception\QuioteException;
 use Quiote\Renderer\IReusableRenderer;
 use Quiote\Renderer\Renderer;
 use Symfony\Contracts\Service\ResetInterface;
+
+/**
+ * One configured output type -- `html`, `json`, or whatever else
+ * `output_types.xml` declares -- together with the renderers, layouts and
+ * parameters that belong to it.
+ *
+ * The {@see Controller} builds and initializes one instance per declared output
+ * type when it initializes and hands them out through
+ * {@see Controller::getOutputType()}; an application receives an instance
+ * rather than constructing or subclassing one. What it carries is the
+ * presentation side of a response: the renderers a template layer can be
+ * rendered with ({@see getRenderer()}, {@see hasRenderers()}), the layouts a
+ * view can load ({@see getLayout()}, {@see getDefaultLayoutName()}), the
+ * template used when an exception has to be rendered in this type
+ * ({@see getExceptionTemplate()}), and the type's own parameter bag inherited
+ * from {@see ParameterHolder}.
+ *
+ * A renderer is constructed and initialized on first request, and kept for
+ * later requests only when it declares itself reusable through
+ * {@see IReusableRenderer}; one that does not is rebuilt on every call. Asking
+ * for a renderer or a layout by an unconfigured name, or by no name when the
+ * type declares no default, throws rather than returning null. The object
+ * stringifies to its own name, so it can stand in wherever the name is
+ * expected.
+ */
 class OutputType extends ParameterHolder implements \Stringable, ResetInterface
 {
 	/**

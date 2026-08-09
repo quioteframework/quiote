@@ -32,6 +32,18 @@ use RuntimeException;
  */
 final class GcsSessionFactory implements SessionFactoryInterface
 {
+    /**
+     * Builds GCS-backed session persistence from the slot's parameters.
+     *
+     * Reads the HMAC `access_key`/`secret_key` pair, the `bucket`, an
+     * `endpoint` defaulting to `https://storage.googleapis.com`, and an
+     * `object_prefix` defaulting to `sessions/`. An empty or non-string
+     * parameter falls back to its default. The PSR-18 client is resolved from
+     * the container rather than configured here.
+     *
+     * @param array<string, mixed> $parameters
+     * @throws RuntimeException If no PSR-18 client is bound in the container.
+     */
     public function createPersistence(Context $context, array $parameters): SessionPersistenceInterface
     {
         return new GcsSessionPersistence(

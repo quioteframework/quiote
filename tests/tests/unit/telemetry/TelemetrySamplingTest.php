@@ -14,7 +14,7 @@ use Quiote\Telemetry\Trace;
 
 /**
  * Tests for head-based sampling: the ratio sampler, the always_on/
- * always_off strategies, the force-sample escape hatch, and the specific
+ * always_off strategies, the force-sample override, and the specific
  * acceptance criteria that metrics are NEVER sampled and that a child of a
  * locally-sampled parent is always
  * sampled regardless of ratio.
@@ -177,7 +177,7 @@ class TelemetrySamplingTest extends TestCase
         $this->assertStringContainsString('not-a-real-strategy', $record['message']);
     }
 
-    // --- force-sample escape hatch ----------------------------------------------
+    // --- force-sample override ---------------------------------------------------
 
     public function testForceSampleAttributeBypassesAZeroRatio(): void
     {

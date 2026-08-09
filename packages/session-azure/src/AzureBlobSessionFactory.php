@@ -31,6 +31,17 @@ use RuntimeException;
  */
 final class AzureBlobSessionFactory implements SessionFactoryInterface
 {
+    /**
+     * Builds blob-backed session persistence from the slot's parameters.
+     *
+     * Reads `account_name`, `account_key`, an optional `endpoint` (empty means
+     * the public `*.blob.core.windows.net` origin) and `container`, which
+     * defaults to `quiote-sessions`. The PSR-18 client comes from the
+     * container, not from the parameters.
+     *
+     * @param array<string, mixed> $parameters
+     * @throws \RuntimeException If no PSR-18 client is bound in the container.
+     */
     public function createPersistence(Context $context, array $parameters): SessionPersistenceInterface
     {
         $endpoint = AzureSessionParameters::str($parameters, 'endpoint');

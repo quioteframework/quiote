@@ -59,16 +59,29 @@ final class SwooleRuntime implements WorkerRuntimeInterface
             && getenv('QUIOTE_WORKER_RUNTIME') === 'swoole';
     }
 
+    /** The registry alias: "swoole". */
     public static function alias(): string
     {
         return 'swoole';
     }
 
+    /**
+     * Detection priority 100 — well above {@see \Quiote\Runtime\Worker\SapiRuntime}'s
+     * PHP_INT_MIN, so once {@see isSupported()} has confirmed the opt-in this
+     * runtime wins over the plain SAPI fallback.
+     */
     public static function detectionPriority(): int
     {
         return 100;
     }
 
+    /**
+     * Persistent, forking, off-SAPI and streaming-capable.
+     *
+     * `populatesSuperglobals: false` and `sapiOutput: false` are what switch on
+     * the loop's superglobal hydration and stray-output capture;
+     * `forksWorkers: true` is what makes it reset the context per worker child.
+     */
     public function capabilities(): WorkerRuntimeCapabilities
     {
         return new WorkerRuntimeCapabilities(
@@ -80,6 +93,20 @@ final class SwooleRuntime implements WorkerRuntimeInterface
         );
     }
 
+    /**
+     * Builds the Swoole HTTP server, wires the loop into it and serves.
+     *
+     * `workerStart` calls {@see WorkerLoop::bootWorker()} in each forked child.
+     * Each request is converted to PSR-7, handled, and emitted through a
+     * per-request {@see SwooleResponseEmitter}; a throwable from the conversion
+     * or the emission is rendered via {@see WorkerLoop::renderError()}, and
+     * {@see WorkerLoop::afterRequest()} runs in a `finally`. Returns only once
+     * the server stops, after which the loop is shut down.
+     *
+     * @throws RuntimeException if coroutines are enabled without the explicit
+     *         `worker.swoole.allow_coroutine_unsafe` override, or ext-swoole is
+     *         missing.
+     */
     public function run(WorkerLoop $loop): void
     {
         $settings = self::settings();

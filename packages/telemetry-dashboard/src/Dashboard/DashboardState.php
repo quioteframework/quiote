@@ -124,6 +124,15 @@ final class DashboardState
         }
     }
 
+    /**
+     * Builds the immutable view model the dashboard renders for $second.
+     *
+     * Aggregates the throughput and latency ring buffers into series, derives
+     * the current requests-per-second from the last five seconds only (so the
+     * figure tracks recent traffic rather than the whole window), and reverses
+     * the recent-span and recent-error feeds into newest-first order. Reads
+     * state only; nothing is mutated or pruned here.
+     */
     public function snapshot(int $second): DashboardSnapshot
     {
         $throughputSeries = $this->throughput->series($second, 'sum');

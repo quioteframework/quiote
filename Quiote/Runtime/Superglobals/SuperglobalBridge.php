@@ -42,6 +42,15 @@ final class SuperglobalBridge
         $this->baselineServer = $server;
     }
 
+    /**
+     * Fills $_SERVER, $_GET, $_POST, $_COOKIE, $_REQUEST and $_FILES from the request.
+     *
+     * $_SERVER is the process baseline with the request's server params layered
+     * on top; $_REQUEST follows PHP's "GPCS" precedence, so POST values win over
+     * GET ones. A parsed body that is not an array leaves $_POST empty. $_FILES
+     * entries are rebuilt from the uploaded files but carry an empty `tmp_name`,
+     * as the class docblock explains.
+     */
     public function hydrate(ServerRequestInterface $request): void
     {
         $_SERVER = array_merge($this->baselineServer, $request->getServerParams());
@@ -56,6 +65,12 @@ final class SuperglobalBridge
         $_FILES = self::toFilesArray($request->getUploadedFiles());
     }
 
+    /**
+     * Restores the process baseline $_SERVER and empties the other superglobals.
+     *
+     * Called at the request boundary so one request's HTTP_* keys, query values
+     * or cookies cannot be read by the next request on the same worker.
+     */
     public function dehydrate(): void
     {
         $_SERVER = $this->baselineServer;

@@ -12,7 +12,21 @@ namespace Quiote\Action\Traits;
  */
 trait CacheableActionTrait
 {
-    // Default: cache enabled for all output types unless overridden.
+    /**
+     * Reports that the action's response may be cached.
+     *
+     * Returns true for every output type. Override in the using action to
+     * restrict caching to particular output types, or to disable it entirely
+     * for a request whose result must always be recomputed.
+     */
     public function isCacheable(?string $outputType = null): bool { return true; }
+
+    /**
+     * Returns the lifetime, in seconds, of a cached response for this action.
+     *
+     * Five minutes for every output type. Override in the using action to tune
+     * the lifetime per output type, or return null to fall back to the
+     * framework's own default lifetime handling.
+     */
     public function cacheTtlSeconds(?string $outputType = null): ?int { return 300; }
 }

@@ -39,6 +39,26 @@ class SessionMiddleware implements MiddlewareInterface
         $this->logger = \Quiote\Logging\Log::for($this);
     }
 
+    /**
+     * Starts the request's session, exposes it to the context, and bakes the cookie onto the response.
+     *
+     * Guarantees an ExecutionState attribute on the request first. A request
+     * flagged sessionless — by `auth.sessionless`, or by the equivalent
+     * `jwt.skip_session`, both honoured — and a context with no SessionManager
+     * bound skip session handling entirely: the request passes through and the
+     * request-state flush is claimed with `persistUser: false`, so a
+     * token-derived identity is never written into whatever unrelated session
+     * the client may still carry.
+     *
+     * Otherwise the session is started from the request and published as the
+     * container's request-scoped SessionBagInterface, so the user hierarchy,
+     * CSRF storage and application code all reach the same session. After the
+     * downstream handler returns — including when it throws — the request state
+     * is flushed so the user is written before the session is persisted; a
+     * failing flush is logged at debug and does not stop the response. The
+     * returned response is the one produced by persisting the session and
+     * baking its Set-Cookie.
+     */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         if (!$request->getAttribute(ExecutionState::class)) {

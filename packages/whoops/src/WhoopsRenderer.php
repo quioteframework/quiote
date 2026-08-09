@@ -27,6 +27,15 @@ final class WhoopsRenderer implements ExceptionRenderer
 {
 	use NegotiatesContent;
 
+	/**
+	 * Renders the exception with full developer detail, in the negotiated format.
+	 *
+	 * A JSON request gets Whoops' JSON handler with the stack trace included, a
+	 * plain-text request its text handler, and anything else the pretty HTML page
+	 * -- with the correlation id added as a "Quiote" data table when one is known.
+	 * The markup is returned in the response body; Whoops never writes to output
+	 * or terminates the process.
+	 */
 	public function render(Throwable $e, ServerRequestInterface $request, int $status, ?string $correlationId): ResponseInterface
 	{
 		if ($this->wantsJson($request)) {

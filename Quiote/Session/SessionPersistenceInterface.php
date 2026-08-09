@@ -21,5 +21,12 @@ interface SessionPersistenceInterface
      */
     public function save(string $sid, array $data): void;
 
+    /**
+     * Remove the session record for this id.
+     *
+     * Deleting an id that is not stored is not an error. Implementations decide
+     * how loudly a backend failure is reported, but must not leave the caller
+     * believing the record is gone when it demonstrably is not.
+     */
     public function delete(string $sid): void;
 }

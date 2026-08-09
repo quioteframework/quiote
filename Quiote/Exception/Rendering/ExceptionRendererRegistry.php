@@ -37,6 +37,12 @@ final class ExceptionRendererRegistry
         return self::$developerRendererFactory ? (self::$developerRendererFactory)() : null;
     }
 
+    /**
+     * Reports whether a developer-renderer factory has been registered.
+     *
+     * Answers from the stored factory without invoking it, so asking the question
+     * never constructs a renderer.
+     */
     public static function hasDeveloperRenderer(): bool
     {
         return self::$developerRendererFactory !== null;

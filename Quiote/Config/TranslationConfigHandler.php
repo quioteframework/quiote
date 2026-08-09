@@ -25,6 +25,14 @@ class TranslationConfigHandler extends XmlConfigHandler implements IArrayConfigH
 {
 	const XML_NAMESPACE = 'http://quiote.dev/quiote/config/parts/translation/1.1';
 
+	/**
+	 * Returns the structural rule for the translation configuration.
+	 *
+	 * Describes the default domain, locale and timezone, the `locales` map
+	 * (each with its name, parameters, fallback and LDML file) and the
+	 * `translators` map, which holds a message, number, currency and date
+	 * translator entry per domain.
+	 */
 	public function schema(): Rule
 	{
 		$translatorEntry = Rule::struct([

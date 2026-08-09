@@ -325,6 +325,18 @@ class RoutingValue implements IRoutingValue, ResetInterface
 		return $this->valueNeedsEncoding ? rawurlencode($value) : $value;
 	}
 
+	/**
+	 * Clears every piece of state the value carries.
+	 *
+	 * Drops the context and context name, the pre- and postfix along with
+	 * their encoding flags, and unsets the constructor-promoted value and its
+	 * encoding flag, so a container-managed instance holds nothing from the
+	 * previous request. The instance is unusable until it is re-initialized:
+	 * reading the value or casting to string before then hits an
+	 * uninitialized property, and the static offset map the ArrayAccess
+	 * methods consult is unset too, so `pre`/`val`/`post` access stops
+	 * resolving.
+	 */
 	public function reset(): void
 	{
 		$this->context = null;

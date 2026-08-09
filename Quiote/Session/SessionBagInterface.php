@@ -38,10 +38,29 @@ interface SessionBagInterface
      */
     public function get(string $key, mixed $default = null): mixed;
 
+    /**
+     * Whether the key is present in the session.
+     *
+     * Implementations must report a key whose stored value is null as present,
+     * so that has() and a null get() stay distinguishable.
+     */
     public function has(string $key): bool;
 
+    /**
+     * Write a value under the key.
+     *
+     * Implementations that have no session to write to may discard the value
+     * rather than raise; callers that must not create a session for a client
+     * that has none consult {@see exists()} first.
+     */
     public function set(string $key, mixed $value): void;
 
+    /**
+     * Drop the key from the session.
+     *
+     * Removing a key that is not present is not an error; implementations must
+     * treat it as a no-op on the stored state.
+     */
     public function remove(string $key): void;
 
     /**

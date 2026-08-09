@@ -51,6 +51,26 @@ use Quiote\Telemetry\Trace;
 #[\Quiote\Middleware\Attribute\Middleware(phase: 'bootstrap', priority: 950)]
 class TelemetryMiddleware implements MiddlewareInterface
 {
+    /**
+     * Opens the request's root span and records its resource measurements.
+     *
+     * Returns immediately, having done nothing, when {@see Trace::enabled()} is
+     * false, so the middleware is safe to leave in the pipeline with telemetry
+     * off. Otherwise it guarantees an ExecutionState on the request, joins any
+     * inbound W3C `traceparent`/`tracestate` so the request continues an
+     * upstream trace, and opens a server span named `METHOD /path`. The
+     * force-sample flag is set as a creation-time attribute, since a sampler
+     * cannot see attributes added later. The span's trace and span IDs are
+     * pushed into LogContext so log lines from this request are cross-navigable.
+     *
+     * Wall time is measured from `REQUEST_TIME_FLOAT` when available; in worker
+     * mode the peak-memory counter is reset first so the figure is this
+     * request's peak rather than the process's all-time peak.
+     *
+     * An exception is recorded on the span and its status set to error, then
+     * rethrown for ErrorHandlingMiddleware — which sits further out — to render.
+     * The span is ended and the propagation scope detached on every path.
+     */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         if (!Trace::enabled()) {
@@ -164,7 +184,7 @@ class TelemetryMiddleware implements MiddlewareInterface
     }
 
     /**
-     * Head-based force-sample escape hatch: "trace this one request" without
+     * Head-based force sampling: "trace this one request" without
      * touching the global sampling ratio. Two signals, either one is enough: a PSR-7
      * `quiote.force_sample` request attribute (settable programmatically by
      * app/earlier-middleware code), or the configured header

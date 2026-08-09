@@ -77,6 +77,21 @@ class FluentSourceEmitter implements EmitterInterface
 	/** @var Diagnostic[] */
 	private array $diagnostics = [];
 
+	/**
+	 * Emits the plan as a PHP file returning a closure over ValidatorBuilder.
+	 *
+	 * Clears the diagnostics from any previous call, then emits every node in
+	 * plan order, preferring the fluent shortcut for a node whose class and
+	 * parameters this emitter maps and falling back to
+	 * ValidatorBuilder::raw() for everything else. The generated header
+	 * carries a fingerprint over the source reference and the node shapes, so
+	 * the file changes only when the plan does; the artifact's own checksum is
+	 * taken over the finished source. Nothing is written to disk.
+	 *
+	 * Diagnostics recorded along the way are retrievable through
+	 * {@see getDiagnostics()}; a parameter with no fluent mapping is reported
+	 * there rather than being dropped, since the raw fallback still carries it.
+	 */
 	public function emit(ValidatorPlan $plan): EmittedArtifact
 	{
 		$this->diagnostics = [];

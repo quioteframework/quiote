@@ -21,6 +21,13 @@ class TestSuitesConfigHandler extends XmlConfigHandler implements IArrayConfigHa
 {
 	const XML_NAMESPACE = 'http://quiote.dev/quiote/config/parts/testing/suites/1.1';
 
+	/**
+	 * Returns the structural rule for the test-suite configuration.
+	 *
+	 * The canonical array is a map of suite name to an entry carrying the
+	 * suite's class, its base directory and its include, exclude and test-file
+	 * lists; all of them are required.
+	 */
 	public function schema(): Rule
 	{
 		return Rule::dictOf(Rule::struct([

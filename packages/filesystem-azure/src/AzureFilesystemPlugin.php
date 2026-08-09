@@ -24,6 +24,14 @@ use RuntimeException;
 #[PluginAttribute(name: 'quiote/filesystem-azure')]
 final class AzureFilesystemPlugin implements PluginInterface
 {
+    /**
+     * Publishes the `filesystem.disks.azure.*` defaults, registers the `azure` driver alias and
+     * binds {@see AzureFilesystemAdapter} as a singleton.
+     *
+     * The adapter's factory reads account name and key, container, optional endpoint and key prefix
+     * from config at resolution time and pulls the PSR-18 client out of the container then, so
+     * registering this plugin without an HTTP client bound only fails once the disk is used.
+     */
     public function register(PluginRegistrar $registrar): void
     {
         $registrar->configDefault('filesystem.disks.azure.account_name', '');

@@ -802,6 +802,12 @@ final class FormPopulationEngine
 		unset($this->doc);
 	}
 
+	/**
+	 * Whether this engine runs after the response body has been produced.
+	 *
+	 * Always true: population rewrites the finished (X)HTML document, so it can
+	 * only run once the view has rendered.
+	 */
 	public function isPostFilter(): bool
 	{
 		return true;
@@ -1117,6 +1123,13 @@ final class FormPopulationEngine
 		return $seeded instanceof WebRequest ? $seeded : $request;
 	}
 
+	/**
+	 * Drops the per-response DOM state so the engine can serve the next request.
+	 *
+	 * Releases the parsed document, its XPath instance and the resolved XML
+	 * namespace prefix. The configured parameters are kept -- they come from
+	 * configuration, not from the request being populated.
+	 */
 	public function reset(): void
 	{
 		$this->doc = null;

@@ -9,7 +9,28 @@ use Psr\Container\NotFoundExceptionInterface;
 use Psr\Container\ContainerExceptionInterface;
 use Symfony\Contracts\Service\Attribute\Required;
 
+/**
+ * PSR-11 `NotFoundExceptionInterface`: nothing is bound under the requested id and no
+ * autowireable class or alias answers to it either.
+ *
+ * Thrown by {@see Container::get()} only when resolution finds no candidate at all. A
+ * candidate that exists but cannot be built fails with {@see ContainerException} instead,
+ * so "there is no such service" stays distinguishable from "the service is broken".
+ * {@see Container::tryGet()} answers null rather than raising this.
+ */
 class NotFoundException extends \RuntimeException implements NotFoundExceptionInterface {}
+/**
+ * PSR-11 `ContainerExceptionInterface`: the container found something for the id but could
+ * not deliver it.
+ *
+ * Raised for every failure of the resolution machinery itself: a circular dependency in the
+ * resolving stack, a factory that threw (wrapped, unless it threw a
+ * {@see \Quiote\Exception\QuioteException}, which is rethrown as-is), a constructor that
+ * threw, an unsatisfied or untyped constructor parameter, a class name that does not exist,
+ * a binding whose value is not an instance of the class-name id that was asked for, a
+ * `#[Required]` method the container refuses to call, and the captive-dependency guard's
+ * refusal to inject a request-scoped service into a singleton.
+ */
 class ContainerException extends \RuntimeException implements ContainerExceptionInterface {}
 
 /**
@@ -162,6 +183,14 @@ class Container implements ContainerInterface
         unset($this->definitions[$id], $this->singletonResolved[$id], $this->requestResolved[$id], $this->aliases[$id]);
     }
 
+    /**
+     * Point one id at another, so resolving $abstract resolves $concrete's binding.
+     *
+     * The alias is followed on every lookup -- resolution, instance forgetting and
+     * {@see has()} -- and one alias per abstract id is kept, so calling this again
+     * for the same abstract replaces the previous target. The target does not have
+     * to be bound yet.
+     */
     public function alias(string $abstract, string $concrete): void
     {
         $this->aliases[$abstract] = $concrete;

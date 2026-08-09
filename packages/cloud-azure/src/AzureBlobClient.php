@@ -41,6 +41,15 @@ final class AzureBlobClient
     ) {
     }
 
+    /**
+     * Creates the container, treating "already exists" as success.
+     *
+     * A 409 from Azure means another caller got there first, which is the desired end state, so
+     * 201, 202 and 409 all return normally.
+     *
+     * @throws     AzureStorageException On any other status, or if the request could not be sent
+     *             after the configured retries.
+     */
     public function ensureContainerExists(string $container): void
     {
         $response = $this->send('PUT', "/{$container}", ['restype' => 'container']);
@@ -49,6 +58,15 @@ final class AzureBlobClient
         }
     }
 
+    /**
+     * Returns the blob's contents, or null if Azure answers 404.
+     *
+     * A container that does not exist also answers 404, so it is indistinguishable from a
+     * missing blob here.
+     *
+     * @throws     AzureStorageException On any other 4xx/5xx status, or a transport failure that
+     *             survived the retries.
+     */
     public function get(string $container, string $blob): ?string
     {
         $response = $this->send('GET', $this->blobPath($container, $blob));
@@ -62,6 +80,17 @@ final class AzureBlobClient
         return (string) $response->getBody();
     }
 
+    /**
+     * Creates or replaces a block blob in one request.
+     *
+     * The whole payload is sent in a single PUT with an
+     * `application/octet-stream` content type; there is no chunked upload, so
+     * the data must fit Azure's single-request block blob limit. The container
+     * must already exist.
+     *
+     * @throws     AzureStorageException If Azure answers 4xx/5xx, or the request could not be
+     *             sent after the retries.
+     */
     public function put(string $container, string $blob, string $data): void
     {
         $response = $this->send('PUT', $this->blobPath($container, $blob), headers: [
@@ -74,6 +103,14 @@ final class AzureBlobClient
         }
     }
 
+    /**
+     * Deletes a blob, treating a missing one as success.
+     *
+     * A 404 returns normally so a delete is idempotent.
+     *
+     * @throws     AzureStorageException On any other 4xx/5xx status, or a transport failure that
+     *             survived the retries.
+     */
     public function delete(string $container, string $blob): void
     {
         $response = $this->send('DELETE', $this->blobPath($container, $blob));

@@ -16,6 +16,15 @@ final class SwooleRequestSnapshotFactory
     {
     }
 
+    /**
+     * Copies a Swoole request into a plain {@see SwooleRequestSnapshot} that the
+     * rest of the package can work with without ext-swoole.
+     *
+     * Each of the server/header/get/post/cookie/files bags is null on a Swoole
+     * request that carries none of that kind, and becomes an empty array here;
+     * a request with no body at all (`rawContent()` returning false) becomes an
+     * empty body string.
+     */
     public static function fromSwoole(SwooleHttpRequest $request): SwooleRequestSnapshot
     {
         $rawContent = $request->rawContent();

@@ -32,6 +32,17 @@ final readonly class RedisQueueDriver implements PollableQueueDriverInterface
     ) {
     }
 
+    /**
+     * Encodes the job as a JSON entry and files it on the ready or delayed key.
+     *
+     * A job that is already due is `LPUSH`ed onto `{prefix}:ready`; one with a
+     * future {@see JobPayload::$availableAt} is added to the `{prefix}:delayed`
+     * ZSET scored by that timestamp, from where {@see self::reserve()} promotes
+     * it once due. The entry carries a fresh random `uid` so two identical jobs
+     * stay distinguishable as list members.
+     *
+     * @throws \JsonException if the payload params cannot be encoded.
+     */
     public function push(JobPayload $payload): void
     {
         $availableAt = $payload->availableAt?->getTimestamp() ?? time();
@@ -44,6 +55,17 @@ final readonly class RedisQueueDriver implements PollableQueueDriverInterface
         }
     }
 
+    /**
+     * Promotes any due delayed jobs, then atomically claims the next ready one.
+     *
+     * The claim is a single `RPOPLPUSH` from `{prefix}:ready` to
+     * `{prefix}:processing`, so a job is never in neither list. Returns null
+     * when the ready list is empty after promotion.
+     *
+     * @throws RuntimeException if the claimed entry is not a JSON object or its
+     *         `job_class`/`params`/`attempts` fields have the wrong type.
+     * @throws \JsonException if the claimed entry is not valid JSON.
+     */
     public function reserve(): ?ReservedJob
     {
         $this->promoteDueDelayed();
@@ -56,11 +78,21 @@ final readonly class RedisQueueDriver implements PollableQueueDriverInterface
         return $this->toReservedJob($entry);
     }
 
+    /** Removes the job's entry from the processing list, completing the reservation. */
     public function ack(ReservedJob $job): void
     {
         $this->redis->lrem($this->processingKey(), 0, $job->id);
     }
 
+    /**
+     * Removes the job from the processing list and re-files it for another run.
+     *
+     * The re-filed entry keeps the original `uid` but carries an incremented
+     * attempt count, and goes onto the ready list when the delay is zero or
+     * negative, otherwise onto the delayed ZSET.
+     *
+     * @throws \JsonException if the payload params cannot be re-encoded.
+     */
     public function release(ReservedJob $job, int $delaySeconds): void
     {
         $this->redis->lrem($this->processingKey(), 0, $job->id);
@@ -75,6 +107,12 @@ final readonly class RedisQueueDriver implements PollableQueueDriverInterface
         }
     }
 
+    /**
+     * Drops the job's entry from the processing list without re-queueing it.
+     *
+     * Called once retries are exhausted; the dead-letter record has already
+     * been written by {@see \Quiote\Queue\JobExecutor}.
+     */
     public function discard(ReservedJob $job): void
     {
         $this->redis->lrem($this->processingKey(), 0, $job->id);

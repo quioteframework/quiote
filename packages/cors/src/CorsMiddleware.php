@@ -23,6 +23,20 @@ use Quiote\Exception\ConfigurationException;
 #[\Quiote\Middleware\Attribute\Middleware(phase: 'before_action', priority: 50, after: 'RoutingMiddleware', before: 'DispatchMiddleware')]
 class CorsMiddleware implements MiddlewareInterface
 {
+    /**
+     * Answers CORS preflights and decorates cross-origin responses.
+     *
+     * Passes the request straight through when `cors.enabled` is off or the
+     * request carries no `Origin` header. Otherwise a preflight (an `OPTIONS`
+     * carrying `Access-Control-Request-Method`) is answered here with a bare 204
+     * plus the negotiated headers and never reaches the action; any other
+     * cross-origin request is dispatched normally and its response decorated
+     * afterwards. A response for an origin that is not allowed still gains a
+     * `Vary: Origin`, so a shared cache cannot serve it to an allowed origin.
+     *
+     * @throws ConfigurationException if `cors.allowed_origins` contains `*`
+     *                                while `cors.allow_credentials` is on.
+     */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         if (!Config::getBool('cors.enabled', false)) {

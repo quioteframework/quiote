@@ -45,6 +45,19 @@ class SettingConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 		return $this->executeArray($this->toCanonicalArray($document), $document->documentURI);
 	}
 
+	/**
+	 * Flattens the document's system actions and settings into the dot-keyed
+	 * map described in this class's summary.
+	 *
+	 * Each system action contributes an `actions.{name}_module` and an
+	 * `actions.{name}_action` entry. Each setting is keyed by its name behind a
+	 * prefix — `core.` unless an enclosing `<settings prefix="...">` overrides
+	 * it for its children — and takes either its nested parameters or its
+	 * literalized text value.
+	 *
+	 * @throws ParseException if a system action is missing its `<module>` or
+	 *                        `<action>` child.
+	 */
 	public function toCanonicalArray(XmlConfigDomDocument $document): array
 	{
 		// set up our default namespace
@@ -97,6 +110,12 @@ class SettingConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 		return $data;
 	}
 
+	/**
+	 * Returns the flat setting map unchanged as the declaration to cache.
+	 *
+	 * The map is already the compiled artifact; {@see self::apply()} is what
+	 * later feeds it into {@see Config}.
+	 */
 	public function executeArray(array $config, ?string $sourceRef = null): mixed
 	{
 		return $config;

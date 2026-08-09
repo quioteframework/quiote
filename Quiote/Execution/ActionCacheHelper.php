@@ -5,6 +5,20 @@ use Quiote\Cache\ActionViewCache;
 use Quiote\Execution\ActionExecutionContext;
 use Quiote\Request\WebRequest;
 
+/**
+ * Static helpers for the action/view cache round trip used by DispatchMiddleware.
+ *
+ * Reads and writes go through {@see ActionViewCache}, keyed by the module, action and output
+ * type of an {@see ActionDescriptor} and optionally partitioned by user fingerprint and
+ * locale. Both {@see store()} and {@see read()} are no-ops when `core.cache_enabled` is off
+ * (the default) and swallow backend errors, so a failing cache degrades to a miss rather
+ * than to a failed request.
+ *
+ * {@see buildContextFromPayload()} is the other direction: it validates a stored payload,
+ * writes the view selection and validation/security decisions back onto an
+ * {@see ExecutionState}, and assembles the {@see ActionExecutionContext} that a cache hit is
+ * served from. No view instance is reconstructed on replay.
+ */
 final class ActionCacheHelper
 {
     /**

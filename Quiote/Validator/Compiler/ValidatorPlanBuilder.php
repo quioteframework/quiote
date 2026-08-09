@@ -14,16 +14,15 @@ use Quiote\Validator\Validator;
 
 /**
  * Walks a parsed validators.xml document and builds a format-independent
- * ValidatorPlan (see Quiote\Validator\Compiler\Ir). This is the traversal
- * that used to live inline in ValidatorConfigHandler, interleaved with PHP
- * code emission; it has been split out so the same walk can feed multiple
- * back-ends (the runtime cache emitter, a fluent-source emitter for a
- * future compiler CLI) without duplicating XML-interpretation logic.
+ * ValidatorPlan (see Quiote\Validator\Compiler\Ir). Keeping the traversal
+ * separate from code emission lets the same walk feed multiple back-ends —
+ * the runtime cache emitter and the fluent-source emitter — without
+ * duplicating XML-interpretation logic.
  *
  * A ValidatorPlanBuilder instance is single-use: construct one per
  * document, call build() once. classMap accumulates across the
- * <ae:configuration> elements of that one document, matching the
- * historical per-file scoping of validator_definitions.
+ * <ae:configuration> elements of that one document, so validator_definitions
+ * are scoped per file.
  * @since      1.0.0
  */
 class ValidatorPlanBuilder
@@ -50,6 +49,26 @@ class ValidatorPlanBuilder
 
 	protected string $namespace;
 
+	/**
+	 * Walks the document once and returns the plan it describes.
+	 *
+	 * Collects the `<validator_definitions>` of every `<ae:configuration>`
+	 * element into the shared class map first, later definitions merging over
+	 * earlier ones with the same name, then builds the validator nodes of each
+	 * configuration in document order. The document's URI is recorded as the
+	 * plan's source reference and is what diagnostics and exceptions point at.
+	 *
+	 * The instance is single-use: the class map and diagnostics accumulate,
+	 * so a second call on the same builder would build on the leftovers of the
+	 * first.
+	 *
+	 * @param string $namespace The validators XML namespace URI, installed as
+	 *        the document's default namespace for the duration of the walk.
+	 * @throws ConfigurationException If a required attribute is missing, a
+	 *         referenced validator definition cannot be resolved, or — in
+	 *         'throw' reject mode — a validator declares a parameter its class
+	 *         does not accept.
+	 */
 	public function build(XmlConfigDomDocument $document, string $namespace): ValidatorPlan
 	{
 		$this->namespace = $namespace;

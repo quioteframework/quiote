@@ -13,6 +13,9 @@ class XmlConfigDomAttr extends \DOMAttr implements \Stringable
 		return (string) $this->getValue();
 	}
 	
+	/**
+	 * Returns the attribute's value, or null when the node carries none.
+	 */
 	public function getValue(): ?string
 	{
 		return $this->nodeValue;

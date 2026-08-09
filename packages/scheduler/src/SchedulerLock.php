@@ -18,6 +18,14 @@ final readonly class SchedulerLock
     {
     }
 
+    /**
+     * Attempts to take the lock, returning false when it is already held.
+     *
+     * On success the key is written to the cache with the given lifetime, so
+     * the lock expires by itself if a crashed run never releases it. The check
+     * and the write are two separate PSR-16 calls, so two invocations racing
+     * on the same key can both succeed.
+     */
     public function acquire(string $key, int $ttlSeconds): bool
     {
         if ($this->cache->has($key)) {
@@ -28,6 +36,12 @@ final readonly class SchedulerLock
         return true;
     }
 
+    /**
+     * Releases the lock by deleting its cache key.
+     *
+     * Deleting a key that is not present is not an error, so releasing a lock
+     * that already expired is harmless.
+     */
     public function release(string $key): void
     {
         $this->cache->delete($key);

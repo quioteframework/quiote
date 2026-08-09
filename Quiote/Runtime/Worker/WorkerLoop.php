@@ -44,6 +44,7 @@ final class WorkerLoop
     ) {
     }
 
+    /** Returns the hosting runtime's capabilities, as handed to the constructor. */
     public function capabilities(): WorkerRuntimeCapabilities
     {
         return $this->capabilities;
@@ -149,6 +150,13 @@ final class WorkerLoop
         return $this->maxRequests <= 0 || $this->requestsHandled < $this->maxRequests;
     }
 
+    /**
+     * Returns how many requests this loop has taken in.
+     *
+     * Counted at the start of {@see self::handle()}, so a request still in
+     * flight is already included, and a failed one still counts against the
+     * max-requests budget.
+     */
     public function requestsHandled(): int
     {
         return $this->requestsHandled;

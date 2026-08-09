@@ -34,6 +34,15 @@ final readonly class DbFailedJobStore implements InspectableFailedJobStoreInterf
     ) {
     }
 
+    /**
+     * Inserts the failure as a new row with a fresh random id.
+     *
+     * Params are stored as JSON and the failure time is stamped from the
+     * current clock, so a record is never overwritten — repeated failures of
+     * the same job class accumulate as separate rows.
+     *
+     * @throws \JsonException if the job params cannot be encoded.
+     */
     public function record(FailedJob $failedJob): void
     {
         $stmt = $this->pdo->prepare(sprintf(
@@ -71,6 +80,12 @@ final readonly class DbFailedJobStore implements InspectableFailedJobStoreInterf
         return $records;
     }
 
+    /**
+     * Returns the total number of rows in the dead-letter table.
+     *
+     * @throws \RuntimeException if the driver refuses the count query, which in
+     *         practice means the table is missing.
+     */
     public function count(): int
     {
         $stmt = $this->pdo->query(sprintf('SELECT COUNT(*) FROM %s', $this->quoteIdent($this->table)));
@@ -80,6 +95,12 @@ final readonly class DbFailedJobStore implements InspectableFailedJobStoreInterf
         return (int) $stmt->fetchColumn();
     }
 
+    /**
+     * Loads a single dead-letter record by id, or null when no row matches.
+     *
+     * @throws \RuntimeException if the matching row has columns of the wrong
+     *         type for a {@see FailedJobRecord}.
+     */
     public function find(string $id): ?FailedJobRecord
     {
         $stmt = $this->pdo->prepare(sprintf('SELECT * FROM %s WHERE id = :id', $this->quoteIdent($this->table)));
@@ -88,6 +109,11 @@ final readonly class DbFailedJobStore implements InspectableFailedJobStoreInterf
         return is_array($row) ? $this->mapRow($row) : null;
     }
 
+    /**
+     * Deletes the dead-letter row with this id.
+     *
+     * An id with no matching row deletes nothing and reports no error.
+     */
     public function delete(string $id): void
     {
         $stmt = $this->pdo->prepare(sprintf('DELETE FROM %s WHERE id = :id', $this->quoteIdent($this->table)));

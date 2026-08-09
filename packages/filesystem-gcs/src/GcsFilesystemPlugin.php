@@ -24,6 +24,14 @@ use RuntimeException;
 #[PluginAttribute(name: 'quiote/filesystem-gcs')]
 final class GcsFilesystemPlugin implements PluginInterface
 {
+    /**
+     * Publishes the `filesystem.disks.gcs.*` defaults, registers the `gcs` driver alias and binds
+     * {@see GcsFilesystemAdapter} as a singleton.
+     *
+     * The adapter's factory reads bucket, HMAC credentials, endpoint and key prefix from config at
+     * resolution time and pulls the PSR-18 client out of the container then, so registering this
+     * plugin without an HTTP client bound only fails once the disk is used.
+     */
     public function register(PluginRegistrar $registrar): void
     {
         $registrar->configDefault('filesystem.disks.gcs.bucket', '');

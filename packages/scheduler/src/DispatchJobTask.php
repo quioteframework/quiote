@@ -24,6 +24,16 @@ final readonly class DispatchJobTask implements ScheduledTaskAction
     ) {
     }
 
+    /**
+     * Pushes the configured job class and parameters onto the queue.
+     *
+     * Resolves {@see QueueManager} from the container and enqueues the job
+     * rather than executing it here, so the app's queue driver decides whether
+     * it runs now or later.
+     *
+     * @throws RuntimeException if the container's `QueueManager` service is
+     *                          bound to something that is not a QueueManager.
+     */
     public function run(Container $container): void
     {
         $manager = $container->get(QueueManager::class);
@@ -38,6 +48,7 @@ final readonly class DispatchJobTask implements ScheduledTaskAction
         $manager->push($this->jobClass, $this->params);
     }
 
+    /** Returns the job's class name as the task's label. */
     public function label(): string
     {
         return $this->jobClass;

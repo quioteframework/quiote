@@ -305,6 +305,13 @@ abstract class TemplateLayer extends ParameterHolder implements ResetInterface
 	 */
 	abstract public function getResourceStreamIdentifier();
 
+	/**
+	 * Drops the per-request rendering state so the layer can be reused.
+	 *
+	 * Releases the context and its name, the renderer and any registered slots,
+	 * then delegates to the parent for the parameter state and finally unsets the
+	 * layer name, template attributes and extra assigns.
+	 */
 	#[\Override]
     public function reset() : void
 	{

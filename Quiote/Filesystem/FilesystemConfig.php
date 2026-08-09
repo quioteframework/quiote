@@ -23,6 +23,13 @@ final readonly class FilesystemConfig
     ) {
     }
 
+    /**
+     * Reads the current `filesystem.*` settings into a snapshot.
+     *
+     * The values are captured at call time; a later {@see Config} change is not reflected in
+     * an instance already built. Missing settings fall back to the `local` disk rooted at
+     * `storage/app`.
+     */
     public static function fromConfig(): self
     {
         return new self(

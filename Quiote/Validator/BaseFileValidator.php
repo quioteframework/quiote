@@ -31,6 +31,22 @@ use Psr\Http\Message\UploadedFileInterface;
  */
 abstract class BaseFileValidator extends Validator
 {
+	/**
+	 * Returns the base Validator parameters plus 'min_size', 'max_size',
+	 * 'extension', 'mime_type' and 'mime_type_include_charset', shared by every
+	 * file validator.
+	 *
+	 * 'min_size' and 'max_size' bound the uploaded file's size in bytes, the
+	 * minimum defaulting to 1 so a zero-byte upload fails. 'extension' is a list
+	 * of acceptable filename extensions, given either as an array or as a
+	 * space-delimited string, matched case-insensitively against the client
+	 * filename. 'mime_type' is a PCRE matched against the type fileinfo detects
+	 * from the file's own content, and requires the fileinfo extension to be
+	 * loaded; 'mime_type_include_charset' makes that match run against the type
+	 * with the charset appended ("text/csv; charset=iso-8859-1") rather than the
+	 * bare type. Subclasses merge their own names onto this set.
+	 * @return     array<int, string> The accepted parameter names.
+	 */
 	#[\Override]
 	public static function getAcceptedParameters(): array
 	{

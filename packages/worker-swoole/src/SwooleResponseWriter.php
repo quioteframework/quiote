@@ -16,21 +16,25 @@ final class SwooleResponseWriter implements SwooleResponseWriterInterface
     {
     }
 
+    /** {@inheritDoc} */
     public function status(int $code): void
     {
         $this->response->status($code);
     }
 
+    /** {@inheritDoc} */
     public function header(string $name, string|array $value): void
     {
         $this->response->header($name, $value);
     }
 
+    /** {@inheritDoc} */
     public function write(string $chunk): bool
     {
         return $this->response->write($chunk);
     }
 
+    /** {@inheritDoc} */
     public function end(string $body = ''): void
     {
         $this->response->end($body);

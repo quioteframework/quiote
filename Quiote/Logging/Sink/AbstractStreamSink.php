@@ -41,6 +41,14 @@ abstract class AbstractStreamSink implements SinkInterface
         }
     }
 
+    /**
+     * Whether this sink accepts an event at $level for $category.
+     *
+     * The minimum level is the longest category-prefix override that matches
+     * (exact name, or a prefix followed by a dot), falling back to the sink's
+     * default minimum level when none matches. The resolution is memoized per
+     * exact category, so repeated calls on the hot path cost a lookup.
+     */
     public function isEnabled(Level $level, string $category): bool
     {
         return $level->passes($this->resolveMin($category));
@@ -65,6 +73,15 @@ abstract class AbstractStreamSink implements SinkInterface
         return $this->resolvedMin[$category] = $best ?? $this->minLevel;
     }
 
+    /**
+     * Renders the event through the subclass {@see format()} and writes it as one
+     * newline-terminated line.
+     *
+     * The stream is opened on first write when the sink was configured with a
+     * path rather than a resource. A stream that cannot be opened, or a write
+     * that fails, is silently dropped rather than allowed to break the request
+     * that was only trying to log.
+     */
     public function emit(\Quiote\Logging\LogEvent $event): void
     {
         $this->writeLine($this->format($event));
@@ -93,6 +110,12 @@ abstract class AbstractStreamSink implements SinkInterface
         return $this->handle ?: null;
     }
 
+    /**
+     * Flushes the underlying stream if one has been opened.
+     *
+     * A sink that has never emitted anything holds no handle and does nothing
+     * here; it does not open the stream just to flush it.
+     */
     public function flush(): void
     {
         if (is_resource($this->handle)) {

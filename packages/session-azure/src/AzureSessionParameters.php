@@ -25,6 +25,16 @@ final class AzureSessionParameters
         return is_string($value) && $value !== '' ? $value : $default;
     }
 
+    /**
+     * Resolves the PSR-18 client the Azure session backends issue their HTTP
+     * requests through.
+     *
+     * The client is looked up in the container rather than constructed, so the
+     * application picks the implementation. $service names the backend for the
+     * exception message only.
+     *
+     * @throws RuntimeException If no PSR-18 ClientInterface is bound.
+     */
     public static function httpClient(Context $context, string $service): ClientInterface
     {
         $client = $context->getContainer()->tryGet(ClientInterface::class);

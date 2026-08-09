@@ -26,12 +26,25 @@ final class LogRegistry
     /** @var list<SinkInterface> */
     private static array $sinks = [];
 
+    /**
+     * Sets the minimum level applied to categories with no matching prefix rule.
+     *
+     * Discards the resolved-threshold memo, so categories that had fallen through to
+     * the previous default are re-resolved on their next log call.
+     */
     public static function setDefaultLevel(Level $level): void
     {
         self::$defaultLevel = $level;
         self::$resolved = [];
     }
 
+    /**
+     * Sets the minimum level for one dotted category prefix, replacing any level
+     * already stored for that exact prefix.
+     *
+     * Discards the resolved-threshold memo so existing categories re-resolve against
+     * the new rule; see {@see resolveLevel()} for how competing prefixes are ranked.
+     */
     public static function setLevel(string $categoryPrefix, Level $level): void
     {
         self::$categoryLevels[$categoryPrefix] = $level;
@@ -49,6 +62,12 @@ final class LogRegistry
         self::$resolved = [];
     }
 
+    /**
+     * Appends a sink to the process-global sink list, in registration order.
+     *
+     * No de-duplication is performed: registering the same sink twice makes it
+     * receive every record twice.
+     */
     public static function addSink(SinkInterface $sink): void
     {
         self::$sinks[] = $sink;
@@ -60,6 +79,12 @@ final class LogRegistry
         return self::$sinks;
     }
 
+    /**
+     * Reports whether any sink is registered.
+     *
+     * False means every record is discarded regardless of level, so callers can skip
+     * building a record at all.
+     */
     public static function hasSinks(): bool
     {
         return self::$sinks !== [];

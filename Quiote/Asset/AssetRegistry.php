@@ -33,11 +33,23 @@ final class AssetRegistry implements ResetInterface
     /** @var array<string, true> insertion-ordered set */
     private array $javascript = [];
 
+    /**
+     * Registers a stylesheet href for this request.
+     *
+     * Adding the same href again is a no-op: the asset keeps the position it
+     * had on first insertion and is rendered once.
+     */
     public function addCss(string $href): void
     {
         $this->css[$href] = true;
     }
 
+    /**
+     * Registers a script src for this request.
+     *
+     * Adding the same src again is a no-op: the asset keeps the position it
+     * had on first insertion and is rendered once.
+     */
     public function addJavascript(string $src): void
     {
         $this->javascript[$src] = true;
@@ -59,6 +71,9 @@ final class AssetRegistry implements ResetInterface
         return array_keys($this->javascript);
     }
 
+    /**
+     * Empties both asset sets so the registry can serve the next request.
+     */
     #[\Override]
     public function reset(): void
     {

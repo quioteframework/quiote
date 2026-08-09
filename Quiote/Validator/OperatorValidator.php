@@ -14,6 +14,16 @@ use Symfony\Contracts\Service\ResetInterface;
  */
 abstract class OperatorValidator extends Validator implements IValidatorContainer, ResetInterface
 {
+	/**
+	 * Returns the base Validator parameters plus 'skip_errors', shared by every
+	 * operator.
+	 *
+	 * 'skip_errors' keeps a child's CRITICAL result from being promoted to this
+	 * group's own result, so a critical failure inside the group does not abort
+	 * validation in the surrounding container. Concrete operators merge their
+	 * own names onto this set.
+	 * @return     array<int, string> The accepted parameter names.
+	 */
 	#[\Override]
 	public static function getAcceptedParameters(): array
 	{
@@ -307,6 +317,14 @@ abstract class OperatorValidator extends Validator implements IValidatorContaine
 		return $result;
 	}
 
+	/**
+	 * Returns the operator to its initial state for reuse across requests.
+	 *
+	 * Resets every child first, then detaches them all, puts the accumulated
+	 * result back to SUCCESS and discards the argument results and incidents
+	 * that were being held back for the deferred flush. Children are not kept,
+	 * so a reset operator validates nothing until it is registered again.
+	 */
 	#[\Override]
     public function reset() : void
 	{

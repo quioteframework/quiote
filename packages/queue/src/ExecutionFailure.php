@@ -13,6 +13,10 @@ final readonly class ExecutionFailure
     ) {
     }
 
+    /**
+     * A failure the caller should retry: carries the throwable, the attempt
+     * count so far, and how many seconds to wait before the next attempt.
+     */
     public static function retry(\Throwable $exception, int $attempts, int $backoffSeconds): self
     {
         return new self($exception, $attempts, true, $backoffSeconds);

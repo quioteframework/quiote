@@ -563,6 +563,13 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 		return array_reverse($paths);
 	}
 
+	/**
+	 * Returns this locale to its just-constructed state for reuse across requests.
+	 *
+	 * Drops the context, the loaded locale data, the identifier and the
+	 * parameters, so a pooled worker re-initializes the locale from scratch
+	 * rather than serving the previous request's language.
+	 */
 	#[\Override]
     public function reset() : void
 	{

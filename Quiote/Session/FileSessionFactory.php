@@ -21,6 +21,16 @@ use Quiote\Context;
  */
 final class FileSessionFactory implements SessionFactoryInterface
 {
+    /**
+     * Builds a {@see FileSessionPersistence} over the configured directory.
+     *
+     * A missing or non-string `dir` parameter falls back to
+     * `core.app_dir`/cache/sessions, and `core.app_dir` in turn to the system
+     * temp directory. The remaining parameters are passed through untouched.
+     *
+     * @throws \Quiote\Exception\StorageException if the directory cannot be
+     *         created or is not writable.
+     */
     public function createPersistence(Context $context, array $parameters): SessionPersistenceInterface
     {
         $dir = $parameters['dir'] ?? null;

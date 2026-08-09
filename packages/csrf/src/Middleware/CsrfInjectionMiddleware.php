@@ -41,6 +41,18 @@ class CsrfInjectionMiddleware implements MiddlewareInterface
     {
     }
 
+    /**
+     * Delivers the CSRF token on the outgoing response.
+     *
+     * Runs the rest of the pipeline first, then decorates what comes back, so
+     * even a 403 from the validation middleware carries a fresh token. The
+     * readable token cookie is added whenever the request carried a session
+     * cookie, regardless of content type; the hidden form field and `<head>`
+     * meta tag are added only to a response that declares itself `text/html`
+     * or `application/xhtml+xml` and actually contains a form. The response is
+     * returned untouched when CSRF is disabled or neither channel applies, so
+     * a non-HTML body is never rewritten.
+     */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $response = $handler->handle($request);

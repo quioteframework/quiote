@@ -39,11 +39,19 @@ final class GeneratorSupport
         }
     }
 
+    /** Returns the application root directory the generators write into, from `core.app_dir`. */
     public static function appDir(): string
     {
         return Config::getString('core.app_dir');
     }
 
+    /**
+     * Returns the root namespace for generated classes, from `core.namespace_prefix`
+     * and defaulting to `App`.
+     *
+     * Surrounding backslashes are trimmed, so the result is always usable as a
+     * namespace segment that callers can concatenate to.
+     */
     public static function appNamespace(): string
     {
         return trim(Config::getString('core.namespace_prefix', 'App'), '\\');
@@ -58,6 +66,17 @@ final class GeneratorSupport
         return $value;
     }
 
+    /**
+     * Writes a generated file, creating its parent directory tree if needed.
+     *
+     * Overwrites unconditionally — call {@see guardOverwrite()} first if the
+     * command honours a `--force` flag. Both the directory creation and the write
+     * are error-suppressed so the generator reports one clear exception instead of
+     * a raw PHP warning followed by it.
+     *
+     * @throws ConfigurationException If the directory cannot be created or the file
+     *                                cannot be written.
+     */
     public static function writeFile(string $path, string $content): void
     {
         $dir = dirname($path);

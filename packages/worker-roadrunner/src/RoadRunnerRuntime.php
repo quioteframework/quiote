@@ -55,16 +55,28 @@ final class RoadRunnerRuntime implements WorkerRuntimeInterface
         return getenv('RR_MODE') === Mode::MODE_HTTP;
     }
 
+    /** The registry alias: "roadrunner". */
     public static function alias(): string
     {
         return 'roadrunner';
     }
 
+    /**
+     * Detection priority 100 — well above {@see \Quiote\Runtime\Worker\SapiRuntime}'s
+     * PHP_INT_MIN, so a RoadRunner worker always wins over the plain SAPI fallback.
+     */
     public static function detectionPriority(): int
     {
         return 100;
     }
 
+    /**
+     * Persistent, off-SAPI, streaming-capable and non-forking.
+     *
+     * `populatesSuperglobals: false` and `sapiOutput: false` switch on the
+     * loop's superglobal hydration and stray-output capture; `forksWorkers` is
+     * false because RoadRunner starts each worker as its own process.
+     */
     public function capabilities(): WorkerRuntimeCapabilities
     {
         return new WorkerRuntimeCapabilities(
@@ -78,6 +90,19 @@ final class RoadRunnerRuntime implements WorkerRuntimeInterface
         );
     }
 
+    /**
+     * Serves requests off the relay until the server stops the worker.
+     *
+     * Creates the PSR-7 worker and emitter unless they were injected, then
+     * loops: an unparseable payload is reported to the server and the loop
+     * continues; a null request means the server asked the worker to stop; an
+     * emission failure is reported the same way, with
+     * {@see WorkerLoop::afterRequest()} in a `finally`. The loop also ends once
+     * the max-requests budget is spent, after which the loop is shut down.
+     *
+     * @throws \RuntimeException if a custom PSR-7 worker was supplied without a
+     *         matching emitter.
+     */
     public function run(WorkerLoop $loop): void
     {
         $worker = $this->worker ??= self::createWorker();

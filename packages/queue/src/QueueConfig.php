@@ -18,6 +18,11 @@ final readonly class QueueConfig
     ) {
     }
 
+    /**
+     * Reads the `queue.*` family out of {@see Config} into one immutable
+     * snapshot, falling back to the `sync` driver with three attempts five
+     * seconds apart when the app (or {@see QueuePlugin}) has published nothing.
+     */
     public static function fromConfig(): self
     {
         return new self(

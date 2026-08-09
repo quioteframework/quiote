@@ -63,6 +63,13 @@ class ValidatorCompiler
 		return [$plan, $builder->getDiagnostics()];
 	}
 
+	/**
+	 * Hands a plan to the given emitter and returns the artifact it produced.
+	 *
+	 * Nothing is written to disk here, and no diagnostics are collected: this
+	 * is a straight delegation, kept as a named step so callers can parse
+	 * once and emit through several back-ends.
+	 */
 	public function emit(ValidatorPlan $plan, EmitterInterface $emitter): EmittedArtifact
 	{
 		return $emitter->emit($plan);

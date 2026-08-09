@@ -15,6 +15,7 @@ final class Psr17
 
     private function __construct() {}
 
+    /** Returns the shared factory, creating it on first call and reusing it for the life of the process. */
     public static function factory(): Psr17Factory
     {
         return self::$instance ??= new Psr17Factory();

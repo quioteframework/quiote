@@ -53,6 +53,13 @@ final readonly class TelemetryProviderFactory
         );
     }
 
+    /**
+     * Builds a TracerProvider over $resource and the configured sampler.
+     *
+     * Spans go through a SimpleSpanProcessor when `telemetry.export_mode` is
+     * `simple` (each span exported as it ends, which tests rely on) and a
+     * BatchSpanProcessor otherwise.
+     */
     public function tracerProvider(ResourceInfo $resource): TracerProviderInterface
     {
         $exporter = $this->exporters->spanExporter();
@@ -68,6 +75,11 @@ final readonly class TelemetryProviderFactory
             ->build();
     }
 
+    /**
+     * Builds a MeterProvider over $resource, reading through an
+     * ExportingReader wrapped around the configured metric exporter. Sampling
+     * does not apply to metrics.
+     */
     public function meterProvider(ResourceInfo $resource): MeterProviderInterface
     {
         $reader = new \OpenTelemetry\SDK\Metrics\MetricReader\ExportingReader($this->exporters->metricExporter());

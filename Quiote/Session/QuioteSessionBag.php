@@ -37,26 +37,36 @@ final class QuioteSessionBag implements SessionBagInterface
     ) {
     }
 
+    /**
+     * Returns the underlying {@see Session} this bag wraps.
+     *
+     * For code that needs the whole session object — reading every key, or the
+     * dirty/new flags — rather than the narrow bag contract.
+     */
     public function getSession(): Session
     {
         return $this->session;
     }
 
+    /** {@inheritDoc} */
     public function get(string $key, mixed $default = null): mixed
     {
         return $this->session->get($key, $default);
     }
 
+    /** {@inheritDoc} */
     public function has(string $key): bool
     {
         return $this->session->has($key);
     }
 
+    /** Writes through to the underlying session, which marks it dirty so it is persisted at the end of the request. */
     public function set(string $key, mixed $value): void
     {
         $this->session->set($key, $value);
     }
 
+    /** Removes the key from the underlying session, which marks it dirty so the removal is persisted. */
     public function remove(string $key): void
     {
         $this->session->remove($key);
@@ -74,16 +84,38 @@ final class QuioteSessionBag implements SessionBagInterface
         return !$this->session->isNew() || $this->session->isDirty();
     }
 
+    /**
+     * Returns the session id.
+     *
+     * Never empty on this implementation: a session id is generated up front
+     * even for a request that carried no cookie, so an id here does not by
+     * itself mean a session exists in storage — {@see exists()} answers that.
+     */
     public function getId(): string
     {
         return $this->session->getId();
     }
 
+    /**
+     * Rotates the id via the manager, keeping the session's contents.
+     *
+     * With $privilegeTransition true the previous id is deleted outright; with
+     * it false the manager leaves a short-lived redirect marker so a request
+     * already in flight under the old cookie still resolves. The marker is
+     * bound to the request this bag was built with, when there is one.
+     */
     public function regenerate(bool $deleteOld = true, bool $privilegeTransition = false): void
     {
         $this->manager->regenerate($this->session, $deleteOld, $this->request, $privilegeTransition);
     }
 
+    /**
+     * Deletes the stored session and continues under a fresh, empty id.
+     *
+     * The wrapped {@see Session} instance stays usable and is marked dirty, so
+     * anything written after this — a post-logout flash message — is persisted
+     * against the new id rather than the discarded one.
+     */
     public function destroy(): void
     {
         $this->manager->destroy($this->session);

@@ -87,6 +87,15 @@ abstract class RoutingCallback extends ParameterHolder implements ResetInterface
 		return true;
 	}
 
+	/**
+	 * Returns the callback to its uninitialized state.
+	 *
+	 * Drops the context and route references handed in by
+	 * {@see initialize()} and clears every parameter held on the instance, so
+	 * a container-managed callback can be reused for the next request without
+	 * carrying anything over. {@see getContext()} throws again afterwards
+	 * until the callback is initialized once more.
+	 */
 	#[\Override]
     public function reset() : void
 	{

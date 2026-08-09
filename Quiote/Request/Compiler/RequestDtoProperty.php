@@ -24,6 +24,13 @@ final class RequestDtoProperty
     ) {
     }
 
+    /**
+     * Reports whether the mapper has to find a value for this property.
+     *
+     * True only when the property is neither nullable nor has a constructor
+     * default: in either of those cases the DTO can still be built without an
+     * incoming value.
+     */
     public function isRequired(): bool
     {
         return !$this->nullable && !$this->hasDefault;

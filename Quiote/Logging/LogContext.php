@@ -84,6 +84,13 @@ final class LogContext
         return self::$merged = $merged;
     }
 
+    /**
+     * Reports whether no context scope is currently active.
+     *
+     * Lets a caller skip the merge {@see current()} would otherwise perform when
+     * there is nothing to attach to a record. True also when frames were pushed and
+     * have all since been popped or cleared.
+     */
     public static function isEmpty(): bool
     {
         return self::$frames === [];

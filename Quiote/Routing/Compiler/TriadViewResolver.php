@@ -54,6 +54,15 @@ final class TriadViewResolver
 		return is_string($viewToken) && $viewToken !== '' ? $viewToken : null;
 	}
 
+	/**
+	 * The canonical form of a view token for the given module/action pair.
+	 *
+	 * Runs the token through the module's `quiote.view.name` directive so an
+	 * app can rewrite view names per module, keeping the raw token when that
+	 * directive evaluates to an empty string, then canonicalises the result
+	 * via {@see Toolkit::canonicalName()}. The result is what the class, view
+	 * file and template lookups below all key off, so they stay consistent.
+	 */
 	public function canonicalViewToken(ModuleActionEntry $entry, string $viewToken): string
 	{
 		$evaluated = Toolkit::evaluateModuleDirective(
@@ -64,11 +73,26 @@ final class TriadViewResolver
 		return Toolkit::canonicalName($evaluated !== '' ? $evaluated : $viewToken);
 	}
 
+	/**
+	 * The fully qualified view class name the triad convention expects.
+	 *
+	 * Composes `{$namespacePrefix}\Modules\{module}\Views\{token}View`, with
+	 * any `/` in the canonical token turned into a namespace separator so a
+	 * nested view token maps onto a sub-namespace. Purely a name computation:
+	 * the class is not required to exist.
+	 */
 	public function viewClassFor(ModuleActionEntry $entry, string $canonicalViewToken, string $namespacePrefix): string
 	{
 		return $namespacePrefix . '\\Modules\\' . $entry->module . '\\Views\\' . str_replace('/', '\\', $canonicalViewToken) . 'View';
 	}
 
+	/**
+	 * The file path of the non-class view for a module/view token pair.
+	 *
+	 * Resolved from the module's `quiote.view.path` directive. The path is
+	 * returned whether or not a file exists there; {@see resolveExistingViewFile()}
+	 * is the variant that checks.
+	 */
 	public function legacyViewFileFor(ModuleActionEntry $entry, string $canonicalViewToken): string
 	{
 		return Toolkit::evaluateModuleDirective(
@@ -78,6 +102,14 @@ final class TriadViewResolver
 		);
 	}
 
+	/**
+	 * The template file path a canonical view token renders from.
+	 *
+	 * Takes the module's `quiote.template.directory` directive, strips any
+	 * trailing slash from it and appends the view token plus `$extension`
+	 * (leading dot included; {@see templateExtensionFor()} supplies the
+	 * output-type-specific one). Existence is not checked.
+	 */
 	public function templateFileFor(ModuleActionEntry $entry, string $canonicalViewToken, string $extension = '.php'): string
 	{
 		$directory = rtrim(Toolkit::evaluateModuleDirective(
@@ -153,7 +185,7 @@ final class TriadViewResolver
 	 * Whether this specific `execute*()` method opts out of the
 	 * `MISSING_TEMPLATE` check via `@quiote-viewmethod-has-no-template` in
 	 * its own docblock (inherited from whichever class actually declares it,
-	 * same as ordinary method resolution). Escape hatch for a method whose
+	 * same as ordinary method resolution). Intended for a method whose
 	 * output type returns content directly (e.g. `executeJson()` returning
 	 * `json_encode(...)`) and therefore never renders a template by design
 	 * -- {@see TriadDiagnosticsScanner} has no way to see that statically,

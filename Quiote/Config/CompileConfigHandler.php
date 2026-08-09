@@ -47,6 +47,19 @@ class CompileConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 		return $this->executeArray($this->toCanonicalArray($document), $document->documentURI);
 	}
 
+	/**
+	 * Resolves every file the document's `compiles` elements name and returns
+	 * the map of resolved path to the code to embed for it.
+	 *
+	 * Each entry's path is directive-expanded and resolved against the
+	 * filesystem. In debug mode the embedded code is a `require()` of the file,
+	 * so stack traces still point at the original; otherwise the file's
+	 * contents are read and stripped of comments, PHP tags and redundant
+	 * whitespace by {@see self::formatFile()}.
+	 *
+	 * @throws ParseException if a named file does not exist, is unreadable, or
+	 *                        cannot be read.
+	 */
 	public function toCanonicalArray(XmlConfigDomDocument $document): array
 	{
 		// set up our default namespace
@@ -153,6 +166,13 @@ class CompileConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 		return ['data' => $data, 'positions' => $elementPositions];
 	}
 
+	/**
+	 * Returns the canonical map unchanged as the declaration to cache.
+	 *
+	 * All the work for this config type — resolving, reading and formatting the
+	 * referenced files — already happened in {@see self::toCanonicalArray()},
+	 * so there is nothing left to compile here.
+	 */
 	public function executeArray(array $config, ?string $sourceRef = null): mixed
 	{
 		return $config;

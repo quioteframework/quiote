@@ -13,7 +13,7 @@ use Quiote\Testing\HttpTestCase;
 
 /**
  * Covers HttpTestCase's request-building/dispatch mechanics. Most cases use
- * MiddlewareCatalog::replaceCoreStack() (the same escape hatch
+ * MiddlewareCatalog::replaceCoreStack() (the same override
  * MiddlewareCoreStackOverrideTest exercises) so assertions are about what
  * HttpTestCase sent, not about the sandbox app's routing/rendering -- that
  * keeps this test deterministic and independent of the sandbox app's

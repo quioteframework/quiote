@@ -37,6 +37,13 @@ final readonly class OpenApiOptions
     ) {
     }
 
+    /**
+     * Reads the `core.openapi.*` settings into an options snapshot.
+     *
+     * The title falls back to `core.app_name` and then to `API`; an empty description setting
+     * becomes null rather than an empty string. `servers` is normalized to the
+     * `{url, description?}` entries OpenAPI expects, and malformed entries are dropped there.
+     */
     public static function fromConfig(): self
     {
         return new self(

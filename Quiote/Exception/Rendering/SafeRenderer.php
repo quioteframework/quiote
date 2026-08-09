@@ -18,6 +18,14 @@ final class SafeRenderer implements ExceptionRenderer
 {
 	use NegotiatesContent;
 
+	/**
+	 * Renders a generic error response that reveals nothing about the exception.
+	 *
+	 * The media type is negotiated from the request: a JSON object, a plain-text
+	 * body or a minimal HTML page. All three carry only "Internal Server Error"
+	 * (5xx) or "Request Error" (anything else) plus the correlation id when one
+	 * is known. The Throwable itself is never read.
+	 */
 	public function render(Throwable $e, ServerRequestInterface $request, int $status, ?string $correlationId): ResponseInterface
 	{
 		if ($this->wantsJson($request)) {

@@ -173,6 +173,15 @@ abstract class Database extends ParameterHolder implements ResetInterface
 	 */
 	abstract public function shutdown();
 
+	/**
+	 * Returns this Database to its pre-initialize() state.
+	 *
+	 * Shuts the connection down if one was established, then clears the
+	 * connection, the raw resource, all parameters, the manager reference and
+	 * the name. After this the instance must be initialize()d again before it
+	 * can be used; getDatabaseManager() will throw until then.
+	 * @throws     DatabaseException If shutting the connection down fails.
+	 */
 	#[\Override]
     public function reset(): void
 	{

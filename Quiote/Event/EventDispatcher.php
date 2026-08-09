@@ -17,11 +17,22 @@ final class EventDispatcher implements EventDispatcherInterface
 {
     public function __construct(private readonly ListenerProvider $provider = new ListenerProvider()) {}
 
+    /** Returns the listener provider this dispatcher draws its listeners from, for registration. */
     public function provider(): ListenerProvider
     {
         return $this->provider;
     }
 
+    /**
+     * Passes the event to every matching listener and returns the same instance.
+     *
+     * Listeners run in the order the provider yields them (priority first, then
+     * registration order). If the event implements
+     * {@see StoppableEventInterface}, propagation is checked before the first
+     * listener — an already-stopped event is returned untouched — and again
+     * after each listener, breaking out as soon as one stops it. Listener
+     * exceptions are not caught and propagate to the caller.
+     */
     public function dispatch(object $event): object
     {
         $stoppable = $event instanceof StoppableEventInterface;

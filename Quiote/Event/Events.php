@@ -26,16 +26,35 @@ final class Events
 
     private function __construct() {}
 
+    /**
+     * The process-global dispatcher behind this facade, created on first use.
+     *
+     * The same instance — and therefore the same listener registry — is returned
+     * for the worker's lifetime, until {@see reset()} discards it.
+     */
     public static function dispatcher(): EventDispatcher
     {
         return self::$dispatcher ??= new EventDispatcher();
     }
 
+    /**
+     * Registers a listener for an event class on the process-global registry.
+     *
+     * Higher $priority listeners run first. The registration survives the request
+     * that made it, so it belongs at boot (typically in a plugin) rather than on
+     * the request path, where it would stack up a duplicate listener per request.
+     */
     public static function listen(string $eventClass, callable $listener, int $priority = 0): void
     {
         self::dispatcher()->provider()->listen($eventClass, $listener, $priority);
     }
 
+    /**
+     * Reports whether any listener is registered for an event class.
+     *
+     * The gate emit sites check before constructing an event object, so an app that
+     * listens to nothing pays no allocation; see {@see emitLazy()}.
+     */
     public static function hasListeners(string $eventClass): bool
     {
         return self::dispatcher()->provider()->hasListenersFor($eventClass);
@@ -95,6 +114,12 @@ final class Events
         }
     }
 
+    /**
+     * Clears every registered listener and discards the dispatcher.
+     *
+     * The next facade call builds a fresh dispatcher with an empty registry. For
+     * test isolation and reconfiguration; not part of the request path.
+     */
     public static function reset(): void
     {
         self::$dispatcher?->provider()->reset();

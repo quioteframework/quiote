@@ -20,6 +20,12 @@ use Quiote\Runtime\Worker\WorkerRuntimeRegistry;
 #[PluginAttribute(name: 'quiote/worker-roadrunner')]
 final class WorkerRoadRunnerPlugin implements PluginInterface
 {
+    /**
+     * Publishes the `worker.roadrunner.chunk_size` default and the runtime alias.
+     *
+     * Adds `roadrunner` to {@see WorkerRuntimeRegistry}, which is what lets both
+     * an explicitly configured alias and auto-detection find the runtime.
+     */
     public function register(PluginRegistrar $registrar): void
     {
         // Bytes per streamed frame for an SSE response. Only an upper bound: the

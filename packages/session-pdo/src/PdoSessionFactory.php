@@ -31,6 +31,16 @@ use Quiote\Session\SessionPersistenceInterface;
  */
 final class PdoSessionFactory implements SessionFactoryInterface
 {
+    /**
+     * Builds a {@see PdoSessionPersistence} over a connection from the
+     * application's database manager.
+     *
+     * The `database` parameter names the connection; omitting it takes the
+     * default one. `table` defaults to `session`.
+     *
+     * @throws StorageException if no database manager is bound (`core.use_database`
+     *         off) or the named connection is not a PDO handle.
+     */
     public function createPersistence(Context $context, array $parameters): SessionPersistenceInterface
     {
         $database = $parameters['database'] ?? null;

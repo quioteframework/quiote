@@ -38,6 +38,16 @@ final class McpEndpointMiddleware implements MiddlewareInterface
     {
     }
 
+    /**
+     * Serves the request from the MCP server when it targets the MCP endpoint.
+     *
+     * Delegates to the rest of the pipeline unless MCP is enabled and the path
+     * is either the configured `mcp.path` or — under `mcp.auth = 'oauth2'` —
+     * a GET to the RFC 9728 protected-resource metadata path. The
+     * {@see McpServer} is built once on first match from the named context's
+     * container and reused. Any throwable escaping the server is converted to
+     * a 500 problem-details response rather than propagating.
+     */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $config = McpConfig::fromConfig();

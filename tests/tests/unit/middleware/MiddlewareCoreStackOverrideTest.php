@@ -14,7 +14,7 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
 
 /**
- * Covers the deliberate escape hatch that lets an app replace Quiote's entire
+ * Covers the deliberate override that lets an app replace Quiote's entire
  * built-in middleware stack (MiddlewareCatalog::replaceCoreStack()), gated
  * behind an exact acknowledgement string so it can't be triggered by accident.
  */

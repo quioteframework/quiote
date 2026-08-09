@@ -27,6 +27,13 @@ final class HttpMessageParser
 
     private string $buffer = '';
 
+    /**
+     * Appends raw bytes to this connection's buffer.
+     *
+     * @throws MalformedRequestException if the buffered bytes exceed the
+     *         combined header and body limits, which bounds what a single
+     *         connection can make the receiver hold
+     */
     public function feed(string $chunk): void
     {
         $this->buffer .= $chunk;

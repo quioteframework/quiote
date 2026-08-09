@@ -20,6 +20,20 @@ use Quiote\Util\DecimalFormatter;
  */
 class NumberValidator extends Validator
 {
+	/**
+	 * Returns the base Validator parameters plus 'no_locale', 'in_locale',
+	 * 'type', 'cast_to', 'min' and 'max'.
+	 *
+	 * A string input is parsed through DecimalFormatter in the current locale
+	 * when translation is enabled; 'no_locale' forces locale-less parsing and
+	 * 'in_locale' names a specific locale to parse in instead of the current
+	 * one. 'type' constrains what the parsed value must be -- 'int'/'integer' or
+	 * 'float'/'double', anything else meaning any number -- and 'min'/'max'
+	 * bound its value, each checked only when present. 'cast_to' selects the
+	 * type the value is cast to before it is exported (or written back into the
+	 * request parameters when no 'export' is configured); it defaults to 'type'.
+	 * @return     array<int, string> The accepted parameter names.
+	 */
 	#[\Override]
 	public static function getAcceptedParameters(): array
 	{

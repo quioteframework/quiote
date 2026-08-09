@@ -19,9 +19,16 @@ final readonly class RoutingResult
     private array $matchedRoutes = []
     ) {}
 
+    /** Returns the matched module name, or null when routing did not resolve one. */
     public function getModuleName(): ?string { return $this->module; }
+
+    /** Returns the matched action name, or null when routing did not resolve one. */
     public function getActionName(): ?string { return $this->action; }
+
+    /** Returns the output type the matched route renders with. */
     public function getOutputType(): string { return $this->outputType; }
+
+    /** Returns the HTTP method the routed request was made with. */
     public function getRequestMethod(): string { return $this->method; }
 
     /** @return array<string, mixed> */

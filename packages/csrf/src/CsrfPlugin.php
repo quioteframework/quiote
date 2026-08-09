@@ -28,6 +28,15 @@ use Quiote\Plugin\PluginRegistrar;
 #[PluginAttribute(name: 'quiote/csrf')]
 final class CsrfPlugin implements PluginInterface
 {
+    /**
+     * Registers the CSRF injection and validation middleware.
+     *
+     * Each is registered with an explicit factory that pulls the `Controller`
+     * out of the context being registered against, so a middleware instance is
+     * bound to that pipeline's own controller rather than an autowired one.
+     * Ordering still comes from each middleware's own `#[Middleware]`
+     * attribute.
+     */
     public function register(PluginRegistrar $registrar): void
     {
         $registrar->attributedMiddleware(

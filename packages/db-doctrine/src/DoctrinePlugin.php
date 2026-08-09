@@ -15,6 +15,12 @@ use Quiote\Plugin\PluginRegistrar;
 #[PluginAttribute(name: 'quiote/doctrine')]
 final class DoctrinePlugin implements PluginInterface
 {
+    /**
+     * Registers both Doctrine driver aliases.
+     *
+     * `doctrine` maps to {@see DoctrineDatabase} (full ORM) and
+     * `doctrine_dbal` to {@see DoctrineDbalDatabase} (DBAL only).
+     */
     public function register(PluginRegistrar $registrar): void
     {
         $registrar

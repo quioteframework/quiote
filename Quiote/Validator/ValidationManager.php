@@ -263,7 +263,7 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 	}
 
 	/**
-	 * Framework-internal escape hatch: the raw, unvalidated parameters as
+	 * Framework-internal accessor for the raw, unvalidated parameters as
 	 * submitted, captured before any pruning by execute(). NOT reachable via
 	 * WebRequest::getParameter()/getParameters() -- this exists solely so
 	 * FormPopulationEngine can redisplay a submitted value in an HTML form
@@ -1010,6 +1010,15 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 		$this->addIncident($incident);
 	}
 
+	/**
+	 * Returns the manager to its initial state for reuse across requests.
+	 *
+	 * Resets and then detaches every registered validator, clears the
+	 * dependency manager, and installs a fresh report, so results and
+	 * incidents from the previous run cannot leak into the next one. The
+	 * manager's own parameters are left alone; validators must be registered
+	 * again before execute() has anything to run.
+	 */
 	#[\Override]
     public function reset(): void {
 		// Properly shutdown existing validators

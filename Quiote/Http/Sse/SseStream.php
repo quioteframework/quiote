@@ -56,6 +56,13 @@ final class SseStream implements StreamInterface
         }
     }
 
+    /**
+     * Drains the whole event iterable in one pass and returns the formatted bytes.
+     *
+     * This is the buffering path: nothing is streamed, and the stream is left consumed.
+     *
+     * @throws RuntimeException when the incremental read() path has already been started
+     */
     public function getContents(): string
     {
         $buffer = '';
@@ -86,27 +93,44 @@ final class SseStream implements StreamInterface
         $this->consumed = true;
     }
 
+    /** Marks the stream consumed so no further draining is attempted; there is no underlying resource to release. */
     public function close(): void
     {
         $this->consumed = true;
     }
 
+    /**
+     * Marks the stream consumed and returns null, since the body is an iterable rather than a resource.
+     */
     public function detach()
     {
         $this->consumed = true;
         return null;
     }
 
+    /** Always returns null: the byte length of a generator-backed event stream is not known in advance. */
     public function getSize(): ?int
     {
         return null;
     }
 
+    /**
+     * Never returns a position.
+     *
+     * @throws RuntimeException always, as the stream has no byte offset to report
+     */
     public function tell(): int
     {
         throw new RuntimeException('SseStream has no byte position; it is not a seekable resource.');
     }
 
+    /**
+     * Reports whether there is anything left to emit.
+     *
+     * On the incremental read() path this is true only once the iterable is exhausted and the
+     * pending buffer has been handed out; otherwise it reflects whether the stream has been
+     * drained, closed or detached.
+     */
     public function eof(): bool
     {
         if ($this->cursor !== null) {
@@ -115,11 +139,17 @@ final class SseStream implements StreamInterface
         return $this->consumed;
     }
 
+    /** Always false: events are produced once, in order, and cannot be revisited. */
     public function isSeekable(): bool
     {
         return false;
     }
 
+    /**
+     * Never moves a position.
+     *
+     * @throws RuntimeException always, as the stream is not seekable
+     */
     public function seek($offset, $whence = SEEK_SET): void
     {
         throw new RuntimeException('SseStream is not seekable.');
@@ -138,16 +168,23 @@ final class SseStream implements StreamInterface
         }
     }
 
+    /** Always false: content comes from the iterable given to the constructor, never from callers. */
     public function isWritable(): bool
     {
         return false;
     }
 
+    /**
+     * Never accepts a write.
+     *
+     * @throws RuntimeException always; produce events through the constructor's iterable instead
+     */
     public function write($string): int
     {
         throw new RuntimeException('SseStream is not writable; produce events via the iterable passed to the constructor.');
     }
 
+    /** Always true; whether a given read() succeeds still depends on the stream not having been drained another way. */
     public function isReadable(): bool
     {
         return true;
@@ -231,6 +268,11 @@ final class SseStream implements StreamInterface
         }
     }
 
+    /**
+     * Reports no stream metadata: an empty array for a whole-set request, null for any single key.
+     *
+     * There is no PHP stream resource behind this body, so there is nothing to describe.
+     */
     public function getMetadata($key = null): mixed
     {
         return $key === null ? [] : null;

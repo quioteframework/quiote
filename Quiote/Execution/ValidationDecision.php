@@ -18,7 +18,9 @@ final readonly class ValidationDecision
         public array $errors = []
     ) {}
 
+    /** Returns a decision in the pending state: validation has not run, and carries no errors. */
     public static function pending(): self { return new self('pending'); }
+    /** Returns a decision in the passed state: validation ran successfully, and carries no errors. */
     public static function passed(): self { return new self('passed'); }
 
     /**
@@ -26,8 +28,11 @@ final readonly class ValidationDecision
      */
     public static function failed(array $errors = []): self { return new self('failed', $errors); }
 
+    /** Reports whether validation has not run yet, or was invalidated by a forward. */
     public function isPending(): bool { return $this->state === 'pending'; }
+    /** Reports whether validation ran and succeeded. */
     public function isPassed(): bool { return $this->state === 'passed'; }
+    /** Reports whether validation ran and failed; the errors are then on the $errors property. */
     public function isFailed(): bool { return $this->state === 'failed'; }
 }
 ?>

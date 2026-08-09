@@ -37,6 +37,14 @@ final class HttpMethodMapper
         'DELETE' => 'remove',
     ];
 
+    /**
+     * Maps an HTTP verb to the action method token that handles it.
+     *
+     * The verb is matched case-insensitively against the default map merged with
+     * any `routing.http_method_map` overrides. An unknown verb yields `read`, so an
+     * action never fails to dispatch merely because a verb is unmapped. The token
+     * is ucfirst-ed by the resolver into the `execute<Token>()` method name.
+     */
     public static function toActionMethod(string $verb): string
     {
         return self::map()[strtoupper($verb)] ?? 'read';

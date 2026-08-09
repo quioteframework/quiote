@@ -34,6 +34,13 @@ use Quiote\Plugin\PluginRegistrar;
 #[PluginAttribute(name: 'quiote/telemetry-otel')]
 final class TelemetryPlugin implements PluginInterface
 {
+    /**
+     * Binds {@see TelemetryBootstrap} to the kernel lifecycle events.
+     *
+     * `KernelBootEvent` configures the providers and exporters from config;
+     * `WorkerRequestCompletedEvent` flushes them once per request in
+     * worker mode.
+     */
     public function register(PluginRegistrar $registrar): void
     {
         $registrar->listen(KernelBootEvent::class, static function (): void {

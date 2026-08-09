@@ -13,7 +13,22 @@ use Quiote\DI\Container;
  */
 interface ScheduledTaskAction
 {
+    /**
+     * Performs the task, using the given container to reach any services it
+     * needs.
+     *
+     * Implementations may either do the work in-process or hand it off; they
+     * are not expected to catch their own failures, as the caller running the
+     * schedule reports and isolates per-task errors.
+     */
     public function run(Container $container): void;
 
+    /**
+     * Returns a short, stable identifier for the action, used in schedule
+     * listings and log output.
+     *
+     * It must not vary between processes for the same task: it is part of the
+     * overlap lock key derived by {@see ScheduledTaskDefinition::lockKey()}.
+     */
     public function label(): string;
 }

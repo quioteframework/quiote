@@ -18,6 +18,21 @@ class SlotMiddleware implements MiddlewareInterface
     public const ATTR = SlotStack::class;
     public function __construct(private readonly ?\Quiote\Context $context = null) {}
 
+    /**
+     * Attaches a SlotStack to the request so downstream code can render nested slots.
+     *
+     * Does nothing if the request already carries one, which is what keeps a
+     * slot rendered through a nested pipeline from starting a fresh stack. On a
+     * fresh request the new stack is seeded with the `_original_psr_request`
+     * attribute set by MiddlewarePipeline, so slot parameters are read from the
+     * request as it was before validation pruned it.
+     *
+     * When a context was injected, the rewritten request is republished through
+     * RequestState so anything reading Context::getRequest() sees the instance
+     * carrying the stack. A failure to publish is logged as a warning and not
+     * rethrown; the consequence is that a slot rendered from context-read code
+     * will not find a stack.
+     */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         if (!$request->getAttribute(self::ATTR)) {

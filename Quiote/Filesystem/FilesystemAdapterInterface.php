@@ -27,11 +27,19 @@ interface FilesystemAdapterInterface
     /** @throws FileNotFoundStorageException if $path does not exist. */
     public function read(string $path): string;
 
+    /**
+     * Stores $contents at $path, replacing whatever was there.
+     *
+     * Implementations create whatever container the path implies (a parent directory, a key
+     * prefix) rather than requiring the caller to prepare it, and a reader must never observe a
+     * half-written file.
+     */
     public function write(string $path, string $contents): void;
 
     /** Best-effort: a no-op if $path does not exist. */
     public function delete(string $path): void;
 
+    /** Reports whether a file is stored at $path. Directories and prefixes do not count as files. */
     public function exists(string $path): bool;
 
     /** @throws FileNotFoundStorageException if $path does not exist. */

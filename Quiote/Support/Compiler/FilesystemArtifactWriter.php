@@ -12,6 +12,16 @@ use RuntimeException;
  */
 final class FilesystemArtifactWriter implements ArtifactWriter
 {
+	/**
+	 * {@inheritDoc}
+	 *
+	 * Creates the target directory when missing, writes the source to a
+	 * process-unique temporary file beside it and renames that into place. A
+	 * failed rename removes the temporary file before throwing.
+	 *
+	 * @throws     RuntimeException If the directory cannot be created, the temporary
+	 *                              file cannot be written, or the rename fails.
+	 */
 	public function write(EmittedArtifact $artifact, string $target): void
 	{
 		$dir = dirname($target);

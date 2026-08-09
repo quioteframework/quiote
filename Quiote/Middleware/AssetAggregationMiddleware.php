@@ -14,6 +14,14 @@ use Psr\Http\Message\ResponseInterface as PsrResponse;
 #[\Quiote\Middleware\Attribute\Middleware(phase: 'after_action')]
 class AssetAggregationMiddleware implements MiddlewareInterface
 {
+    /**
+     * Passes the request straight through to the rest of the stack.
+     *
+     * Nothing is aggregated here: `assets.css` and `assets.js` are expected to
+     * be set as request attributes upstream, so this middleware neither reads
+     * nor writes them and leaves the response untouched. It stays in the
+     * `after_action` phase as the placement for asset collection.
+     */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
     // Adapter removed: assets should now be set directly as request attributes upstream.

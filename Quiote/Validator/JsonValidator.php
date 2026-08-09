@@ -9,6 +9,16 @@ namespace Quiote\Validator;
  */
 class JsonValidator extends Validator
 {
+	/**
+	 * Returns the base Validator parameters plus 'assoc'.
+	 *
+	 * 'assoc' is the boolean handed to json_decode(): true, the default, decodes
+	 * objects into associative arrays, false into stdClass instances. It only
+	 * affects the shape of the exported decoded value, not whether the input
+	 * validates. A non-boolean value raises a parameter-type error at validation
+	 * time.
+	 * @return     array<int, string> The accepted parameter names.
+	 */
 	#[\Override]
 	public static function getAcceptedParameters(): array
 	{

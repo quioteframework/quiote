@@ -3,26 +3,23 @@
 namespace Quiote\Testing;
 
 /**
- * LightweightTestContainer
- * A minimal replacement for the legacy Quiote execution container used only by
- * the PHPUnit test harness. It implements just enough of the old attribute /
- * validation manager surface so that existing tests (assertContainerAttribute*,
- * argument validation assertions, etc.) do not fatally error while the
- * modernization effort removes deep container coupling.
- * Current Scope:
- *  - Attribute holder semantics (namespaces ignored for now – legacy tests in
- *    this codebase appear to use null namespace consistently). If needed this
- *    can be extended trivially to support namespaces by storing nested arrays.
- *  - Request method storage (setRequestMethod/getRequestMethod) to preserve any
- *    reflective test usage.
- *  - Validation manager stub exposing getReport() with the methods accessed by
- *    ActionTestCase (isArgumentValidated / isArgumentFailed).
- * NOTE: The validation report currently returns false for all queries. A later
- * phase will integrate lightweight tracking so performValidation() can record
- * touched / failed arguments if the action validation methods expose that
- * information. For now this silences fatal errors without producing false
- * positives (tests expecting a validated argument will still fail, drawing
- * attention to missing emulation rather than silently passing).
+ * A minimal stand-in for the execution container, used only by the PHPUnit test
+ * harness. It implements just enough of the attribute and validation-manager
+ * surface that tests exercising them — assertContainerAttribute*, argument
+ * validation assertions — run without fatally erroring.
+ *
+ * Scope:
+ *  - Attribute holder semantics. Namespaces are ignored; tests in this codebase
+ *    use a null namespace consistently. Supporting them would mean storing
+ *    nested arrays.
+ *  - Request method storage (setRequestMethod/getRequestMethod), for reflective
+ *    test usage.
+ *  - A validation manager stub exposing getReport() with the two methods
+ *    ActionTestCase reads: isArgumentValidated() and isArgumentFailed().
+ *
+ * The validation report answers false to every query. A test expecting a
+ * validated argument therefore fails rather than silently passing, which points
+ * at the missing emulation instead of hiding it.
  */
 class LightweightTestContainer
 {
@@ -44,6 +41,7 @@ class LightweightTestContainer
     }
 
     /* ---------------- Attribute Holder API (namespace ignored) ---------------- */
+    /** Removes every attribute, leaving getAttributeNames() empty. The request method and stored arguments are untouched. */
     public function clearAttributes(): void { $this->attributes = []; }
     /**
      * @param mixed $namespace
@@ -92,7 +90,9 @@ class LightweightTestContainer
     public function setAttributesByRef(array &$attributes): void { $this->attributes = &$attributes; }
 
     /* ---------------- Request Method ---------------- */
+    /** Sets the request method getRequestMethod() reports. The value is stored verbatim; nothing validates or normalizes it. */
     public function setRequestMethod(string $method): void { $this->requestMethod = $method; }
+    /** Returns the request method the container was told to report; `read` until setRequestMethod() says otherwise. */
     public function getRequestMethod(): string { return $this->requestMethod; }
 
     /* ---------------- Arguments (legacy compatibility) ---------------- */
@@ -100,10 +100,25 @@ class LightweightTestContainer
     public function setArguments(array $args): void { $this->arguments = $args; }
     /** @return array<string,mixed>|null */
     public function getArguments(): ?array { return $this->arguments; }
+    /** Drops the stored argument snapshot, so getArguments() reports null again rather than an empty array. */
     public function clearArguments(): void { $this->arguments = null; }
 
     /* ---------------- Validation Manager Stub ---------------- */
+    /**
+     * Injects the validation manager getValidationManager() returns.
+     *
+     * Call this before the first getValidationManager() to keep the always-false stub from
+     * being built; calling it afterwards replaces the stub for subsequent reads. Any object
+     * exposing `getReport()` is accepted — the container never inspects it.
+     */
     public function setValidationManager(object $vm): void { $this->validationManager = $vm; }
+    /**
+     * Returns the validation manager, building a stub on first access if none was injected.
+     *
+     * The stub is created lazily and kept, so the same instance — and the same report — is returned
+     * on every call. Its report answers false to every query, so a test that expects an argument to
+     * have been validated fails rather than passing on emulation.
+     */
     public function getValidationManager(): object {
         if ($this->validationManager === null) {
             // Build a stub manager lazily (same shape: has getReport() returning object with required methods)
@@ -112,12 +127,15 @@ class LightweightTestContainer
                 public function __construct()
                 {
                     $this->report = new class {
+                        /** Always false: this stub records nothing, so no argument is ever reported as validated. */
                         public function isArgumentValidated(mixed $arg): bool { return false; }
+                        /** Always false: this stub records nothing, so no argument is ever reported as failed. */
                         public function isArgumentFailed(mixed $arg): bool { return false; }
                         /** @return array<int, string> */
                         public function getErrorMessages(): array { return []; }
                     };
                 }
+                /** Returns the stub report exposing isArgumentValidated(), isArgumentFailed() and getErrorMessages(). */
                 public function getReport(): object { return $this->report; }
             };
         }

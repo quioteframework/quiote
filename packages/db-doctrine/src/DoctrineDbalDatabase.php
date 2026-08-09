@@ -45,6 +45,12 @@ class DoctrineDbalDatabase extends AbstractOrmDatabase
         }
     }
 
+    /**
+     * Returns the DBAL connection, connecting on first use.
+     *
+     * @throws DatabaseException If the connection could not be created, or
+     *                           what was created is not a DBAL Connection.
+     */
     public function getDbalConnection(): DbalConnection
     {
         $connection = $this->getConnection();
@@ -59,6 +65,13 @@ class DoctrineDbalDatabase extends AbstractOrmDatabase
         ));
     }
 
+    /**
+     * Returns a fresh DBAL query builder bound to this connection.
+     *
+     * A new builder is created on every call, so callers never share state.
+     *
+     * @throws DatabaseException If the connection could not be created.
+     */
     public function getQueryBuilder(): \Doctrine\DBAL\Query\QueryBuilder
     {
         return $this->getDbalConnection()->createQueryBuilder();
@@ -87,6 +100,14 @@ class DoctrineDbalDatabase extends AbstractOrmDatabase
         return $native;
     }
 
+    /**
+     * Probes the connection with `SELECT 1`.
+     *
+     * Returns true when nothing has been connected yet, since lazy connect
+     * handles it on first use. If the query throws, the connection and
+     * resource are cleared so the next getConnection() reconnects, and false
+     * is returned.
+     */
     #[\Override]
     public function ping(): bool
     {
@@ -102,6 +123,12 @@ class DoctrineDbalDatabase extends AbstractOrmDatabase
         }
     }
 
+    /**
+     * Rolls back any open transaction, closes the connection and drops it.
+     *
+     * A failure to roll back or close is logged at warning and does not stop
+     * the shutdown; the connection and resource are cleared either way.
+     */
     #[\Override]
     public function shutdown()
     {

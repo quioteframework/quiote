@@ -29,6 +29,17 @@ use Quiote\DI\Container;
 #[PluginAttribute(name: 'quiote/ratelimit')]
 final class RateLimitPlugin implements PluginInterface
 {
+    /**
+     * Registers the rate-limiting configuration defaults, the storage binding
+     * and the middleware.
+     *
+     * `ratelimit.http.enabled` defaults to false, so installing the package
+     * alone does not throttle anything. The `StorageInterface` binding is a
+     * singleton because the in-memory backend counts per process — a
+     * request-scoped one would reset every counter each request. The middleware
+     * is registered with a factory that hands it that binding from the
+     * context's own container.
+     */
     public function register(PluginRegistrar $registrar): void
     {
         $registrar->configDefault('ratelimit.http.enabled', false);

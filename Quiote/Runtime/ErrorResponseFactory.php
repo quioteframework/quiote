@@ -33,6 +33,16 @@ final class ErrorResponseFactory
     {
     }
 
+    /**
+     * Renders a throwable as an RFC 9457 error response.
+     *
+     * The exception is logged at debug level and recorded on the active span,
+     * then rendered by {@see ErrorHandlingMiddleware}'s own renderer so the
+     * output matches a failure caught inside the pipeline. When no request is
+     * supplied — a failure predating request construction — a synthetic
+     * `GET /error` stands in. If the renderer itself throws, a plain text/plain
+     * 500 is returned instead and the render failure is logged.
+     */
     public function fromThrowable(Throwable $e, ?ServerRequestInterface $request = null): ResponseInterface
     {
         Log::for($this)->debug(

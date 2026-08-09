@@ -19,6 +19,38 @@ use Quiote\Request\WebRequest;
 use Symfony\Contracts\Service\ResetInterface;
 use Quiote\Response\WebResponse;
 
+/**
+ * Base class for the presentation half of a dispatch: turns the attributes an
+ * action left behind into the body of the response.
+ *
+ * An application subclasses this per view. The framework builds the instance
+ * through the container, calls {@see initialize()} with the init context --
+ * which seeds the view's attribute store from the action's attributes so
+ * templates see them -- and then calls the `execute<OutputType>()` method for
+ * the output type in play (`executeHtml()`, `executeJson()`, and so on), with
+ * the abstract {@see execute()} as the catch-all every subclass implements.
+ * Returning a string makes it the body; returning null hands rendering to the
+ * template layers, which {@see renderLayers()} runs in order, each layer's
+ * output becoming the next one's `inner` attribute.
+ *
+ * Layers usually come from {@see loadLayout()}, which materializes a layout
+ * declared for the current {@see \Quiote\Controller\OutputType} together with
+ * its slots; {@see createLayer()}, {@see appendLayer()},
+ * {@see prependLayer()}, {@see removeLayer()} and {@see clearLayers()} shape
+ * the stack by hand. Slot dispatch is deferred:
+ * {@see createSlotContent()} returns a renderable that only runs its
+ * module/action when the template asks for the content, and yields empty
+ * content when a slot points back at the view rendering it, so a
+ * self-referential layout cannot recurse. {@see renderSlot()} is the eager,
+ * string-returning form.
+ *
+ * {@see addCss()} and {@see addJavascript()} register assets on the request's
+ * shared registry, so a slot-nested view contributes to the same page as the
+ * top-level one. {@see returnProblemDetailsFromValidationIncidents()} builds an
+ * RFC 9457 body from the live validation errors for an API-style view.
+ * {@see reset()} drops the per-request context and layers so the instance can
+ * be reused in worker mode.
+ */
 abstract class View implements ResetInterface
 {
 	use \Quiote\Util\InitContextAttributeAccess;
@@ -111,6 +143,14 @@ abstract class View implements ResetInterface
 		return $this->initContext;
 	}
 
+	/**
+	 * Returns the initialization context this view was handed.
+	 *
+	 * An {@see ActionInitContext} when the view was reached through an action (and
+	 * therefore carries the output type and the selected view module/name), a
+	 * {@see ViewInitContext} otherwise. Null before {@see initialize()} has run, and
+	 * again after the view is cleaned up for reuse.
+	 */
 	public final function getInitContext(): ActionInitContext|ViewInitContext|null
 	{
 		return $this->initContext;
@@ -666,13 +706,6 @@ abstract class View implements ResetInterface
 	}
 
 	/**
-	 * Register a stylesheet for this page's render tree. Unlike
-	 * appendAttribute(), this reaches the request's shared AssetRegistry
-	 * directly, so it works from a top-level view or a slot-nested one alike, and is
-	 * unaffected by the immutable-snapshot no-op that appendAttribute() hits
-	 * under the modern container-less execution path.
-	 */
-	/**
 	 * The asset registry shared by this request's whole render tree, or null before a context is set.
 	 *
 	 * Resolved from the container per call rather than held: the registry is request-scoped, and a view
@@ -684,6 +717,16 @@ abstract class View implements ResetInterface
 		return $this->getContext()?->getContainer()->get(\Quiote\Asset\AssetRegistry::class);
 	}
 
+	/**
+	 * Register a stylesheet for this page's render tree. Unlike
+	 * appendAttribute(), this reaches the request's shared AssetRegistry
+	 * directly, so it works from a top-level view or a slot-nested one alike, and is
+	 * unaffected by the immutable-snapshot no-op that appendAttribute() hits
+	 * under the modern container-less execution path.
+	 *
+	 * Silently does nothing when the view has no context yet, and so no registry
+	 * to register with.
+	 */
 	public function addCss(string $href): void
 	{
 		$this->assetRegistry()?->addCss($href);
@@ -697,6 +740,13 @@ abstract class View implements ResetInterface
 		$this->assetRegistry()?->addJavascript($src);
 	}
 
+	/**
+	 * Drops the per-request state so the view instance can be reused.
+	 *
+	 * Releases both the initialization context and the current context along
+	 * with any registered layers; the view must be initialized again before it
+	 * can execute.
+	 */
 	public function reset(): void
 	{
 		$this->initContext = null;

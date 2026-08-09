@@ -27,6 +27,14 @@ final class TelemetryExporterFactory
 
     public function __construct(private readonly TelemetryConfig $config) {}
 
+    /**
+     * Builds the span exporter named by `telemetry.exporter`.
+     *
+     * `none` and any unrecognised name yield an in-memory exporter, which is
+     * retained for {@see inMemorySpanExporter()}; an unrecognised name is also
+     * logged at warning level. `otlp` bridges the OTLP settings into the
+     * `OTEL_EXPORTER_OTLP_*` environment before delegating to the SDK factory.
+     */
     public function spanExporter(): SpanExporterInterface
     {
         return match ($this->config->exporter) {
@@ -37,6 +45,11 @@ final class TelemetryExporterFactory
         };
     }
 
+    /**
+     * Builds the metric exporter named by `telemetry.exporter`, on the same
+     * terms as {@see spanExporter()}; the in-memory result is retained for
+     * {@see inMemoryMetricExporter()}.
+     */
     public function metricExporter(): MetricExporterInterface
     {
         return match ($this->config->exporter) {

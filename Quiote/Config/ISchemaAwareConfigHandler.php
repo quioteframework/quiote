@@ -14,6 +14,14 @@ use Quiote\Config\Schema\Rule;
  */
 interface ISchemaAwareConfigHandler
 {
+	/**
+	 * Returns the structural rule the handler's canonical array must satisfy.
+	 *
+	 * The rule describes the shape produced by the handler's
+	 * `toCanonicalArray()`, whatever source format that array came from, so a
+	 * PHP-array or YAML config is checked against exactly the same structure as
+	 * the XML one.
+	 */
 	public function schema(): Rule;
 }
 

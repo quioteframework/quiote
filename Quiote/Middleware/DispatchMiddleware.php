@@ -342,6 +342,25 @@ class DispatchMiddleware implements MiddlewareInterface
             ->withHeader('X-Accel-Buffering', 'no');
     }
 
+    /**
+     * Runs the routed action and turns its output into the response.
+     *
+     * Terminal: `$handler` is never called, so the request stops here and every
+     * middleware ordered inside this one is unreachable. Anything that must see
+     * the finished response has to be ordered outside it.
+     *
+     * Clears the shared global response first, so a status or header left by
+     * the previous request in a persistent worker is not read back as this
+     * one's; a failure to clear is logged as a warning and dispatch continues.
+     * Ensures `quiote.rid` and an ExecutionState on the request. Without an
+     * ActionDescriptor the answer is a plain 404.
+     *
+     * A non-simple action must have been validated: a pending or absent
+     * decision that did not come from a forward yields a 500 saying the
+     * validation middleware is missing, and a failed decision renders the
+     * action's error view. Simple actions skip that gate. Non-simple responses
+     * carry an `X-Quiote-Validation-State` header describing the decision.
+     */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $dbg = \Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug);

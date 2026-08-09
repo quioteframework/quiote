@@ -39,6 +39,13 @@ final class GcsClient implements ObjectStoreClientInterface
     ) {
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * A 404 from the XML API is reported as null; every other 4xx/5xx raises
+     * {@see GcsStorageException}, as does a transport failure. No retry is
+     * attempted.
+     */
     public function get(string $object): ?string
     {
         $response = $this->send('GET', $object);
@@ -52,6 +59,12 @@ final class GcsClient implements ObjectStoreClientInterface
         return (string) $response->getBody();
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * The whole body is sent in one PUT as `application/octet-stream`; there is
+     * no resumable upload here. The bucket must already exist.
+     */
     public function put(string $object, string $body): void
     {
         $response = $this->send('PUT', $object, $body, 'application/octet-stream');
@@ -60,6 +73,12 @@ final class GcsClient implements ObjectStoreClientInterface
         }
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * A 404 returns normally, so deleting an object that is not there is not an
+     * error; any other 4xx/5xx raises {@see GcsStorageException}.
+     */
     public function delete(string $object): void
     {
         $response = $this->send('DELETE', $object);

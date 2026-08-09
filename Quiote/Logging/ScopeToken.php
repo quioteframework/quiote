@@ -16,6 +16,12 @@ final class ScopeToken
 
     public function __construct(private readonly int $id) {}
 
+    /**
+     * Pops the scope frame this token represents.
+     *
+     * Idempotent: a second call does nothing, so closing explicitly and then
+     * letting the token be destroyed pops the frame only once.
+     */
     public function close(): void
     {
         if (!$this->closed) {

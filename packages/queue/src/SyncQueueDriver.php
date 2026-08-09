@@ -15,6 +15,15 @@ final readonly class SyncQueueDriver implements QueueDriverInterface
     {
     }
 
+    /**
+     * Runs the job immediately, in the calling process.
+     *
+     * Delegates to {@see JobExecutor::executeWithRetries()}, so the caller
+     * blocks for the whole attempt-and-backoff cycle and any permanent failure
+     * has already been recorded with the {@see FailedJobStoreInterface} by the
+     * time this returns. {@see JobPayload::$availableAt} is not honoured —
+     * there is no backlog to defer into.
+     */
     public function push(JobPayload $payload): void
     {
         $this->executor->executeWithRetries($payload);

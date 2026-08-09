@@ -22,6 +22,18 @@ class StealthMiddleware implements MiddlewareInterface
     /** @param array<int, string> $additionalHeaders */
     public function __construct(private readonly bool $enabled = false, private readonly array $additionalHeaders = ['X-Powered-By']) {}
 
+    /**
+     * Removes framework-identifying headers from the response on the way out.
+     *
+     * A no-op when stealth mode is disabled. Otherwise every response header
+     * whose name starts with `X-Quiote-` (case-insensitively) is dropped,
+     * along with each of the explicitly configured additional names that is
+     * present. Only the response is touched; the request passes through
+     * unchanged.
+     *
+     * Its high `bootstrap` priority puts it outside ErrorHandlingMiddleware, so
+     * error and 404 responses are stripped as well.
+     */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $response = $handler->handle($request);

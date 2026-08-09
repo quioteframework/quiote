@@ -72,6 +72,19 @@ class Kernel
         return $kernel;
     }
 
+    /**
+     * Bootstraps the framework and hands control to the selected worker runtime.
+     *
+     * Resolves the runtime (create() option, then $QUIOTE_WORKER_RUNTIME, then
+     * `core.worker_runtime`, then auto-detection), publishes it via
+     * {@see WorkerRuntimeInfo}, configures {@see WorkerManager}'s recycling for a
+     * persistent host, and starts the runtime's loop. Returns only when the
+     * runtime stops serving; under a one-request-per-process host that is after
+     * the single response.
+     *
+     * @throws RuntimeException if an explicitly named runtime reports that it is
+     *         not hosting this process.
+     */
     public function run(): void
     {
         $this->bootstrap();

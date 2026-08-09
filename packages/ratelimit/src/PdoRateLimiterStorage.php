@@ -59,6 +59,15 @@ final readonly class PdoRateLimiterStorage implements StorageInterface
     ) {
     }
 
+    /**
+     * Writes the limiter state to the table, inserting or updating in one
+     * statement.
+     *
+     * The state is serialized and base64-encoded into the TEXT column, and its
+     * expiration time is stored as an absolute UNIX timestamp — a state with no
+     * expiration time gets a NULL, which never expires. The row key is the
+     * hashed limiter state id, not the id itself.
+     */
     public function save(LimiterStateInterface $limiterState): void
     {
         $id = $this->key($limiterState->getId());
@@ -85,6 +94,18 @@ final readonly class PdoRateLimiterStorage implements StorageInterface
         $stmt->execute();
     }
 
+    /**
+     * Loads the stored limiter state for the given id, or null when there is
+     * none to use.
+     *
+     * Null covers every unusable case, and the caller treats them all as "no
+     * state yet": no row, a row whose stored expiry has passed (which is also
+     * deleted on the way out), an unreadable or non-base64 payload, and a
+     * payload that does not deserialize into a `LimiterStateInterface`.
+     * Deserialization is restricted to {@see self::ALLOWED_STATE_CLASSES}, so a
+     * row written by anything other than {@see self::save()} cannot instantiate
+     * arbitrary classes.
+     */
     public function fetch(string $limiterStateId): ?LimiterStateInterface
     {
         $id = $this->key($limiterStateId);
@@ -117,6 +138,12 @@ final readonly class PdoRateLimiterStorage implements StorageInterface
         return $value instanceof LimiterStateInterface ? $value : null;
     }
 
+    /**
+     * Removes the stored state for the given limiter id.
+     *
+     * Deleting an id with no row is not an error, so this is safe to call for a
+     * limiter that has never been saved.
+     */
     public function delete(string $limiterStateId): void
     {
         $stmt = $this->pdo->prepare(

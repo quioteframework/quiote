@@ -25,6 +25,15 @@ final class MiddlewareSpanDecorator implements MiddlewareInterface
     ) {
     }
 
+    /**
+     * Runs the wrapped middleware inside a `Quiote.Middleware` span named
+     * after it.
+     *
+     * The span is ended in a `finally` block, so it closes on both the normal
+     * and the exceptional path. A throwable is recorded on the span and its
+     * status set to error before being rethrown unchanged — this decorator
+     * never swallows a failure.
+     */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $span = Trace::span('Quiote.Middleware', $this->label);

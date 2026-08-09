@@ -27,6 +27,14 @@ final class ListenerProvider implements ListenerProviderInterface
     /** @var array<string, bool> memoized hasListenersFor() result per concrete event class */
     private array $hasListenersCache = [];
 
+    /**
+     * Registers a listener for an event class, subclass or interface.
+     *
+     * Higher `$priority` runs first; listeners registered at the same priority
+     * keep their registration order. Registering invalidates the memoized
+     * resolution and has-listeners caches, so listeners may be added at any
+     * point without stale lookups.
+     */
     public function listen(string $eventClass, callable $listener, int $priority = 0): void
     {
         $this->listeners[$eventClass][] = ['listener' => $listener, 'priority' => $priority, 'seq' => $this->seq++];
@@ -67,6 +75,14 @@ final class ListenerProvider implements ListenerProviderInterface
         return $this->resolved[$event::class] ??= $this->resolveFor($event::class);
     }
 
+    /**
+     * Drops every registered listener and both memoization caches.
+     *
+     * The registration sequence counter restarts at zero, so ordering after a
+     * reset behaves as it would on a fresh provider. Intended for test
+     * isolation and for long-running workers that rebuild their listener set
+     * between runs.
+     */
     public function reset(): void
     {
         $this->listeners = [];

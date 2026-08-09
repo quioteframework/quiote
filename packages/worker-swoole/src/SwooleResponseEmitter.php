@@ -25,6 +25,15 @@ final class SwooleResponseEmitter implements ResponseEmitterInterface
     {
     }
 
+    /**
+     * Writes status, headers and body onto Swoole's response object.
+     *
+     * A header with several values is passed as an array so repeated names
+     * (Set-Cookie) survive. For an {@see SseStream} body, Content-Length is
+     * dropped and the body is written chunk by chunk until the stream ends or
+     * the client goes away, with a final `end()` closing the response either
+     * way.
+     */
     public function emit(ResponseInterface $response): void
     {
         $body = $response->getBody();
@@ -52,6 +61,7 @@ final class SwooleResponseEmitter implements ResponseEmitterInterface
         $this->writer->end((string) $body);
     }
 
+    /** Always true: Swoole's write() delivers a chunk without buffering the whole body. */
     public function supportsStreaming(): bool
     {
         return true;

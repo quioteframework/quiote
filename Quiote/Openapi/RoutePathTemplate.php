@@ -33,6 +33,17 @@ final readonly class RoutePathTemplate
     ) {
     }
 
+    /**
+     * Parses a Symfony route path into an OpenAPI-legal template plus the placeholder
+     * information lifted out of it.
+     *
+     * Each placeholder is reduced to `{name}`, with a leading `!` dropped, an inline
+     * `<...>` requirement recorded in `$requirements` and an inline `?...` default recorded
+     * in `$defaults`. A repeated name appears once in `$variables`. Two shapes are passed
+     * through verbatim rather than rejected: a placeholder whose braces never close (the
+     * remainder of the path is copied as-is), and one whose contents yield no usable name
+     * (the raw `{...}` token is kept).
+     */
     public static function parse(string $path): self
     {
         $normalized = '';

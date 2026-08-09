@@ -27,6 +27,24 @@ final class XsltRenderer extends Renderer implements IReusableRenderer
 
     protected $defaultExtension = '.xsl';
 
+    /**
+     * Transforms the input document with the layer's `.xsl` stylesheet and
+     * returns the serialised result.
+     *
+     * Only scalar and `Stringable` attributes are passed on as XSLT
+     * parameters, since XSLT parameters cannot carry markup; everything else
+     * reaches the stylesheet through the document. The document is either the
+     * envelope built from the `inner` assign plus the flattened slots (the
+     * default) or the `inner` assign on its own when the `envelope` parameter
+     * is off. The processor runs with every security preference set, so
+     * `document()` cannot read files or the network and `php:function` is
+     * unavailable.
+     *
+     * @throws RenderException if the layer carries no stylesheet, the
+     *                         stylesheet or a document cannot be parsed, the
+     *                         `inner` assign is not a `DOMDocument`, string or
+     *                         null, or the transformation itself fails.
+     */
     #[\Override]
     public function render(TemplateLayer $layer, array &$attributes = [], array &$slots = [], array &$moreAssigns = [])
     {
@@ -90,6 +108,12 @@ final class XsltRenderer extends Renderer implements IReusableRenderer
         ));
     }
 
+    /**
+     * Returns the skeleton `.xsl` stylesheet written for a newly scaffolded view.
+     *
+     * The stylesheet declares a `title` parameter and prints it, matching the
+     * scalar attributes this renderer forwards as XSLT parameters.
+     */
     #[\Override]
     public function getStarterTemplate(): string
     {

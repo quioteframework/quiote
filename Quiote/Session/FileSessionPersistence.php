@@ -72,6 +72,15 @@ class FileSessionPersistence implements SessionPersistenceInterface
         $this->directory = $directory;
     }
 
+    /**
+     * Reads a session from its file, decoding it through the configured codec.
+     *
+     * Returns null when no file exists for the id, when the file is empty or
+     * unreadable, or — with a non-zero `idle_ttl` — when its mtime is older than
+     * that many seconds, in which case the stale file is unlinked on the way out.
+     * A future-dated mtime, which a backward clock step can produce, does not
+     * count as expired.
+     */
     public function load(string $sid): ?array
     {
         $file = $this->fileFor($sid);
@@ -96,6 +105,17 @@ class FileSessionPersistence implements SessionPersistenceInterface
         return $this->codec->decode($blob);
     }
 
+    /**
+     * Writes the session atomically: encode, write to a temp file in the same
+     * directory, chmod 0600, rename into place.
+     *
+     * Readers therefore never see a half-written session and no locking is
+     * needed; concurrent saves are last-write-wins. After a successful publish
+     * this may run {@see gc()}, with probability `gc_probability`/`gc_divisor`.
+     *
+     * @throws StorageException if the temp file cannot be written or renamed
+     *         into place; the temp file is cleaned up first in both cases.
+     */
     public function save(string $sid, array $data): void
     {
         $payload = $this->codec->encode($data);
@@ -117,6 +137,12 @@ class FileSessionPersistence implements SessionPersistenceInterface
         }
     }
 
+    /**
+     * Unlinks the session's file.
+     *
+     * Best-effort and silent, matching the PDO backend: an unknown id and a
+     * failed unlink are both indistinguishable no-ops to the caller.
+     */
     public function delete(string $sid): void
     {
         // best-effort, matching the PDO backend

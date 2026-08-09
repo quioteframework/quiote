@@ -27,12 +27,25 @@ final class WorkerRuntimeInfo
     {
     }
 
+    /**
+     * Records the runtime that is about to serve this process, process-wide.
+     *
+     * Called by the Kernel once selection is done, before the runtime starts.
+     * Every later query answers from this instance instead of auto-detecting,
+     * and any capabilities cached from an earlier detection are dropped.
+     */
     public static function install(WorkerRuntimeInterface $runtime): void
     {
         self::$runtime = $runtime;
         self::$detectedCapabilities = null;
     }
 
+    /**
+     * Whether {@see install()} has already run.
+     *
+     * False means queries below are still answering from auto-detection rather
+     * than from the runtime the Kernel actually selected.
+     */
     public static function isInstalled(): bool
     {
         return self::$runtime !== null;
@@ -48,6 +61,17 @@ final class WorkerRuntimeInfo
         return WorkerRuntimeRegistry::detect()::alias();
     }
 
+    /**
+     * What the hosting runtime does for itself: persistence, superglobals,
+     * SAPI output, streaming, forking.
+     *
+     * Answers from the installed runtime when there is one. Otherwise the
+     * registry is auto-detected and the detected runtime is instantiated to ask
+     * it; that answer is cached for the process and invalidated by
+     * {@see install()} or {@see reset()}. A detected runtime whose constructor
+     * cannot run here still yields a usable answer, with `persistent` derived
+     * from whether it is {@see SapiRuntime}.
+     */
     public static function capabilities(): WorkerRuntimeCapabilities
     {
         $runtime = self::$runtime;

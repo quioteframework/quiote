@@ -9,7 +9,7 @@ use OpenTelemetry\SDK\Trace\SamplingResult;
 use OpenTelemetry\SDK\Trace\Span;
 
 /**
- * Head-based force-sample escape hatch: "trace this one request" without
+ * Head-based force sampling: "trace this one request" without
  * touching the global sampling ratio.
  *
  * Wraps a delegate sampler. If the span-creation attributes carry
@@ -19,9 +19,9 @@ use OpenTelemetry\SDK\Trace\Span;
  * unconditionally — bypassing the delegate (ratio, parent, everything) for
  * this span. Every other span defers entirely to the delegate.
  *
- * This is a *head* decision made at span-creation time, matching the plan's
- * explicit stance that outcome-based ("keep failed/slow requests") tail
- * sampling belongs in an OTel Collector downstream, not here.
+ * This is a *head* decision made at span-creation time. Outcome-based
+ * ("keep failed/slow requests") tail sampling belongs in an OTel Collector
+ * downstream, not here.
  */
 final class ForceSampleSampler implements SamplerInterface
 {
@@ -49,6 +49,10 @@ final class ForceSampleSampler implements SamplerInterface
         return $this->delegate->shouldSample($parentContext, $traceId, $spanName, $spanKind, $attributes, $links);
     }
 
+    /**
+     * The sampler's description for the exported resource, wrapping the
+     * delegate's own description so the effective configuration stays visible.
+     */
     public function getDescription(): string
     {
         return 'ForceSampleSampler{' . $this->delegate->getDescription() . '}';

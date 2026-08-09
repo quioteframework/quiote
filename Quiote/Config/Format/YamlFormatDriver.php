@@ -15,6 +15,11 @@ use Symfony\Component\Yaml\Yaml;
  */
 final class YamlFormatDriver extends AbstractArrayFormatDriver implements PositionAwareFormatDriverInterface
 {
+	/**
+	 * Whether the path names a YAML file, matched case-insensitively.
+	 *
+	 * Both the `.yaml` and `.yml` spellings are accepted.
+	 */
 	public function supports(string $path): bool
 	{
 		$lower = strtolower($path);

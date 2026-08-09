@@ -19,6 +19,12 @@ final class ReceivedDataPoint
     ) {
     }
 
+    /**
+     * The histogram's mean, i.e. `$value / $count`.
+     *
+     * Null when `$count` is null (a gauge or sum data point, which has no
+     * mean) or zero (a histogram bucket that recorded nothing).
+     */
     public function mean(): ?float
     {
         if ($this->count === null || $this->count === 0) {

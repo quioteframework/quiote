@@ -32,6 +32,15 @@ use Quiote\DI\Container;
 #[PluginAttribute(name: 'quiote/queue-db')]
 final class QueueDbPlugin implements PluginInterface
 {
+    /**
+     * Publishes the `queue.db.*` defaults and registers the `db` driver.
+     *
+     * Adds the `db` alias to {@see QueueDriverRegistry} and binds
+     * {@see DbQueueDriver} and {@see DbFailedJobStore} as singleton services
+     * whose factories pull the configured connection's PDO handle off the
+     * current {@see Context}. Neither factory runs here — the connection is
+     * only touched when something actually resolves one of those services.
+     */
     public function register(PluginRegistrar $registrar): void
     {
         $registrar->configDefault('queue.db.connection', 'main');

@@ -55,6 +55,13 @@ final class CompiledMatcherDumper
         return self::targetForSignature(self::signature($routes));
     }
 
+    /**
+     * The artifact path for an already-computed route signature, under
+     * `core.cache_dir`'s `routing/` directory.
+     *
+     * Lets a caller that holds a signature — a runtime lookup checking whether a dump for the
+     * live routes exists — avoid re-hashing the collection.
+     */
     public static function targetForSignature(string $signature): string
     {
         return rtrim(Config::getString('core.cache_dir'), '/') . '/routing/CompiledMatcher_' . $signature . '.php';

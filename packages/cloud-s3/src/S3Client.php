@@ -42,6 +42,13 @@ final class S3Client implements ObjectStoreClientInterface
     ) {
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * A 404 is reported as null; every other 4xx/5xx raises
+     * {@see S3StorageException}, as does a transport failure. No retry is
+     * attempted.
+     */
     public function get(string $key): ?string
     {
         $response = $this->send('GET', $key);
@@ -55,6 +62,13 @@ final class S3Client implements ObjectStoreClientInterface
         return (string) $response->getBody();
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * The whole body is sent in a single signed PUT; there is no multipart
+     * upload, so the payload must fit one request. The bucket must already
+     * exist — this client never creates one.
+     */
     public function put(string $key, string $body): void
     {
         $response = $this->send('PUT', $key, $body);
@@ -63,6 +77,12 @@ final class S3Client implements ObjectStoreClientInterface
         }
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * A 404 returns normally, so deleting a key that is not there is not an
+     * error; any other 4xx/5xx raises {@see S3StorageException}.
+     */
     public function delete(string $key): void
     {
         $response = $this->send('DELETE', $key);

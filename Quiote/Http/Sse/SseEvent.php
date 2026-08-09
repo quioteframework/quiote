@@ -24,6 +24,13 @@ final class SseEvent
         return new self(is_array($data) ? (string)json_encode($data) : $data, $event, $id, $retryMs);
     }
 
+    /**
+     * Renders the event as its `text/event-stream` representation.
+     *
+     * The optional `event`, `id` and `retry` fields are emitted first and only when set, then
+     * the data, split into one `data:` line per embedded newline as the wire format requires.
+     * The result ends with the blank line that terminates the message.
+     */
     public function format(): string
     {
         $lines = [];

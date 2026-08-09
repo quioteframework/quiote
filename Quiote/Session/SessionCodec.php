@@ -51,6 +51,17 @@ final class SessionCodec implements SessionCodecInterface
         return new self(false);
     }
 
+    /**
+     * Encodes with igbinary when `prefer_binary` is on and the extension is
+     * loaded, otherwise with JSON.
+     *
+     * An igbinary failure is logged at debug and falls through to JSON, which
+     * every build can write. Only when JSON also fails — the session holds
+     * something with no serializable form, a closure or a resource — does this
+     * throw, since storing nothing would silently lose the session.
+     *
+     * @throws StorageException if neither format can represent the data.
+     */
     public function encode(array $data): string
     {
         if ($this->preferBinary && function_exists('igbinary_serialize')) {
@@ -82,6 +93,17 @@ final class SessionCodec implements SessionCodecInterface
         }
     }
 
+    /**
+     * Decodes either format, whichever this instance writes.
+     *
+     * A payload starting with `{` or `[` is decoded as JSON, anything else as
+     * igbinary. Returns null for an empty payload, for input that fails to
+     * decode, for a decoded value that is not a string-keyed array, and for a
+     * binary payload on a build without ext-igbinary — the last of these is
+     * logged at warning, since nothing on that build can ever read it; the
+     * others at debug. Unreadable input is a reason to start a new session, not
+     * to fail the request.
+     */
     public function decode(string $payload): ?array
     {
         if ($payload === '') {

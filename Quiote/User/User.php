@@ -77,6 +77,9 @@ class User extends AttributeHolder implements ResetInterface, \Quiote\ContextCom
 		$this->dirty = false;
 	}
 
+	/**
+	 * Removes every attribute in every namespace and marks the user dirty.
+	 */
 	#[\Override]
 	public function clearAttributes(): void
 	{
@@ -84,6 +87,9 @@ class User extends AttributeHolder implements ResetInterface, \Quiote\ContextCom
 		$this->dirty = true;
 	}
 
+	/**
+	 * Removes a single attribute and marks the user dirty so the removal is persisted.
+	 */
 	#[\Override]
 	public function &removeAttribute($name, $ns = null)
 	{
@@ -93,6 +99,9 @@ class User extends AttributeHolder implements ResetInterface, \Quiote\ContextCom
 		return $retval;
 	}
 
+	/**
+	 * Removes a whole attribute namespace and marks the user dirty.
+	 */
 	#[\Override]
 	public function removeAttributeNamespace($ns)
 	{
@@ -102,6 +111,9 @@ class User extends AttributeHolder implements ResetInterface, \Quiote\ContextCom
 		return $retval;
 	}
 
+	/**
+	 * Sets an attribute and marks the user dirty so shutdown() persists it.
+	 */
 	#[\Override]
 	public function setAttribute($name, $value, $ns = null): void
 	{
@@ -109,6 +121,9 @@ class User extends AttributeHolder implements ResetInterface, \Quiote\ContextCom
 		$this->dirty = true;
 	}
 
+	/**
+	 * Appends a value to an array attribute and marks the user dirty.
+	 */
 	#[\Override]
 	public function appendAttribute($name, $value, $ns = null): void
 	{
@@ -116,6 +131,9 @@ class User extends AttributeHolder implements ResetInterface, \Quiote\ContextCom
 		$this->dirty = true;
 	}
 
+	/**
+	 * Sets an attribute by reference and marks the user dirty.
+	 */
 	#[\Override]
 	public function setAttributeByRef($name, &$value, $ns = null): void
 	{
@@ -123,6 +141,9 @@ class User extends AttributeHolder implements ResetInterface, \Quiote\ContextCom
 		$this->dirty = true;
 	}
 
+	/**
+	 * Appends a value by reference to an array attribute and marks the user dirty.
+	 */
 	#[\Override]
 	public function appendAttributeByRef($name, &$value, $ns = null): void
 	{
@@ -130,6 +151,9 @@ class User extends AttributeHolder implements ResetInterface, \Quiote\ContextCom
 		$this->dirty = true;
 	}
 
+	/**
+	 * Merges a set of attributes into a namespace and marks the user dirty.
+	 */
 	#[\Override]
 	public function setAttributes(array $attributes, $ns = null): void
 	{
@@ -137,6 +161,9 @@ class User extends AttributeHolder implements ResetInterface, \Quiote\ContextCom
 		$this->dirty = true;
 	}
 
+	/**
+	 * Merges a set of attributes by reference into a namespace and marks the user dirty.
+	 */
 	#[\Override]
 	public function setAttributesByRef(array &$attributes, $ns = null): void
 	{
@@ -361,6 +388,14 @@ class User extends AttributeHolder implements ResetInterface, \Quiote\ContextCom
 		$this->markClean();
 	}
 
+	/**
+	 * Returns this user to its just-constructed state for reuse across requests.
+	 *
+	 * Drops the context reference, parameters and attributes, restores the
+	 * default storage namespace and clears the dirty flag, so a pooled worker
+	 * cannot leak one request's identity into the next. Nothing is persisted
+	 * on the way out -- pending changes are discarded, not flushed.
+	 */
 	#[\Override]
     public function reset(): void
 	{

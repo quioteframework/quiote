@@ -24,11 +24,23 @@ final class ContainerAdapter implements PsrContainerInterface
 {
     public function __construct(private readonly Container $container) {}
 
+    /**
+     * Reports whether $id can be resolved.
+     *
+     * True for anything the wrapped Quiote container has an explicit
+     * registration or alias for, and additionally for any loadable class name,
+     * so `mcp/sdk` routes autowireable handler classes through {@see get()}
+     * instead of instantiating them itself.
+     */
     public function has(string $id): bool
     {
         return $this->container->has($id) || class_exists($id);
     }
 
+    /**
+     * Resolves $id through the wrapped Quiote container, autowiring it when it
+     * has no explicit registration.
+     */
     public function get(string $id): mixed
     {
         return $this->container->get($id);

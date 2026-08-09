@@ -287,6 +287,14 @@ class WebResponse extends AttributeHolder implements ResetInterface, WebResponse
 		}
 	}
 
+	/**
+	 * Returns the attached PSR-7 response, or null when none was attached.
+	 *
+	 * Not a snapshot of this response: it is the instance handed to
+	 * {@see setPsrResponse()}, replaced in place as status codes, headers and
+	 * cookies set on this response are mirrored onto it. It is null until a
+	 * response is attached, and again after {@see reset()}.
+	 */
 	public function getPsrResponse(): ?ResponseInterface
 	{
 		return $this->psrResponse;

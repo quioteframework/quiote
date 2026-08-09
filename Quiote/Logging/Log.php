@@ -34,11 +34,25 @@ final class Log
 
     // --- configuration -----------------------------------------------------
 
+    /**
+     * Sets the minimum level for every category without a more specific rule.
+     *
+     * Delegates to {@see LogRegistry}, whose memoized per-category thresholds are
+     * invalidated, so loggers already handed out pick the change up. Configuration
+     * belongs at worker startup (index.php, before `Kernel::run()`), not per request.
+     */
     public static function setDefaultLevel(Level $level): void
     {
         LogRegistry::setDefaultLevel($level);
     }
 
+    /**
+     * Sets the minimum level for one dotted category prefix, e.g. `Quiote.Routing`.
+     *
+     * A prefix matches a category exactly or on a dot boundary, and the longest
+     * matching prefix wins over both shorter ones and the default level. Delegates
+     * to {@see LogRegistry}, invalidating its resolved-threshold memo.
+     */
     public static function setLevel(string $categoryPrefix, Level $level): void
     {
         LogRegistry::setLevel($categoryPrefix, $level);
@@ -52,11 +66,26 @@ final class Log
         LogRegistry::setLevels($map);
     }
 
+    /**
+     * Appends a sink to the process-global list of log destinations.
+     *
+     * Sinks accumulate rather than replace, and each applies its own minimum level
+     * on top of the category threshold. With no sink registered, records are
+     * discarded after level resolution.
+     */
     public static function addSink(SinkInterface $sink): void
     {
         LogRegistry::addSink($sink);
     }
 
+    /**
+     * Restores the logging subsystem to its unconfigured state.
+     *
+     * Drops the registry's levels and sinks, clears any active {@see LogContext}
+     * scopes, and empties this facade's logger cache so the next acquisition builds
+     * a logger against the new configuration. For test isolation and
+     * reconfiguration; not used on the request path.
+     */
     public static function reset(): void
     {
         LogRegistry::reset();
@@ -66,6 +95,14 @@ final class Log
 
     // --- acquisition -------------------------------------------------------
 
+    /**
+     * The logger for an explicit dotted category, e.g. `Log::create(self::class)`
+     * from a static method.
+     *
+     * Loggers are cached per category and shared by all call sites using it, so
+     * calling this repeatedly is cheap and does not allocate. Unlike {@see for()},
+     * the category is taken verbatim — pass an already-dotted name.
+     */
     public static function create(string $category): CategoryLogger
     {
         return self::$cache[$category] ??= new CategoryLogger($category);

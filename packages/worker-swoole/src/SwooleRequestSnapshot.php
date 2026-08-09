@@ -33,6 +33,13 @@ final readonly class SwooleRequestSnapshot
     ) {
     }
 
+    /**
+     * Returns a server entry as a string, or null when it is absent or unusable.
+     *
+     * The key is Swoole's own lowercase name (`request_method`, not
+     * `REQUEST_METHOD`). A non-scalar value answers null rather than being
+     * coerced, so a caller's `??` default applies.
+     */
     public function serverValue(string $key): ?string
     {
         $value = $this->server[$key] ?? null;

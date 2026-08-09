@@ -36,6 +36,19 @@ final class AppWriter
 		private readonly ?string $workerRuntime = null,
 	) {}
 
+	/**
+	 * Creates the application's directory tree and writes every scaffolded file into it.
+	 *
+	 * Directories are created first, then config, routing, the Default module's actions, views and
+	 * templates, the front controller, and a PHPStan setup. Existing files are overwritten without
+	 * asking, so the caller is responsible for having established that the target is safe to write
+	 * into. The worker entrypoint and its server config are written only when a worker runtime was
+	 * named on construction, and go to the application root rather than pub/ so the document root
+	 * cannot serve them.
+	 *
+	 * @throws     ConfigurationException If a directory could not be created, a file could not be
+	 *             written, or the requested config format is not one of php, yaml or xml.
+	 */
 	public function write(): void
 	{
 		$this->mkdir($this->path);

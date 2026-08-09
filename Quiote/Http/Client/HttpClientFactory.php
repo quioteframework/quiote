@@ -45,6 +45,12 @@ final class HttpClientFactory
         unset($this->instances[$name]);
     }
 
+    /**
+     * Reports whether {@see client()} can resolve this name.
+     *
+     * True for any registered configurator, and always true for {@see DEFAULT}, which builds
+     * from an unconfigured {@see HttpClientConfig} when nobody registered it.
+     */
     public function has(string $name): bool
     {
         return isset($this->configurators[$name]) || $name === self::DEFAULT;
@@ -63,6 +69,13 @@ final class HttpClientFactory
         $this->instances = [];
     }
 
+    /**
+     * Empties the registry: every registered configurator, every memoized client and any default
+     * transport factory are discarded, leaving the factory as freshly constructed.
+     *
+     * Clients already handed out keep working; they simply are no longer the ones this factory
+     * will return.
+     */
     public function reset(): void
     {
         $this->configurators = [];

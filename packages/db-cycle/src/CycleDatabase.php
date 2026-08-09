@@ -107,6 +107,12 @@ class CycleDatabase extends AbstractOrmDatabase
 
     // --- typed accessors ----------------------------------------------------
 
+    /**
+     * Returns the Cycle ORM instance, connecting on first use.
+     *
+     * @throws DatabaseException If the connection could not be built, or what
+     *                           was built is not an ORMInterface.
+     */
     public function getOrm(): ORMInterface
     {
         $connection = $this->getConnection();
@@ -121,6 +127,16 @@ class CycleDatabase extends AbstractOrmDatabase
         ));
     }
 
+    /**
+     * Returns Cycle's own database manager, the DBAL layer beneath the ORM.
+     *
+     * Triggers a connect first so the resource is populated. Use this to reach
+     * query builders and raw `query()`/`execute()` calls, which is how custom
+     * SQL is written for this adapter.
+     *
+     * @throws DatabaseException If the connection could not be built, or the
+     *                           resource is not a DatabaseProviderInterface.
+     */
     public function getCycleDatabaseManager(): DatabaseProviderInterface
     {
         $this->getConnection(); // ensure connected → $this->resource populated
@@ -165,6 +181,14 @@ class CycleDatabase extends AbstractOrmDatabase
 
     // --- worker lifecycle ---------------------------------------------------
 
+    /**
+     * Probes the connection with `SELECT 1` through Cycle's database manager.
+     *
+     * Returns true when nothing has been connected yet, since lazy connect
+     * handles it on first use. If the probe throws, the ORM and the DBAL
+     * resource are both cleared so the next getConnection() rebuilds them, and
+     * false is returned.
+     */
     #[\Override]
     public function ping(): bool
     {
@@ -204,6 +228,12 @@ class CycleDatabase extends AbstractOrmDatabase
         parent::reset();
     }
 
+    /**
+     * Cleans the ORM heap and drops the ORM and DBAL resource.
+     *
+     * A heap that refuses to clean is logged at debug and does not stop the
+     * shutdown, since the heap goes away with the connection anyway.
+     */
     #[\Override]
     public function shutdown()
     {

@@ -15,7 +15,6 @@ use Relay\Relay;
 
 /**
  * MiddlewarePipeline builds and caches the PSR-15 middleware chain; safe for worker reuse.
- * Formerly named FrameworkMiddlewarePipeline (and before that MiddlewareKernel).
  */
 class MiddlewarePipeline implements RequestHandlerInterface
 {
@@ -28,6 +27,18 @@ class MiddlewarePipeline implements RequestHandlerInterface
     {
     }
 
+    /**
+     * Runs the request through the middleware stack, building the stack first if needed.
+     *
+     * The built stack is cached on the instance for the life of the worker, so
+     * only the first request pays for attribute scanning and order resolution;
+     * call {@see reset()} to force a rebuild. The request is given an
+     * `_original_psr_request` attribute holding itself before it enters the
+     * stack, so middleware running after ValidationMiddleware has pruned the
+     * parameters can still reach the untouched request.
+     *
+     * @throws \Quiote\Exception\QuioteException If building the stack produced no handler.
+     */
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         if (!$this->built) {
@@ -43,6 +54,14 @@ class MiddlewarePipeline implements RequestHandlerInterface
         return $handler->handle($request);
     }
 
+    /**
+     * Discards the cached stack so the next {@see handle()} rebuilds it.
+     *
+     * Needed whenever the inputs to the build have changed — a catalog
+     * registration, a middleware config entry, an enable/disable override —
+     * since the stack is otherwise kept for the worker's lifetime. The
+     * middleware instances themselves are dropped, not reset.
+     */
     public function reset(): void
     {
         $this->handler = null;
@@ -88,7 +107,7 @@ class MiddlewarePipeline implements RequestHandlerInterface
         $context = $this->context;
 
         if (MiddlewareCatalog::hasCoreStackOverride()) {
-            // Escape hatch: the app has explicitly replaced the entire default
+            // The app has explicitly replaced the entire default
             // stack (see MiddlewareCatalog::replaceCoreStack()). None of Quiote's
             // own error handling / session / CSRF / security / routing middleware
             // runs here, and registered() middleware is deliberately NOT spliced
@@ -187,6 +206,7 @@ class MiddlewarePipeline implements RequestHandlerInterface
 
         // Terminal sentinel - framework must always produce a response
         $stack[] = new class implements \Psr\Http\Server\MiddlewareInterface {
+            /** Always throws: reaching the end of the stack means no middleware produced a response. */
             public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
             {
                 throw new \RuntimeException('Terminal pipeline reached without response');
@@ -198,6 +218,7 @@ class MiddlewarePipeline implements RequestHandlerInterface
         $relay = new Relay($stack);
         $this->handler = new readonly class($relay) implements RequestHandlerInterface {
             public function __construct(private Relay $relay) {}
+            /** Enters the Relay chain built from the resolved stack. */
             public function handle(ServerRequestInterface $r): ResponseInterface
             {
                 return $this->relay->handle($r);

@@ -57,6 +57,17 @@ final class PhptalRenderer extends Renderer
         return $this->engine = $engine;
     }
 
+    /**
+     * Renders the layer's `.tal` template through PHPTAL and returns the result.
+     *
+     * Attributes are pushed into the engine either individually (when
+     * `extract_vars` is on) or as a single array under the configured variable
+     * name; the slots array, the renderer's own assigns and the filtered
+     * `$moreAssigns` are set as further template variables. The PHPTAL engine
+     * is built lazily on first use and reused afterwards.
+     *
+     * @throws RenderException if the layer carries no template.
+     */
     #[\Override]
     public function render(TemplateLayer $layer, array &$attributes = [], array &$slots = [], array &$moreAssigns = [])
     {
@@ -90,6 +101,13 @@ final class PhptalRenderer extends Renderer
         return $engine->execute();
     }
 
+    /**
+     * Returns the skeleton `.tal` template written for a newly scaffolded view.
+     *
+     * The `tal:content` path follows the renderer's current variable
+     * configuration: a bare `title` when `extract_vars` is on, otherwise
+     * `title` under the configured template variable.
+     */
     #[\Override]
     public function getStarterTemplate(): string
     {
@@ -97,6 +115,13 @@ final class PhptalRenderer extends Renderer
         return "<p tal:content=\"{$path} | default\">Untitled</p>\n";
     }
 
+    /**
+     * Returns the renderer to its post-construction state for reuse.
+     *
+     * Drops the cached PHPTAL engine — so the next render rebuilds it against
+     * the then-current cache directory and `encoding` parameter — and then
+     * lets the parent clear the layer, variable names and assigns.
+     */
     #[\Override]
     public function reset(): void
     {

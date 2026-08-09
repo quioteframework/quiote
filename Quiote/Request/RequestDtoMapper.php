@@ -26,6 +26,17 @@ use Throwable;
  */
 final class RequestDtoMapper
 {
+    /**
+     * Instantiates $dtoClass from the request's validated parameters.
+     *
+     * Every property of the cached definition is resolved in declaration order and passed to
+     * the constructor by name. A parameter the request does not carry falls back to the
+     * property's default, then to null when it is nullable.
+     *
+     * @throws RuntimeException when a required property is absent — which means the registered
+     *                          validator did not actually enforce it — or a present value cannot
+     *                          be coerced to the property's declared type
+     */
     public static function map(WebRequest $request, string $dtoClass): object
     {
         $definition = RequestDtoRegistry::definitionFor($dtoClass);

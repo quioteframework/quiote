@@ -34,6 +34,19 @@ use RuntimeException;
  */
 final class S3SessionFactory implements SessionFactoryInterface
 {
+    /**
+     * Builds S3-backed session persistence from the slot's parameters.
+     *
+     * Reads `region` (default `us-east-1`), `access_key_id`,
+     * `secret_access_key`, `bucket`, a `key_prefix` defaulting to `sessions/`
+     * and an optional `endpoint` — an empty endpoint means the AWS origin for
+     * the region, a non-empty one points at any S3-compatible service. The
+     * PSR-18 client is resolved from the container rather than configured here.
+     * The bucket is expected to exist already.
+     *
+     * @param array<string, mixed> $parameters
+     * @throws RuntimeException If no PSR-18 client is bound in the container.
+     */
     public function createPersistence(Context $context, array $parameters): SessionPersistenceInterface
     {
         $endpoint = self::str($parameters, 'endpoint');

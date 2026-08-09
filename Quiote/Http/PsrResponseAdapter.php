@@ -43,11 +43,20 @@ class PsrResponseAdapter implements ResponseInterface
     public function getLegacy(): WebResponse { return $this->legacy; }
 
     // Status
+    /** Returns the overridden status code, or the WebResponse's current one when withStatus() was never called. */
     public function getStatusCode(): int
     {
         return $this->statusOverlay ?? (int) $this->legacy->getHttpStatusCode();
     }
 
+    /**
+     * Returns a clone whose status code overrides the WebResponse's, leaving the WebResponse itself alone.
+     *
+     * An empty reason phrase clears any override, so {@see getReasonPhrase()} falls back to the
+     * standard phrase for the code.
+     *
+     * @throws \InvalidArgumentException when the code is outside the range HttpStatus accepts
+     */
     public function withStatus($code, $reasonPhrase = ''): static
     {
         $code = (int) $code;
@@ -67,14 +76,17 @@ class PsrResponseAdapter implements ResponseInterface
         return $new;
     }
 
+    /** Returns the phrase supplied to withStatus(), or the standard phrase HttpStatus maps the current code to. */
     public function getReasonPhrase(): string
     {
         return $this->reasonPhraseOverlay ?? HttpStatus::phrase($this->getStatusCode());
     }
 
     // Protocol
+    /** Returns the protocol version this adapter carries, defaulting to `1.1` unless the constructor or withProtocolVersion() set another. */
     public function getProtocolVersion(): string { return $this->protocolVersion; }
 
+    /** Returns a clone carrying the given protocol version; the WebResponse is unaffected. */
     public function withProtocolVersion($version): static
     {
         $new = clone $this;
@@ -101,6 +113,7 @@ class PsrResponseAdapter implements ResponseInterface
         return $all;
     }
 
+    /** Reports whether a header is present, matching the name case-insensitively against the overlay or the WebResponse. */
     public function hasHeader($name): bool
     {
         return $this->findHeaderName((string) $name) !== null;
@@ -117,8 +130,17 @@ class PsrResponseAdapter implements ResponseInterface
         return $found !== null ? $headers[$found] : [];
     }
 
+    /** Returns the header's values joined by `, `, or an empty string when the header is absent. */
     public function getHeaderLine($name): string { return implode(', ', $this->getHeader($name)); }
 
+    /**
+     * Returns a clone in which the named header is replaced by the given value or values.
+     *
+     * The clone snapshots the WebResponse's headers into its own overlay, so it no longer reads
+     * headers through to the WebResponse. Any existing header with a differently cased name is
+     * removed first, and the supplied spelling is the one stored. Non-stringable values become
+     * empty strings.
+     */
     public function withHeader($name, $value): static
     {
         $new = clone $this;
@@ -132,6 +154,13 @@ class PsrResponseAdapter implements ResponseInterface
         return $new;
     }
 
+    /**
+     * Returns a clone with the given value or values appended to the named header.
+     *
+     * The clone snapshots the WebResponse's headers into its own overlay. An existing header is
+     * matched case-insensitively and keeps its stored spelling; otherwise the supplied spelling
+     * starts a new entry.
+     */
     public function withAddedHeader($name, $value): static
     {
         $new = clone $this;
@@ -145,6 +174,12 @@ class PsrResponseAdapter implements ResponseInterface
         return $new;
     }
 
+    /**
+     * Returns a clone without the named header, matching case-insensitively.
+     *
+     * When the header is absent this instance is returned unchanged, so no overlay is created
+     * and the adapter keeps reading headers through to the WebResponse.
+     */
     public function withoutHeader($name): static
     {
         $existing = $this->findHeaderName((string) $name);
@@ -193,6 +228,15 @@ class PsrResponseAdapter implements ResponseInterface
     }
 
     // Body
+    /**
+     * Returns the body stream, building one from the WebResponse's content on first call.
+     *
+     * A resource is wrapped directly; null and scalar content are copied into an in-memory
+     * stream. The result is memoised on this instance, so later changes to the WebResponse's
+     * content are not picked up.
+     *
+     * @throws \RuntimeException when the content is neither a resource, null, nor scalar
+     */
     public function getBody(): StreamInterface
     {
         if (!$this->body) {
@@ -208,6 +252,7 @@ class PsrResponseAdapter implements ResponseInterface
         return $this->body;
     }
 
+    /** Returns a clone carrying the given body stream; the WebResponse's own content is left untouched. */
     public function withBody(StreamInterface $body): static
     {
         $new = clone $this;

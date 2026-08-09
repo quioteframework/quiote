@@ -31,6 +31,16 @@ final readonly class QueueManager
         $this->driver()->push(new JobPayload($jobClass, $params, 0, $availableAt));
     }
 
+    /**
+     * Resolves a queue driver by alias, defaulting to `queue.default_driver`.
+     *
+     * The alias is translated to a class through {@see QueueDriverRegistry} and
+     * the instance comes from the container, so a driver registered with its
+     * own service factory is built by that factory and memoized as a singleton.
+     *
+     * @throws \RuntimeException if the alias is unknown to the registry, or the
+     *         resolved service does not implement {@see QueueDriverInterface}.
+     */
     public function driver(?string $alias = null): QueueDriverInterface
     {
         $class = QueueDriverRegistry::instantiateClassFor($alias ?? $this->config->defaultDriver);

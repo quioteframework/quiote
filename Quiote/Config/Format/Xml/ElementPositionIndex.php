@@ -26,6 +26,14 @@ final class ElementPositionIndex
 	/** @var array<int, array{element: \DOMElement, file: string, line: int}> */
 	private array $positions = [];
 
+	/**
+	 * Records the source file and line a merged element was cloned from.
+	 *
+	 * The element itself is kept alongside its position, not just its object
+	 * id: without a live reference the DOM wrapper could be collected and its
+	 * id recycled, which would make every later {@see self::forElement()}
+	 * lookup miss. Recording the same element twice replaces the earlier entry.
+	 */
 	public function record(\DOMElement $element, string $file, int $line): void
 	{
 		$this->positions[spl_object_id($element)] = ['element' => $element, 'file' => $file, 'line' => $line];

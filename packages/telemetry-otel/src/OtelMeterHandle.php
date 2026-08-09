@@ -34,6 +34,14 @@ final class OtelMeterHandle implements MeterHandle
     {
     }
 
+    /**
+     * Records $value into the histogram called $name.
+     *
+     * The histogram instrument is created on first use and cached under
+     * $name for the life of this handle. Attributes are sanitized, and any
+     * failure — creating the instrument or recording — is swallowed and
+     * logged at debug level rather than propagating to the call site.
+     */
     public function recordHistogram(string $name, float $value, array $attributes = []): void
     {
         $this->safely($name, function () use ($name, $value, $attributes): void {
@@ -42,6 +50,11 @@ final class OtelMeterHandle implements MeterHandle
         });
     }
 
+    /**
+     * Adds $increment to the counter called $name, creating and caching the
+     * instrument on first use. Failures are swallowed as in
+     * {@see recordHistogram()}.
+     */
     public function addCounter(string $name, int|float $increment = 1, array $attributes = []): void
     {
         $this->safely($name, function () use ($name, $increment, $attributes): void {
@@ -50,6 +63,11 @@ final class OtelMeterHandle implements MeterHandle
         });
     }
 
+    /**
+     * Records the current value of the gauge called $name, creating and
+     * caching the instrument on first use. Failures are swallowed as in
+     * {@see recordHistogram()}.
+     */
     public function recordGauge(string $name, float $value, array $attributes = []): void
     {
         $this->safely($name, function () use ($name, $value, $attributes): void {

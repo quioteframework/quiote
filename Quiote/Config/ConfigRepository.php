@@ -171,11 +171,23 @@ class ConfigRepository
         throw new ConfigurationException(\sprintf('Config directive "%s" is not a valid string or array of strings, got %s.', $name, get_debug_type($value)));
     }
 
+    /**
+     * Whether a directive with the given name is present.
+     *
+     * A directive explicitly set to null still counts as present.
+     */
     public function has(string|int $name): bool
     {
         return isset($this->config[$name]) || \array_key_exists($name, $this->config);
     }
 
+    /**
+     * Whether the named directive was set read-only and can no longer be
+     * changed.
+     *
+     * {@see self::set()} refuses to overwrite such a directive and reports
+     * false rather than throwing.
+     */
     public function isReadonly(string|int $name): bool
     {
         return isset($this->readonlies[$name]);

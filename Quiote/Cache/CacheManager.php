@@ -9,6 +9,35 @@ use Symfony\Component\Cache\Adapter\ApcuAdapter;
 use Symfony\Component\Cache\Adapter\RedisAdapter;
 use Symfony\Component\Cache\Psr16Cache;
 
+/**
+ * The framework's process-wide PSR-16 cache, and the namespace versioning that
+ * cached output is invalidated through.
+ *
+ * Entirely static, with no instance to inject: {@see getCache()} returns the
+ * shared {@see CacheInterface}, built once per process from
+ * `core.cache_backend` -- APCu when the extension is usable, Redis through
+ * `core.redis_dsn`, otherwise a filesystem pool under `core.cache_dir`.
+ * {@see setCache()} installs any other PSR-16 implementation in its place, and
+ * {@see getBackend()} reports which one is in force. Compose keys with
+ * {@see key()} rather than by concatenation: PSR-16 reserves characters --
+ * colon among them -- that symfony/cache refuses.
+ *
+ * Invalidation never deletes anything. Action, view and slot cache keys embed
+ * the current version of a namespace, so bumping that version
+ * ({@see invalidateModule()}, {@see invalidateAction()},
+ * {@see invalidateSlotTag()}, or {@see bumpNamespace()} directly) makes every
+ * key written under the old version unreachable and leaves the backend to evict
+ * the orphans in its own time. Versions are derived from the clock rather than
+ * counted, so a version key evicted under memory pressure reseeds above every
+ * version that namespace has already issued instead of replaying old ones.
+ *
+ * Versions are memoized for the duration of a request.
+ * {@see resetRequestState()} drops that memo at the request boundary, which is
+ * what lets a persistent worker observe invalidations performed by another
+ * request or another process. {@see reset()} is the heavier, test-oriented
+ * clear: it drops the instance, the memo and the recorded backend name, and
+ * purges the filesystem pool's directory.
+ */
 class CacheManager
 {
     /** @var CacheInterface|null */
@@ -28,6 +57,19 @@ class CacheManager
     /** selected backend name (filesystem|apcu|custom) */
     private static string $backend = 'filesystem';
 
+    /**
+     * The process-wide PSR-16 cache, built on first use from `core.cache_backend`.
+     *
+     * The instance is a static memo held for the lifetime of the process, so the
+     * backend choice is made once: `apcu` when the extension is loaded and enabled,
+     * `redis` via `core.redis_dsn`, otherwise a filesystem pool under
+     * `core.cache_dir` (falling back to a `quiote_cache` directory in the system
+     * temp dir when that setting is empty). An `apcu` request on a host without a
+     * usable APCu silently falls through to the filesystem pool.
+     *
+     * @throws RuntimeException If the backend is `redis` and no Redis client
+     *                          (ext-redis, ext-relay, predis/predis) is installed.
+     */
     public static function getCache(): CacheInterface
     {
         if (self::$instance === null) {
@@ -52,6 +94,14 @@ class CacheManager
         return self::$instance;
     }
 
+    /**
+     * Installs a cache instance process-wide, replacing whatever {@see getCache()}
+     * would otherwise build, and records $backendName as the value
+     * {@see getBackend()} reports.
+     *
+     * The override is static state and outlives the request that set it; it stays
+     * in force until another call replaces it or {@see reset()} drops it.
+     */
     public static function setCache(CacheInterface $cache, string $backendName = 'custom'): void
     { self::$instance = $cache; self::$backend = $backendName; }
 
@@ -73,6 +123,19 @@ class CacheManager
         self::$namespaceVersions = [];
     }
 
+    /**
+     * Drops all process-wide cache state and purges the filesystem pool's directory.
+     *
+     * Clears the memoized instance, the namespace-version memo and the recorded
+     * backend name (back to `filesystem`), so the next {@see getCache()} rebuilds
+     * from configuration. The on-disk purge is best effort: a path that vanishes
+     * mid-sweep is logged at debug and the sweep continues, and any failure to
+     * locate or traverse the directory at all is ignored — the in-memory reset has
+     * already happened either way.
+     *
+     * Intended for test isolation and reconfiguration, not the request path; see
+     * {@see resetRequestState()} for the per-request boundary.
+     */
     public static function reset(): void
     {
         self::$instance = null; self::$namespaceVersions = []; self::$backend = 'filesystem';
@@ -104,6 +167,13 @@ class CacheManager
             } catch(\Throwable) { /* ignore purge errors */ }
     }
 
+    /**
+     * The name of the backend currently in use process-wide: `filesystem`, `apcu`,
+     * `redis`, or whatever name {@see setCache()} was given.
+     *
+     * Reports `filesystem` until the cache is first built or overridden, since the
+     * backend is only decided when {@see getCache()} runs.
+     */
     public static function getBackend(): string { return self::$backend; }
 
     private static function apcuAvailable(): bool
@@ -177,6 +247,15 @@ class CacheManager
         return (int) (microtime(true) * 1000);
     }
 
+    /**
+     * The current version of a cache namespace, seeding one if the backend has none.
+     *
+     * Read through a per-request memo (see {@see resetRequestState()}); on a miss the
+     * version is fetched from the cache backend, and if it is absent or not a
+     * positive integer — the namespace is new, or the backend evicted the version
+     * key — a fresh clock-derived version is generated and written back, which
+     * invalidates every entry previously stored under that namespace.
+     */
     public static function getNamespaceVersion(string $namespace): int
     {
         if (!isset(self::$namespaceVersions[$namespace])) {
@@ -209,15 +288,35 @@ class CacheManager
         return $ver;
     }
 
-    // Invalidate all action/view cache entries for a module by bumping module namespace version.
+    /**
+     * Invalidates every action/view cache entry belonging to a module by bumping
+     * that module's namespace version.
+     *
+     * Nothing is deleted: the entries stay in the backend until it evicts them, but
+     * their keys are no longer reachable. The bump is written to the shared backend
+     * and to this process's namespace-version memo.
+     */
     public static function invalidateModule(string $moduleName): void
     { self::bumpNamespace(self::key('avmod', $moduleName)); }
 
-    // Future extension: invalidate a single action by a dedicated namespace combining module+action.
+    /**
+     * Invalidates the cache entries of a single action by bumping a namespace
+     * combining the module and action names.
+     *
+     * Narrower than {@see invalidateModule()}, which retires the whole module: the
+     * two use different namespaces, so bumping one does not affect the other.
+     */
     public static function invalidateAction(string $moduleName, string $actionName): void
     { self::bumpNamespace(self::key('avact', $moduleName, $actionName)); }
 
-    // Invalidate all slot cache entries referencing a given tag
+    /**
+     * Invalidates every slot cache entry carrying $tag by bumping the tag's
+     * namespace version.
+     *
+     * The tag is normalized through {@see slotTagNamespace()}, so tags differing
+     * only in characters that normalization replaces share one namespace and are
+     * invalidated together.
+     */
     public static function invalidateSlotTag(string $tag): void
     { self::bumpNamespace(self::slotTagNamespace($tag)); }
 

@@ -17,6 +17,15 @@ class OutputTypeSyncMiddleware implements MiddlewareInterface
 {
     public function __construct(private readonly Controller $controller) {}
 
+    /**
+     * Selects the request's `output_type` on the Controller.
+     *
+     * Ordered after RoutingMiddleware and before SecurityMiddleware, so the
+     * value it applies is the one routing settled on rather than the raw
+     * negotiated one. Nothing happens when the attribute is absent or empty.
+     * A name the application does not define is logged at debug and otherwise
+     * ignored, leaving the controller's current selection in place.
+     */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $attr = $request->getAttribute('output_type');

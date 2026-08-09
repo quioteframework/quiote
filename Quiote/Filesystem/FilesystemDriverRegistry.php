@@ -31,6 +31,7 @@ final class FilesystemDriverRegistry
         self::$aliases[$alias] = $driverClass;
     }
 
+    /** Whether $alias has been registered as a driver alias. Fully-qualified class names are not aliases, so this is false for them. */
     public static function has(string $alias): bool
     {
         return isset(self::$aliases[$alias]);
@@ -42,6 +43,16 @@ final class FilesystemDriverRegistry
         return self::$aliases[$aliasOrClass] ?? $aliasOrClass;
     }
 
+    /**
+     * Resolves an alias (or a fully-qualified class name) to the adapter class to instantiate.
+     *
+     * Returns the class name only; it does not construct anything. The message distinguishes a
+     * registered alias whose class is missing — the package is not installed — from a name that
+     * was never registered at all.
+     *
+     * @throws RuntimeException when the resolved class does not exist, or does not implement
+     *                          {@see FilesystemAdapterInterface}
+     */
     public static function instantiateClassFor(string $aliasOrClass): string
     {
         $class = self::resolve($aliasOrClass);

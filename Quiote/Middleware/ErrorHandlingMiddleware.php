@@ -40,6 +40,19 @@ class ErrorHandlingMiddleware implements MiddlewareInterface
         }
     }
 
+    /**
+     * Catches any throwable escaping the rest of the stack and renders it as a response.
+     *
+     * Logs a single diagnostic line carrying the exception class, message,
+     * throw site, the triggering request, the cause chain and the trace, then
+     * hands the exception to {@see renderExceptionResponse()} for the actual
+     * body and status. Nothing propagates out of here, which is the point of
+     * its high `bootstrap` priority: everything ordered inside it is covered.
+     *
+     * Middleware that must see error and 404 responses has to be ordered
+     * *outside* this one; `after: ErrorHandlingMiddleware` places it within
+     * the try and it will be skipped whenever an exception is thrown.
+     */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         try {
@@ -60,9 +73,10 @@ class ErrorHandlingMiddleware implements MiddlewareInterface
      * Builds a single, information-dense log line for an uncaught exception: class, message,
      * throw site, the request that triggered it, exception-specific context (e.g. allowed HTTP
      * methods for routing failures), the full exception chain, and a full stack trace.
-     * The previous version of this log line only included class/message/file:line, which is
-     * useless for exceptions like MethodNotAllowedException whose message is often empty —
-     * there was no way to tell which request or call path caused it.
+     *
+     * The request and call path matter because an exception like MethodNotAllowedException
+     * often carries an empty message, leaving class/message/file:line alone with nothing to
+     * identify what triggered it.
      */
     private function buildDiagnosticLogLine(Throwable $e, ServerRequestInterface $request): string
     {

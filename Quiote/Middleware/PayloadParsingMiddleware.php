@@ -31,6 +31,21 @@ class PayloadParsingMiddleware implements MiddlewareInterface
             ->associative(true);
     }
 
+    /**
+     * Parses the request body into the parsed-body slot before routing runs.
+     *
+     * A request that already has a parsed body is passed straight through, so
+     * an earlier middleware's or a test's parsing is never overwritten. A
+     * `application/x-www-form-urlencoded` body is parsed with `parse_str()`;
+     * anything else is handed to the JsonPayload middleware, which only acts on
+     * JSON content types.
+     *
+     * Malformed JSON produces a 400 with an `invalid_json` JSON body when
+     * strict mode is on — the default, overridable by the constructor or by
+     * setting `QUIOTE_JSON_STRICT=0` — and otherwise falls through with the
+     * body left unparsed. Any other throwable is rethrown so
+     * ErrorHandlingMiddleware formats it.
+     */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         // Debug: log basic request info to help trace unexpected payload parse errors

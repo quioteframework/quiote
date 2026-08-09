@@ -13,6 +13,12 @@ final class NativeSwooleServer implements SwooleServerInterface
     {
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * Registers on Swoole's `workerStart` event, dropping the server and worker
+     * id arguments Swoole passes so the listener stays free of extension types.
+     */
     public function onWorkerStart(callable $listener): void
     {
         // Swoole passes ($server, $workerId); neither is needed, and swallowing
@@ -22,11 +28,13 @@ final class NativeSwooleServer implements SwooleServerInterface
         });
     }
 
+    /** Registers the listener on Swoole's `request` event, arguments unchanged. */
     public function onRequest(callable $listener): void
     {
         $this->server->on('request', $listener);
     }
 
+    /** {@inheritDoc} */
     public function start(): void
     {
         $this->server->start();

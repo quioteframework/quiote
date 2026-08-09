@@ -56,6 +56,18 @@ final class PdoSessionPersistence implements SessionPersistenceInterface
         return $table;
     }
 
+    /**
+     * Selects the session row and decodes its payload through the codec.
+     *
+     * Returns null when the statement cannot be prepared, when the id has no
+     * row, or when the stored payload is empty or is not a string. A LOB column
+     * arrives as a stream on some drivers and is drained while the cursor is
+     * still open. The cursor is closed in a `finally`, since a fetched-but-open
+     * statement holds a shared lock that blocks other connections from writing
+     * on SQLite.
+     *
+     * @throws StorageException if the query fails.
+     */
     #[\Override]
     public function load(string $sid): ?array
     {
@@ -119,6 +131,14 @@ final class PdoSessionPersistence implements SessionPersistenceInterface
         }
     }
 
+    /**
+     * Deletes the session row.
+     *
+     * A database failure is logged at error rather than thrown — a connection
+     * already torn down at shutdown is ordinary, and the caller is typically
+     * mid-logout — so a failed delete leaves the session loadable until it
+     * expires.
+     */
     #[\Override]
     public function delete(string $sid): void
     {

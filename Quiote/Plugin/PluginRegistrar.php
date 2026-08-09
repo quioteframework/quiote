@@ -32,6 +32,7 @@ final class PluginRegistrar
 {
     public function __construct(private readonly string $pluginName) {}
 
+    /** Returns the name of the plugin whose contributions this registrar records. */
     public function pluginName(): string
     {
         return $this->pluginName;

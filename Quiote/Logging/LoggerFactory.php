@@ -10,11 +10,13 @@ use Psr\Log\LoggerInterface;
  */
 final class LoggerFactory implements LoggerFactoryInterface
 {
+    /** {@inheritDoc} */
     public function create(string $category): LoggerInterface
     {
         return Log::create($category);
     }
 
+    /** {@inheritDoc} */
     public function for(object|string $classOrObject): LoggerInterface
     {
         return Log::for($classOrObject);

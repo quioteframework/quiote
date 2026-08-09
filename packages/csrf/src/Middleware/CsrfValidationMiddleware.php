@@ -61,6 +61,19 @@ class CsrfValidationMiddleware implements MiddlewareInterface
         self::$warnedAboutMissingSession = false;
     }
 
+    /**
+     * Validates the CSRF token on an unsafe request, or rejects it with 403.
+     *
+     * The request is passed through unchecked when CSRF is disabled, when the
+     * method is one of the configured safe methods, when the matched route
+     * carries an `_csrf => false` default, or when it falls outside the threat
+     * model (statelessly authenticated, or sessionless and not a cross-origin
+     * browser request). A route default of `_csrf => true` forces the check
+     * regardless of those exemptions. The token is taken from the configured
+     * form field or header; a missing or invalid one short-circuits the
+     * pipeline with a 403 carrying `X-Quiote-Csrf: failed`, so the action never
+     * runs.
+     */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $csrf = new CsrfManager($this->controller->getContext());

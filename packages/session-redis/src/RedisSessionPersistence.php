@@ -27,6 +27,13 @@ final class RedisSessionPersistence implements SessionPersistenceInterface
     ) {
     }
 
+    /**
+     * Reads the session's Redis key and decodes it through the codec.
+     *
+     * Returns null when the key is missing or expired — Redis expires it on its
+     * own, so an aged-out session is simply absent — and when the value is empty
+     * or not a string.
+     */
     #[\Override]
     public function load(string $sid): ?array
     {
@@ -46,6 +53,12 @@ final class RedisSessionPersistence implements SessionPersistenceInterface
         $this->redis->setex($this->key($sid), $this->ttl, $this->codec->encode($data));
     }
 
+    /**
+     * Deletes the session's Redis key.
+     *
+     * Deleting a key that is absent or already expired is a no-op on Redis's
+     * side, so this reports nothing back either way.
+     */
     #[\Override]
     public function delete(string $sid): void
     {

@@ -23,6 +23,14 @@ use RuntimeException;
 #[PluginAttribute(name: 'quiote/filesystem')]
 final class FilesystemPlugin implements PluginInterface
 {
+    /**
+     * Publishes the `filesystem.default_disk` and `filesystem.disks.local.root` defaults and binds
+     * {@see FilesystemConfig}, {@see LocalFilesystemAdapter} and {@see FilesystemManager}.
+     *
+     * The adapter and the manager are registered as factories that read {@see FilesystemConfig} out
+     * of the container when first resolved, so an app's own config overrides apply even though the
+     * defaults are declared here.
+     */
     public function register(PluginRegistrar $registrar): void
     {
         $registrar->configDefault('filesystem.default_disk', 'local');

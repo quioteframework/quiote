@@ -24,6 +24,14 @@ use RuntimeException;
 #[PluginAttribute(name: 'quiote/filesystem-s3')]
 final class S3FilesystemPlugin implements PluginInterface
 {
+    /**
+     * Publishes the `filesystem.disks.s3.*` defaults, registers the `s3` driver alias and binds
+     * {@see S3FilesystemAdapter} as a singleton.
+     *
+     * The adapter's factory reads region, bucket, credentials, optional endpoint and key prefix
+     * from config at resolution time and pulls the PSR-18 client out of the container then, so
+     * registering this plugin without an HTTP client bound only fails once the disk is used.
+     */
     public function register(PluginRegistrar $registrar): void
     {
         $registrar->configDefault('filesystem.disks.s3.region', 'us-east-1');

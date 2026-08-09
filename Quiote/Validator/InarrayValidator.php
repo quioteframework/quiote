@@ -13,6 +13,18 @@ namespace Quiote\Validator;
  */
 class InarrayValidator extends Validator
 {
+	/**
+	 * Returns the base Validator parameters plus 'values', 'sep', 'case' and
+	 * 'strict'.
+	 *
+	 * 'values' holds the allowed set, either as an array of scalars or as a
+	 * single string that is split on 'sep' (which must then be a non-empty
+	 * string). 'case' makes the comparison case-sensitive; when it is falsy both
+	 * the input and the allowed values are lowercased first. 'strict' is the
+	 * third argument to in_array(), so it turns the membership test into a
+	 * type-strict one; it defaults to false.
+	 * @return     array<int, string> The accepted parameter names.
+	 */
 	#[\Override]
 	public static function getAcceptedParameters(): array
 	{

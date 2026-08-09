@@ -24,6 +24,13 @@ class ValidatorConfigHandler extends XmlConfigHandler
 {
 	const XML_NAMESPACE = 'http://quiote.dev/quiote/config/parts/validators/1.1';
 
+	/**
+	 * Compiles the validators document into the declaration to cache.
+	 *
+	 * The XML is first turned into a format-independent validator plan, which
+	 * is then emitted as a plain data declaration. The result registers nothing
+	 * by itself; applying it to a validation manager is a separate step.
+	 */
 	public function execute(XmlConfigDomDocument $document): mixed
 	{
 		$builder = new ValidatorPlanBuilder();

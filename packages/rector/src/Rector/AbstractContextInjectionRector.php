@@ -50,6 +50,20 @@ abstract class AbstractContextInjectionRector extends AbstractRector
         return [Class_::class];
     }
 
+    /**
+     * Rewrites a class's Context accessor calls into fetches of injected properties.
+     *
+     * Walks the class body, asks the concrete rule what collaborator each accessor call
+     * stands for, replaces the call with a property fetch and adds a private constructor
+     * dependency per distinct collaborator, then repairs the synthesized constructor:
+     * parameters whose property the parent already declares lose their promotion, and
+     * the parameter order is normalised.
+     *
+     * Returns null -- leaving the class untouched -- for an abstract or anonymous class,
+     * a class the rule does not consider injectable, a class something else extends
+     * (adding a constructor parameter there breaks subclasses either way), and for a
+     * class in which no accessor call was found.
+     */
     public function refactor(Node $node): ?Node
     {
         if (!$node instanceof Class_ || $node->isAbstract() || $node->isAnonymous()) {

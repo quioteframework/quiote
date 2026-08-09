@@ -32,6 +32,16 @@ final class RequestScheme
     {
     }
 
+    /**
+     * Whether the client's connection was over TLS.
+     *
+     * Four sources are consulted in order, and the first that says "secure" wins: the URI
+     * scheme, the `HTTPS` server param (true, or any scalar other than an empty string,
+     * `off` or `0`), `REQUEST_SCHEME`, and finally the leftmost token of `X-Forwarded-Proto`.
+     * The forwarded header is only read when `core.proxy.trust_forwarded_headers` is on;
+     * with it off, a request that reached this process as plain HTTP reports false no matter
+     * what the client claims.
+     */
     public static function isHttps(ServerRequestInterface $request): bool
     {
         if (strtolower($request->getUri()->getScheme()) === 'https') {

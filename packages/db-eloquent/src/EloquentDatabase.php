@@ -118,6 +118,12 @@ class EloquentDatabase extends AbstractOrmDatabase
 
     // --- typed accessors ----------------------------------------------------
 
+    /**
+     * Returns the Capsule manager, connecting on first use.
+     *
+     * @throws DatabaseException If the capsule could not be built, or the
+     *                           connection is not a Capsule.
+     */
     public function getCapsule(): Capsule
     {
         $connection = $this->getConnection();
@@ -138,6 +144,14 @@ class EloquentDatabase extends AbstractOrmDatabase
         return $this->getCapsule()->getConnection($this->connectionName());
     }
 
+    /**
+     * Returns the PDO handle Eloquent is using for the configured connection.
+     *
+     * In layer mode this is the handle borrowed from another configured
+     * database rather than one Eloquent opened itself.
+     *
+     * @throws DatabaseException If the capsule could not be built.
+     */
     #[\Override]
     public function getPdo(): \PDO
     {
@@ -146,6 +160,14 @@ class EloquentDatabase extends AbstractOrmDatabase
 
     // --- worker lifecycle ---------------------------------------------------
 
+    /**
+     * Probes the connection with `SELECT 1` on the raw PDO handle.
+     *
+     * Returns true when nothing has been connected yet, since lazy connect
+     * handles it on first use. If the query throws, the capsule and resource
+     * are cleared so the next getConnection() rebuilds them, and false is
+     * returned.
+     */
     #[\Override]
     public function ping(): bool
     {
@@ -161,6 +183,14 @@ class EloquentDatabase extends AbstractOrmDatabase
         }
     }
 
+    /**
+     * Rolls back any open transaction, purges the connection from Eloquent's
+     * database manager and drops the capsule.
+     *
+     * Both steps are attempted independently; a failure in either is logged at
+     * warning and does not stop the shutdown. The capsule and resource are
+     * cleared regardless.
+     */
     #[\Override]
     public function shutdown()
     {

@@ -17,6 +17,13 @@ use Quiote\Runtime\Worker\WorkerRuntimeRegistry;
 #[PluginAttribute(name: 'quiote/worker-swoole')]
 final class WorkerSwoolePlugin implements PluginInterface
 {
+    /**
+     * Publishes the `worker.swoole.*` defaults, the runtime alias and the command.
+     *
+     * Adds `swoole` to {@see WorkerRuntimeRegistry} and registers
+     * {@see \Quiote\Runtime\Swoole\Console\SwooleServeCommand}. Nothing here
+     * touches ext-swoole, so the plugin loads on a machine without it.
+     */
     public function register(PluginRegistrar $registrar): void
     {
         $registrar->configDefault('worker.swoole.host', SwooleRuntime::DEFAULT_HOST);

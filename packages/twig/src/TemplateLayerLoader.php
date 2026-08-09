@@ -18,6 +18,15 @@ use Twig\Source;
  */
 final class TemplateLayerLoader implements LoaderInterface
 {
+    /**
+     * Reads the template at `$name` and returns it as a Twig source.
+     *
+     * `$name` is used verbatim as a filesystem path. Throws a `LoaderError`
+     * when the file cannot be read, since Twig has no other way to signal a
+     * missing template from here.
+     *
+     * @throws LoaderError
+     */
     #[\Override]
     public function getSourceContext(string $name): Source
     {
@@ -29,12 +38,25 @@ final class TemplateLayerLoader implements LoaderInterface
         return new Source($contents, $name, $name);
     }
 
+    /**
+     * Returns the cache key for a template.
+     *
+     * The name is already a fully resolved absolute path, so it is unique on
+     * its own and is returned unchanged.
+     */
     #[\Override]
     public function getCacheKey(string $name): string
     {
         return $name;
     }
 
+    /**
+     * Reports whether the compiled template cached at `$time` is still current.
+     *
+     * Compares the template file's modification time against `$time`. A file
+     * whose mtime cannot be read is treated as stale, so Twig recompiles it
+     * rather than serving a cache entry that may no longer match.
+     */
     #[\Override]
     public function isFresh(string $name, int $time): bool
     {
@@ -43,6 +65,12 @@ final class TemplateLayerLoader implements LoaderInterface
         return $mtime !== false && $mtime <= $time;
     }
 
+    /**
+     * Reports whether the template path exists and is readable by this process.
+     *
+     * A file that exists but is not readable counts as missing, because
+     * {@see self::getSourceContext()} could not load it either.
+     */
     #[\Override]
     public function exists(string $name): bool
     {

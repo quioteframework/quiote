@@ -836,6 +836,13 @@ class DecimalFormatter implements ResetInterface
 		return false;
 	}
 
+	/**
+	 * Clears the parsed number format so the formatter can be re-configured.
+	 *
+	 * Everything derived from the format string -- separators, grouping
+	 * distances, digit counts, sign and currency flags -- goes back to its
+	 * default. The rounding mode is left alone, as the comment below records.
+	 */
 	public function reset() : void {
 		$this->originalFormatString = null;
 		$this->formatString = '';

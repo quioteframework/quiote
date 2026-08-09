@@ -180,6 +180,12 @@ class DoctrineDatabase extends AbstractOrmDatabase
 
     // --- typed accessors ----------------------------------------------------
 
+    /**
+     * Returns the Doctrine entity manager, connecting on first use.
+     *
+     * @throws DatabaseException If the entity manager could not be built, or
+     *                           the connection is not an EntityManagerInterface.
+     */
     public function getEntityManager(): EntityManagerInterface
     {
         $connection = $this->getConnection();
@@ -194,6 +200,14 @@ class DoctrineDatabase extends AbstractOrmDatabase
         ));
     }
 
+    /**
+     * Returns the DBAL connection the entity manager runs on.
+     *
+     * This is the entry point for custom SQL — `executeQuery()` /
+     * `executeStatement()` — on drivers that never expose a PDO handle.
+     *
+     * @throws DatabaseException If the entity manager could not be built.
+     */
     public function getDbalConnection(): DbalConnection
     {
         return $this->getEntityManager()->getConnection();
@@ -234,6 +248,14 @@ class DoctrineDatabase extends AbstractOrmDatabase
 
     // --- worker lifecycle ---------------------------------------------------
 
+    /**
+     * Probes the connection with `SELECT 1` over DBAL.
+     *
+     * Returns true when nothing has been connected yet, since lazy connect
+     * handles it on first use. If the query throws, the entity manager and the
+     * DBAL resource are cleared so the next getConnection() rebuilds both, and
+     * false is returned.
+     */
     #[\Override]
     public function ping(): bool
     {
@@ -271,6 +293,13 @@ class DoctrineDatabase extends AbstractOrmDatabase
         parent::reset();
     }
 
+    /**
+     * Rolls back any open transaction, closes the DBAL connection and drops
+     * the entity manager.
+     *
+     * A failure to roll back or close is logged at warning and does not stop
+     * the shutdown; the entity manager and resource are cleared either way.
+     */
     #[\Override]
     public function shutdown()
     {

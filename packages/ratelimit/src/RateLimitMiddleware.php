@@ -35,6 +35,17 @@ final class RateLimitMiddleware implements MiddlewareInterface
     {
     }
 
+    /**
+     * Consumes one token for the calling client and rejects the request when
+     * the limit is exhausted.
+     *
+     * Passes straight through when `ratelimit.http.enabled` is off. Otherwise a
+     * limiter is built per request from the configured policy, limit and window
+     * over the injected storage, and keyed by the client address. An accepted
+     * request continues down the pipeline; a rejected one short-circuits with a
+     * 429 problem-details response carrying `Retry-After`, so the route is
+     * never resolved.
+     */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         if (!Config::getBool('ratelimit.http.enabled', false)) {

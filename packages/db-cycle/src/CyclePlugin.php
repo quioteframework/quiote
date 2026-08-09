@@ -15,6 +15,7 @@ use Quiote\Plugin\PluginRegistrar;
 #[PluginAttribute(name: 'quiote/cycle')]
 final class CyclePlugin implements PluginInterface
 {
+    /** Registers `cycle` as a database driver alias for {@see CycleDatabase}. */
     public function register(PluginRegistrar $registrar): void
     {
         $registrar->databaseDriver('cycle', CycleDatabase::class);

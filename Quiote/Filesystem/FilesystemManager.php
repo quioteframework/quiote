@@ -22,6 +22,16 @@ final readonly class FilesystemManager
     ) {
     }
 
+    /**
+     * Resolves a disk by driver alias, defaulting to the configured `filesystem.default_disk`.
+     *
+     * The alias is mapped to a class through {@see FilesystemDriverRegistry} and the instance comes
+     * from the container, so a driver registered as a singleton is shared across calls rather than
+     * rebuilt per operation.
+     *
+     * @throws     RuntimeException If the alias is unknown, or the class the container returned
+     *             does not implement {@see FilesystemAdapterInterface}.
+     */
     public function disk(?string $alias = null): FilesystemAdapterInterface
     {
         $class = FilesystemDriverRegistry::instantiateClassFor($alias ?? $this->config->defaultDisk);
@@ -39,21 +49,25 @@ final readonly class FilesystemManager
         return $adapter;
     }
 
+    /** Reads $path from the default disk. */
     public function read(string $path): string
     {
         return $this->disk()->read($path);
     }
 
+    /** Writes $contents to $path on the default disk. */
     public function write(string $path, string $contents): void
     {
         $this->disk()->write($path, $contents);
     }
 
+    /** Deletes $path from the default disk. */
     public function delete(string $path): void
     {
         $this->disk()->delete($path);
     }
 
+    /** Reports whether $path exists on the default disk. */
     public function exists(string $path): bool
     {
         return $this->disk()->exists($path);

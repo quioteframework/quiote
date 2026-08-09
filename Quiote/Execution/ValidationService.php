@@ -100,6 +100,13 @@ class ValidationService
         );
     }
 
+    /**
+     * Returns the validation manager the service is working with.
+     *
+     * The manager captured by the most recent validation run wins, so callers inspecting
+     * errors afterwards see the one the validators actually ran against. Before any run it
+     * falls back to the manager injected at construction, and is null when neither exists.
+     */
     public function getValidationManager(): ?ValidationManager
     {
         return $this->activeManager ?? $this->manager;

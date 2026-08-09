@@ -277,6 +277,15 @@ abstract class Renderer extends ParameterHolder implements ResetInterface
 	 */
 	abstract public function render(TemplateLayer $layer, array &$attributes = [], array &$slots = [], array &$moreAssigns = []);
 
+	/**
+	 * Returns the renderer to its post-construction state so the instance can
+	 * be reused for another rendering.
+	 *
+	 * Drops the context, resets the variable names, extraction flag and default
+	 * extension to their defaults, empties the assigns and "more assign" name
+	 * map, clears the inherited parameters, and unsets the per-render layer,
+	 * attributes, slots and more-assigns references.
+	 */
 	#[\Override]
     public function reset() : void
 	{

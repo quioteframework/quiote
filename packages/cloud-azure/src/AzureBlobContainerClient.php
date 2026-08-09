@@ -31,12 +31,24 @@ final class AzureBlobContainerClient implements ObjectStoreClientInterface
     ) {
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * Reads from the bound container. A container that has not been created yet reads as null,
+     * the same answer a missing blob gives.
+     */
     #[\Override]
     public function get(string $key): ?string
     {
         return $this->client->get($this->container, $key);
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * The bound container is created on the first write of this instance's lifetime and the
+     * result remembered, so later writes cost one request rather than two.
+     */
     #[\Override]
     public function put(string $key, string $body): void
     {
@@ -44,12 +56,23 @@ final class AzureBlobContainerClient implements ObjectStoreClientInterface
         $this->client->put($this->container, $key, $body);
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * Deletes from the bound container; the container itself is never created for a delete.
+     */
     #[\Override]
     public function delete(string $key): void
     {
         $this->client->delete($this->container, $key);
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * Issues an Azure Get Blob Properties request against the bound container, so no body is
+     * transferred.
+     */
     #[\Override]
     public function head(string $key): ?ObjectMetadata
     {
@@ -64,6 +87,7 @@ final class AzureBlobContainerClient implements ObjectStoreClientInterface
         return $this->client;
     }
 
+    /** Returns the name of the container every key on this client resolves against. */
     public function container(): string
     {
         return $this->container;

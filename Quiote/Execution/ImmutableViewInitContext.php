@@ -9,6 +9,24 @@ use Psr\Http\Message\ResponseInterface;
 use Quiote\Http\PsrResponseAdapter;
 use Quiote\Util\AttributeHolder; // to expose action attributes via standard view API
 
+/**
+ * The {@see ViewInitContext} a view is initialized with: a fixed snapshot of the dispatch
+ * that produced it.
+ *
+ * Built by the executor, {@see ViewFactory} and the view test harness once the action has
+ * finished, from the view module and name, the output type, the originating action's module
+ * and name, and the action's attributes at that moment. The attributes are copied into the
+ * inherited {@see AttributeHolder} so `View::getAttribute()` works, and `View` treats a
+ * `ViewInitContext` as immutable, ignoring later `setAttribute()` calls.
+ *
+ * {@see getPsrResponse()} wraps the {@see WebResponse} in a {@see PsrResponseAdapter} on
+ * first use unless a PSR-7 response was supplied at construction.
+ *
+ * The `getModuleName()`, `getOutputType()`, `getParameter()` and `getParameters()` members
+ * serve views written against a container-style API: no parameters are stored here, so those
+ * two answer the supplied default and an empty array respectively — raw request parameters
+ * are not reachable from a view through this object.
+ */
 final class ImmutableViewInitContext extends AttributeHolder implements ViewInitContext
 {
     /**
@@ -34,26 +52,32 @@ final class ImmutableViewInitContext extends AttributeHolder implements ViewInit
         }
     }
 
+    /** {@inheritDoc} */
     public function getContext(): Context
     {
         return $this->context;
     }
+    /** {@inheritDoc} */
     public function getViewModuleName(): string
     {
         return $this->viewModule;
     }
+    /** {@inheritDoc} */
     public function getViewName(): string
     {
         return $this->viewName;
     }
+    /** {@inheritDoc} */
     public function getOutputTypeName(): string
     {
         return $this->outputType;
     }
+    /** {@inheritDoc} */
     public function getActionModuleName(): ?string
     {
         return $this->actionModule;
     }
+    /** {@inheritDoc} */
     public function getActionName(): ?string
     {
         return $this->actionName;
@@ -63,11 +87,19 @@ final class ImmutableViewInitContext extends AttributeHolder implements ViewInit
     {
         return $this->actionAttributes;
     }
+    /** {@inheritDoc} */
     public function getResponse(): WebResponse
     {
         return $this->response;
     }
 
+    /**
+     * Returns the PSR-7 response backing this context, never null.
+     *
+     * An explicitly supplied response is returned as-is. Otherwise the WebResponse is
+     * wrapped in a PsrResponseAdapter on first call and that adapter is retained, so
+     * repeated calls hand back the same instance.
+     */
     public function getPsrResponse(): ResponseInterface
     {
         // If an explicit PSR response was provided use it; otherwise wrap the
@@ -111,6 +143,7 @@ final class ImmutableViewInitContext extends AttributeHolder implements ViewInit
         // Provide a tiny proxy object exposing getName() only.
         return new readonly class($this->outputType) implements OutputTypeNameProvider {
             public function __construct(private string $n) {}
+            /** {@inheritDoc} */
             public function getName(): string
             {
                 return $this->n;

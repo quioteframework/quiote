@@ -38,6 +38,14 @@ final class OutputCapture
     {
     }
 
+    /**
+     * Opens the capture buffer for one request.
+     *
+     * Records the buffer level beneath it and the level of its own buffer, which
+     * is what lets {@see self::finish()} detect application code closing past
+     * it. Calling this while a capture is already open does nothing, so the
+     * nesting stays balanced.
+     */
     public function start(): void
     {
         if ($this->active) {

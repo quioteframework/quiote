@@ -227,6 +227,9 @@ class ParameterHolder implements ResetInterface
 		}
 	}
 
+	/**
+	 * Removes every parameter held, leaving the holder empty for reuse.
+	 */
 	public function reset() : void
 	{
 		$this->clearParameters();

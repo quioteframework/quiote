@@ -13,6 +13,13 @@ use Quiote\Exception\ValidatorException;
  */
 class ArraylengthValidator extends Validator
 {
+	/**
+	 * Returns the base Validator parameters plus 'min' and 'max'.
+	 *
+	 * 'min' and 'max' bound the element count of the array being validated;
+	 * each is optional and only checked when present.
+	 * @return     array<int, string> The accepted parameter names.
+	 */
 	#[\Override]
 	public static function getAcceptedParameters(): array
 	{

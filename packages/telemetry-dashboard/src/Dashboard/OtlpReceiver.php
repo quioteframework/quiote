@@ -55,6 +55,15 @@ final class OtlpReceiver
     ) {
     }
 
+    /**
+     * Binds the TCP socket and registers the accept watcher on the Revolt
+     * event loop.
+     *
+     * The socket is non-blocking and serviced cooperatively, so this returns
+     * immediately; connections are only handled once the loop runs.
+     *
+     * @throws \RuntimeException if the address cannot be bound
+     */
     public function start(): void
     {
         $address = sprintf('tcp://%s:%d', $this->host, $this->port);
@@ -71,6 +80,13 @@ final class OtlpReceiver
         });
     }
 
+    /**
+     * Cancels the accept watcher and every per-connection watcher, drops the
+     * buffered parsers and closes the listening socket.
+     *
+     * Safe to call when the receiver was never started or is already stopped;
+     * each step is guarded.
+     */
     public function stop(): void
     {
         if ($this->acceptWatcherId !== null) {
@@ -90,6 +106,12 @@ final class OtlpReceiver
         }
     }
 
+    /**
+     * The `http://host:port` base URL an OTLP/HTTP exporter should be pointed
+     * at, using the actually bound port.
+     *
+     * @throws \LogicException if called before {@see start()}
+     */
     public function endpoint(): string
     {
         return sprintf('http://%s:%d', $this->host, $this->boundPort());

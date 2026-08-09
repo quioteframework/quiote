@@ -13,6 +13,14 @@ use Symfony\Contracts\Service\ResetInterface;
  */
 class OroperatorValidator extends OperatorValidator implements ResetInterface
 {
+	/**
+	 * Returns the base and OperatorValidator parameters plus 'break'.
+	 *
+	 * 'break' stops the group as soon as one child succeeds instead of running
+	 * the remaining ones; a CRITICAL child result breaks out regardless of it.
+	 * 'skip_errors' comes from OperatorValidator.
+	 * @return     array<int, string> The accepted parameter names.
+	 */
 	#[\Override]
 	public static function getAcceptedParameters(): array
 	{
@@ -56,6 +64,13 @@ class OroperatorValidator extends OperatorValidator implements ResetInterface
 		return $return;
 	}
 
+	/**
+	 * Returns the operator to its initial state for reuse across requests.
+	 *
+	 * Resets the inherited state through OperatorValidator::reset(), then
+	 * drops the children and puts the result back to SUCCESS, so the
+	 * validator has to be re-registered before it does anything again.
+	 */
 	#[\Override]
     public function reset() : void
 	{

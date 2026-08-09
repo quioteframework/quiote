@@ -78,11 +78,18 @@ final class ValidatorBuilder
 		return $this->method;
 	}
 
+	/** Returns the context this builder initializes every validator it creates against. */
 	public function getContext(): Context
 	{
 		return $this->context;
 	}
 
+	/**
+	 * Registers a StringValidator on `$argument` and returns its spec.
+	 *
+	 * Length, trimming and UTF-8 handling are left at the validator's own
+	 * defaults; chain the corresponding ValidatorSpec setters to change them.
+	 */
 	public function string(string $argument, bool $required = true): ValidatorSpec
 	{
 		return $this->add(new StringValidator(), [$argument], ['required' => $required]);
@@ -100,36 +107,69 @@ final class ValidatorBuilder
 		return $this->add(new InarrayValidator(), [$argument], ['values' => $values, 'sep' => ',', 'required' => $required]);
 	}
 
+	/** Registers an EmailValidator on `$argument` and returns its spec. */
 	public function email(string $argument, bool $required = true): ValidatorSpec
 	{
 		return $this->add(new EmailValidator(), [$argument], ['required' => $required]);
 	}
 
+	/**
+	 * Registers a NumberValidator on `$argument` and returns its spec.
+	 *
+	 * No bounds or numeric type are set here; chain `min()`, `max()`, `type()`
+	 * or `castTo()` on the returned spec for those.
+	 */
 	public function number(string $argument, bool $required = true): ValidatorSpec
 	{
 		return $this->add(new NumberValidator(), [$argument], ['required' => $required]);
 	}
 
+	/** Registers a BooleanValidator on `$argument`, accepting any literal BooleanValidator recognises, and returns its spec. */
 	public function boolean(string $argument, bool $required = true): ValidatorSpec
 	{
 		return $this->add(new BooleanValidator(), [$argument], ['required' => $required]);
 	}
 
+	/**
+	 * Registers a RegexValidator on `$argument` and returns its spec.
+	 *
+	 * `$pattern` is a full PCRE pattern including delimiters. Passing false for
+	 * `$shouldMatch` inverts the test, so the value passes only when the
+	 * pattern does not match.
+	 */
 	public function regex(string $argument, string $pattern, bool $shouldMatch = true, bool $required = true): ValidatorSpec
 	{
 		return $this->add(new RegexValidator(), [$argument], ['pattern' => $pattern, 'match' => $shouldMatch, 'required' => $required]);
 	}
 
+	/**
+	 * Registers an IsNotEmptyValidator on `$argument` and returns its spec.
+	 *
+	 * The value's content is not inspected at all; what counts as empty is
+	 * decided by the request data holder.
+	 */
 	public function isNotEmpty(string $argument, bool $required = true): ValidatorSpec
 	{
 		return $this->add(new IsNotEmptyValidator(), [$argument], ['required' => $required]);
 	}
 
+	/**
+	 * Registers an IssetValidator on `$argument` and returns its spec.
+	 *
+	 * Only presence is checked, so an argument that is set but empty still
+	 * passes; the content is never looked at.
+	 */
 	public function isSet(string $argument, bool $required = true): ValidatorSpec
 	{
 		return $this->add(new IssetValidator(), [$argument], ['required' => $required]);
 	}
 
+	/**
+	 * Registers a JsonValidator on `$argument` and returns its spec.
+	 *
+	 * The decoded value is only written back if an `export` target is set on
+	 * the returned spec; otherwise the argument keeps its raw JSON string.
+	 */
 	public function json(string $argument, bool $required = true): ValidatorSpec
 	{
 		return $this->add(new JsonValidator(), [$argument], ['required' => $required]);

@@ -10,5 +10,6 @@ namespace Quiote\Execution;
  */
 interface OutputTypeNameProvider
 {
+    /** Returns the name of the output type. */
     public function getName(): string;
 }

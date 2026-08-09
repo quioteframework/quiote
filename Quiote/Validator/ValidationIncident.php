@@ -191,6 +191,13 @@ class ValidationIncident implements ResetInterface
 		return $errors;
 	}
 
+	/**
+	 * Returns the incident to its initial state for reuse across requests.
+	 *
+	 * Detaches the validator that raised it, drops the collected errors and
+	 * puts the severity back to the default {@see Validator::ERROR}. The
+	 * discarded errors are not themselves reset.
+	 */
 	public function reset() : void
 	{
 		$this->validator = null;

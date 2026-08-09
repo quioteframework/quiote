@@ -127,6 +127,23 @@ class SessionManager
         return $this->cookieName;
     }
 
+    /**
+     * Resolves the request's session cookie into a {@see Session}, or creates a
+     * fresh one.
+     *
+     * The cookie value must match the generated-id format before storage is even
+     * consulted, so a malformed or attacker-supplied id costs no backend lookup.
+     * A loaded record is then handled one of three ways: a redirect marker left
+     * by a previous rotation resolves to the new id and is deleted on the spot
+     * (one-shot, so the old id stops working immediately afterwards); a record
+     * past its idle or absolute timeout is deleted; anything else is returned as
+     * a not-new session with its activity timestamps touched.
+     *
+     * When the cookie is missing, malformed, unknown to storage, expired, or its
+     * redirect could not be resolved, a new session is returned with a freshly
+     * generated id, marked new and clean — which is what keeps an anonymous
+     * request from costing a persisted row or a Set-Cookie.
+     */
     public function startFromRequest(ServerRequestInterface $request): Session
     {
         $cookies = $request->getCookieParams();
@@ -300,6 +317,19 @@ class SessionManager
         return $this->touch(new Session($target, $targetData, false));
     }
 
+    /**
+     * Writes a dirty session to storage and returns the response with the
+     * session cookie added.
+     *
+     * The write only happens when the session is dirty, and the timeout
+     * timestamps are stamped on just before it. The Set-Cookie is added when the
+     * session is dirty or was loaded from storage — an untouched brand-new
+     * session gets neither a row nor a cookie, while an existing one has its
+     * cookie refreshed on every response for sliding expiration.
+     *
+     * The session's dirty flag is left as it was; call {@see persist()} instead
+     * when the write must also clear it.
+     */
     public function persistAndBakeCookies(Session $session, ResponseInterface $response): ResponseInterface
     {
         if ($session->isDirty()) {
@@ -459,6 +489,15 @@ class SessionManager
         return hash('sha256', $ua);
     }
 
+    /**
+     * Deletes the session from storage and rebinds the handle to a fresh, empty
+     * id.
+     *
+     * Used at logout: the pre-logout id is removed outright with no grace
+     * window, so it is neither replayable nor inheritable. The passed
+     * {@see Session} stays usable — it keeps the new id, empty data and a dirty
+     * flag, so anything written afterwards is persisted under the new id.
+     */
     public function destroy(Session $session): void
     {
         $old = $session->getId();
@@ -470,6 +509,13 @@ class SessionManager
         $session->markDirty();
     }
 
+    /**
+     * Removes a session record from storage by id.
+     *
+     * Takes a bare id rather than a {@see Session}, for callers that only hold
+     * one — an administrative "sign this user out everywhere". An empty id is
+     * ignored, so no backend call is made for a session that was never persisted.
+     */
     public function delete(string $sid): void
     {
         if ($sid !== '') {

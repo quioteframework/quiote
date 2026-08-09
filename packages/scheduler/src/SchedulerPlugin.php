@@ -18,6 +18,14 @@ use Quiote\DI\Container;
 #[PluginAttribute(name: 'quiote/scheduler')]
 final class SchedulerPlugin implements PluginInterface
 {
+    /**
+     * Registers the scheduler's services and console command.
+     *
+     * Binds {@see Schedule} as a singleton to an anonymous subclass that
+     * defines no tasks, so an app that has not bound its own schedule runs
+     * nothing instead of failing; binds {@see SchedulerLock} as a singleton
+     * over the configured cache; and registers `schedule:run`.
+     */
     public function register(PluginRegistrar $registrar): void
     {
         // The schedule holds the tasks an application registers against it, so it has to be the same

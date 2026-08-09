@@ -15,5 +15,14 @@ use Quiote\Validator\Compiler\Ir\ValidatorPlan;
  */
 interface EmitterInterface
 {
+	/**
+	 * Turns a validator plan into a PHP artifact.
+	 *
+	 * Implementations must be pure with respect to the filesystem: the
+	 * artifact is returned, never written, so the caller decides between
+	 * committing it and diffing it against what is already on disk. The same
+	 * plan must always produce the same artifact, since the checksum carried
+	 * on the artifact is what makes a --check comparison meaningful.
+	 */
 	public function emit(ValidatorPlan $plan): EmittedArtifact;
 }

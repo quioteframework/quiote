@@ -28,11 +28,17 @@ final class ReceivedSpan
     ) {
     }
 
+    /**
+     * The span's wall-clock duration in nanoseconds, clamped at zero so an
+     * end timestamp that precedes the start one never yields a negative
+     * duration.
+     */
     public function durationNanos(): int
     {
         return max(0, $this->endTimeUnixNano - $this->startTimeUnixNano);
     }
 
+    /** The span's duration in milliseconds, derived from {@see durationNanos()}. */
     public function durationMillis(): float
     {
         return $this->durationNanos() / 1_000_000.0;
@@ -44,11 +50,16 @@ final class ReceivedSpan
         return $this->statusCode === 2;
     }
 
+    /** Whether this is the trace's root span, i.e. it carries no parent span ID. */
     public function isRoot(): bool
     {
         return $this->parentSpanId === null;
     }
 
+    /**
+     * The `service.name` resource attribute, or null when the exporter sent
+     * no such attribute or sent a non-string value for it.
+     */
     public function serviceName(): ?string
     {
         $value = $this->resourceAttributes['service.name'] ?? null;

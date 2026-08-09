@@ -38,6 +38,13 @@ interface WorkerRuntimeInterface
      */
     public static function detectionPriority(): int;
 
+    /**
+     * Describes what this host does for itself, so {@see WorkerLoop} knows which
+     * off-SAPI compensations to apply.
+     *
+     * Read once when the loop is built; the answer must not vary between
+     * requests on the same runtime instance.
+     */
     public function capabilities(): WorkerRuntimeCapabilities;
 
     /**

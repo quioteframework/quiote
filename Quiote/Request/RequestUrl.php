@@ -26,36 +26,77 @@ final class RequestUrl
     ) {
     }
 
+    /**
+     * Returns a copy using the given scheme.
+     *
+     * The stored request URI and full URL are carried over untouched, so they
+     * keep whatever they were derived from; {@see fullUrl()} recomputes the
+     * absolute URL from the current scheme, host and port instead.
+     */
     public function withScheme(string $scheme): self
     {
         return new self($this->protocol, $scheme, $this->host, $this->port, $this->path, $this->query, $this->requestUri, $this->url);
     }
 
+    /**
+     * Returns a copy using the given host.
+     *
+     * The host is stored as given, without trusted-host filtering -- that is
+     * applied by the factories that read a host off the request.
+     */
     public function withHost(string $host): self
     {
         return new self($this->protocol, $this->scheme, $host, $this->port, $this->path, $this->query, $this->requestUri, $this->url);
     }
 
+    /**
+     * Returns a copy using the given port.
+     *
+     * Pass 0 to leave the port unset, in which case {@see effectivePort()}
+     * answers with the scheme's default.
+     */
     public function withPort(int $port): self
     {
         return new self($this->protocol, $this->scheme, $this->host, $port, $this->path, $this->query, $this->requestUri, $this->url);
     }
 
+    /**
+     * Returns a copy whose request URI is the given string.
+     *
+     * The path and query components are kept as they are, so a caller
+     * replacing the request URI is responsible for keeping them in step.
+     */
     public function withRequestUri(string $requestUri): self
     {
         return new self($this->protocol, $this->scheme, $this->host, $this->port, $this->path, $this->query, $requestUri, $this->url);
     }
 
+    /**
+     * Returns a copy using the given path.
+     *
+     * The stored request URI is not rebuilt from it.
+     */
     public function withPath(string $path): self
     {
         return new self($this->protocol, $this->scheme, $this->host, $this->port, $path, $this->query, $this->requestUri, $this->url);
     }
 
+    /**
+     * Returns a copy using the given query string, without the leading `?`.
+     *
+     * The stored request URI is not rebuilt from it.
+     */
     public function withQuery(string $query): self
     {
         return new self($this->protocol, $this->scheme, $this->host, $this->port, $this->path, $query, $this->requestUri, $this->url);
     }
 
+    /**
+     * Returns a copy using the given protocol string, e.g. `HTTP/1.1`.
+     *
+     * Pass null for a request whose protocol is unknown, such as one built
+     * outside a SAPI.
+     */
     public function withProtocol(?string $protocol): self
     {
         return new self($protocol, $this->scheme, $this->host, $this->port, $this->path, $this->query, $this->requestUri, $this->url);
@@ -77,17 +118,28 @@ final class RequestUrl
         return $this->port;
     }
 
+    /**
+     * Returns the authority as `host[:port]`.
+     *
+     * The port is appended only when it is not the scheme's default, unless
+     * `$forcePort` asks for it unconditionally.
+     */
     public function authority(bool $forcePort = false): string
     {
         $port = $this->effectivePort();
         return $this->host . ($forcePort || Toolkit::isPortNecessary($this->scheme, $port) ? ':' . $port : '');
     }
 
+    /**
+     * Returns the absolute URL, recomputed from the current scheme, authority
+     * and request URI rather than from the stored `url` property.
+     */
     public function fullUrl(): string
     {
         return $this->scheme . '://' . $this->authority() . $this->requestUri;
     }
 
+    /** Reports whether the scheme is exactly `https`. */
     public function isHttps(): bool
     {
         return $this->scheme === 'https';

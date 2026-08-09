@@ -30,6 +30,16 @@ class OutputTypeConfigHandler extends XmlConfigHandler implements IArrayConfigHa
 {
 	const XML_NAMESPACE = 'http://quiote.dev/quiote/config/parts/output_types/1.1';
 
+	/**
+	 * Returns the structural rule for the output-type configuration.
+	 *
+	 * Describes a top-level `default` output-type name plus an `output_types`
+	 * map, each entry carrying its parameters, renderers, layouts and their
+	 * layers and slots. Every key inside those sub-structures is required in
+	 * the canonical array because the compilation step fills in the same
+	 * defaults XML attributes supply, so a terse PHP or YAML source still
+	 * arrives here complete.
+	 */
 	public function schema(): Rule
 	{
 		$slot = Rule::struct([

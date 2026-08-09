@@ -65,6 +65,18 @@ final class McpConfig
         }
     }
 
+    /**
+     * Reads the whole `mcp.*` family out of {@see Config} into one immutable
+     * snapshot, applying the fallback defaults for anything the app (or
+     * {@see McpPlugin}) has not published.
+     *
+     * Validation happens in the constructor, so a bad `mcp.auth` value or an
+     * `oauth2` setup missing its issuer/audience fails here rather than at the
+     * first request.
+     *
+     * @throws QuioteException if `mcp.auth` is not one of {@see AUTH_MODES}, or
+     *         is `oauth2` without `mcp.oauth.issuer` and `mcp.oauth.audience`.
+     */
     public static function fromConfig(): self
     {
         return new self(

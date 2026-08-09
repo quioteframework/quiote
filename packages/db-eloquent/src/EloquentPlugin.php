@@ -16,6 +16,7 @@ use Quiote\Plugin\PluginRegistrar;
 #[PluginAttribute(name: 'quiote/eloquent')]
 final class EloquentPlugin implements PluginInterface
 {
+    /** Registers `eloquent` as a database driver alias for {@see EloquentDatabase}. */
     public function register(PluginRegistrar $registrar): void
     {
         $registrar->databaseDriver('eloquent', EloquentDatabase::class);

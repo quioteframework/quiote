@@ -426,6 +426,13 @@ class ValidationReport implements IValidationReportQuery, ResetInterface
 		return $this->createQuery()->count();
 	}
 
+	/**
+	 * Returns the report to its initial state for reuse across requests.
+	 *
+	 * Clears the per-argument results, the incidents and the provided
+	 * dependency tokens, and puts the cached overall result back to null so
+	 * that the next query recomputes it from scratch.
+	 */
 	public function reset(): void {
 		$this->argumentResults = [];
 		$this->result = null;

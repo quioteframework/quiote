@@ -20,6 +20,7 @@ final class NetworkException extends TransportException implements NetworkExcept
         parent::__construct($message, 0, $previous);
     }
 
+    /** Returns the request that could not be completed, as handed to the constructor. */
     public function getRequest(): RequestInterface
     {
         return $this->request;

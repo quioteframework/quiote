@@ -33,32 +33,56 @@ final class Session
     ) {
     }
 
+    /**
+     * Whether this session was generated for the current request rather than
+     * loaded from persistence.
+     *
+     * Stays true for the life of the request even after writes; combine with
+     * {@see isDirty()} to tell an untouched brand-new session apart from one
+     * that has acquired state and needs persisting.
+     */
     public function isNew(): bool
     {
         return $this->new;
     }
 
+    /** Returns the session id, which {@see replaceId()} changes on regeneration. */
     public function getId(): string
     {
         return $this->sid;
     }
 
+    /** Returns the value stored under the key, or $default when it is absent. */
     public function get(string $key, mixed $default = null): mixed
     {
         return $this->data[$key] ?? $default;
     }
 
+    /** Whether the key is present, including when its stored value is null. */
     public function has(string $key): bool
     {
         return array_key_exists($key, $this->data);
     }
 
+    /**
+     * Stores a value under the key and marks the session dirty.
+     *
+     * The dirty flag is what makes {@see SessionManager::persistAndBakeCookies()}
+     * write the session out at the end of the request, so a write is always
+     * unconditional here — no value comparison is made against what was there.
+     */
     public function set(string $key, mixed $value): void
     {
         $this->data[$key] = $value;
         $this->dirty = true;
     }
 
+    /**
+     * Drops the key from the session and marks it dirty.
+     *
+     * The session is marked dirty whether or not the key was present, so a
+     * removal of an absent key still triggers a write at the end of the request.
+     */
     public function remove(string $key): void
     {
         unset($this->data[$key]);
@@ -73,6 +97,7 @@ final class Session
         return $this->data;
     }
 
+    /** Whether the session has unwritten changes, i.e. a write happened since it was last marked clean. */
     public function isDirty(): bool
     {
         return $this->dirty;
@@ -94,11 +119,13 @@ final class Session
         $this->data = $data;
     }
 
+    /** Forces the dirty flag on, so the session is written out even without a {@see set()} or {@see remove()}. */
     public function markDirty(): void
     {
         $this->dirty = true;
     }
 
+    /** Clears the dirty flag, which {@see SessionManager} does once the session has been persisted. */
     public function markClean(): void
     {
         $this->dirty = false;

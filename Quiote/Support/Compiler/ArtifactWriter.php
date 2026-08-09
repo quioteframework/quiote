@@ -10,5 +10,12 @@ namespace Quiote\Support\Compiler;
  */
 interface ArtifactWriter
 {
+	/**
+	 * Persists the artifact's PHP source at $target.
+	 *
+	 * Implementations must create whatever parent structure $target needs, and
+	 * must never leave a partially written artifact visible at that path: either
+	 * the complete artifact is there afterwards, or an exception is thrown.
+	 */
 	public function write(EmittedArtifact $artifact, string $target): void;
 }

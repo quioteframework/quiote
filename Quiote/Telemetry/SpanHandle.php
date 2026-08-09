@@ -16,6 +16,10 @@ interface SpanHandle
      */
     public function updateName(string $name): static;
 
+    /**
+     * Sets a single attribute on the span, replacing any previous value for
+     * that key.
+     */
     public function setAttribute(string $key, mixed $value): static;
 
     /** @param array<string,mixed> $attributes */
@@ -24,10 +28,26 @@ interface SpanHandle
     /** @param array<string,mixed> $attributes */
     public function addEvent(string $name, array $attributes = []): static;
 
+    /**
+     * Attaches $e to the span as an exception event.
+     *
+     * Recording an exception does not by itself mark the span as failed —
+     * call {@see setStatusError()} for that.
+     */
     public function recordException(\Throwable $e): static;
 
+    /**
+     * Marks the span's status as an error, optionally with a human-readable
+     * description of what went wrong.
+     */
     public function setStatusError(?string $description = null): static;
 
+    /**
+     * Ends the span, fixing its duration and handing it to the exporter.
+     *
+     * Idempotent: later calls, and any mutation attempted after the first one,
+     * have no effect.
+     */
     public function end(): void;
 
     /**

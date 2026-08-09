@@ -26,6 +26,13 @@ class ValidationResult
         return $errors;
     }
 
+    /**
+     * Returns the validation trace carried in the result data, or null when none was recorded.
+     *
+     * Tracing is optional, so an absent entry is the normal case rather than an error.
+     *
+     * @throws \UnexpectedValueException If the data holds a "trace" entry that is not a ValidationTrace.
+     */
     public function getTrace(): ?ValidationTrace
     {
         $trace = $this->data['trace'] ?? null;

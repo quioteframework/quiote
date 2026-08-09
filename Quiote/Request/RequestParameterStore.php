@@ -44,11 +44,25 @@ final class RequestParameterStore
         return array_keys($this->runtimeParameters);
     }
 
+    /**
+     * Reports whether a runtime parameter of that exact name is present.
+     *
+     * A top-level key check only: nested bracket paths are not resolved, and
+     * the whitelist is not consulted, so a caller enforcing strict validation
+     * must still ask {@see isWhitelisted()}.
+     */
     public function has(string $name): bool
     {
         return array_key_exists($name, $this->runtimeParameters);
     }
 
+    /**
+     * Returns the runtime parameter of that exact name, or null when it is not set.
+     *
+     * A top-level key lookup only, with no nested bracket-path resolution and
+     * no whitelist check; a stored null is indistinguishable from a missing
+     * parameter, so pair it with {@see has()} when that matters.
+     */
     public function get(string $name): mixed
     {
         return $this->runtimeParameters[$name] ?? null;
@@ -218,6 +232,12 @@ final class RequestParameterStore
         return new self($runtimeParameters, $this->validatedKeys);
     }
 
+    /**
+     * Returns a copy with every runtime parameter dropped.
+     *
+     * The strict-validation whitelist is kept, so names already declared stay
+     * readable once they are set again.
+     */
     public function withCleared(): self
     {
         return new self([], $this->validatedKeys);
@@ -239,6 +259,12 @@ final class RequestParameterStore
         return new self($this->runtimeParameters, $validatedKeys);
     }
 
+    /**
+     * Returns a copy with the given name whitelisted for strict-validation access.
+     *
+     * An empty name is ignored and this instance is returned unchanged. No
+     * runtime value is created; the name merely becomes readable once one is.
+     */
     public function withDeclaredParameter(string $name): self
     {
         if ($name === '') {
@@ -268,6 +294,13 @@ final class RequestParameterStore
         return new self($this->runtimeParameters, $validatedKeys);
     }
 
+    /**
+     * Reports whether the name may be read back out under strict validation.
+     *
+     * True when the name was declared verbatim, or when its numeric bracket
+     * indices normalise onto a declared wildcard form -- so a validator
+     * declaring `items[]` also covers `items[0]`, `items[1]` and so on.
+     */
     public function isWhitelisted(string $name): bool
     {
         if (isset($this->validatedKeys[$name])) {

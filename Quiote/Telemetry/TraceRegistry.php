@@ -39,16 +39,31 @@ final class TraceRegistry
     /** @var array<string,bool> memoized resolved enabled-state per exact category */
     private static array $resolvedCategories = [];
 
+    /**
+     * Sets the process-wide master switch for telemetry.
+     *
+     * Only stores the flag; providers, categories and their memoized
+     * resolutions are untouched, so turning telemetry back on resumes with the
+     * same configuration. {@see Trace} consults this before every operation.
+     */
     public static function setEnabled(bool $enabled): void
     {
         self::$enabled = $enabled;
     }
 
+    /** Whether the process-wide master switch is on. Off until something sets it. */
     public static function isEnabled(): bool
     {
         return self::$enabled;
     }
 
+    /**
+     * Enables or disables a dot-namespaced category prefix, and discards the
+     * memoized per-category resolutions so the change takes effect immediately.
+     *
+     * A `false` entry cascades unconditionally over the whole subtree beneath
+     * the prefix; see {@see isCategoryEnabled()} for the full resolution rules.
+     */
     public static function setCategoryEnabled(string $categoryPrefix, bool $enabled): void
     {
         self::$categoryEnabled[$categoryPrefix] = $enabled;
@@ -64,6 +79,14 @@ final class TraceRegistry
         self::$resolvedCategories = [];
     }
 
+    /**
+     * Sets the answer {@see isCategoryEnabled()} gives a category with no
+     * matching entry anywhere on its prefix chain, and discards the memoized
+     * resolutions so the change takes effect immediately.
+     *
+     * True until set otherwise, so categories record unless something opts them
+     * out.
+     */
     public static function setDefaultCategoryEnabled(bool $enabled): void
     {
         self::$defaultCategoryEnabled = $enabled;
@@ -122,16 +145,34 @@ final class TraceRegistry
         self::$meterHandle = null;
     }
 
+    /**
+     * Whether {@see setProviders()} has installed a real tracer provider.
+     *
+     * False whenever telemetry was never configured, was disabled, the
+     * OpenTelemetry SDK is not installed, or provider construction failed —
+     * which is why callers such as {@see Trace::current()} check it before
+     * touching any OTel class.
+     */
     public static function hasRealProvider(): bool
     {
         return self::$tracerProvider !== null;
     }
 
+    /**
+     * The installed tracer provider, or null when none has been configured for
+     * this worker. Callers wanting a tracer should use {@see tracer()}, which
+     * caches the single shared instance.
+     */
     public static function tracerProvider(): ?TracerProviderInterface
     {
         return self::$tracerProvider;
     }
 
+    /**
+     * The installed meter provider, or null when none has been configured for
+     * this worker. Callers wanting a meter should use {@see meter()}, which
+     * caches the single shared instance.
+     */
     public static function meterProvider(): ?MeterProviderInterface
     {
         return self::$meterProvider;

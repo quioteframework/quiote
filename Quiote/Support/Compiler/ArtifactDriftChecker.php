@@ -9,6 +9,13 @@ namespace Quiote\Support\Compiler;
  */
 final class ArtifactDriftChecker
 {
+	/**
+	 * Compares a freshly emitted artifact against the file currently at $target.
+	 *
+	 * A missing target, or one that cannot be read, counts as drift with a null
+	 * existing checksum; otherwise the result is in sync when the SHA-256 of the
+	 * file on disk equals the artifact's checksum. Nothing is written.
+	 */
 	public function check(EmittedArtifact $artifact, string $target): ArtifactDriftResult
 	{
 		if (!is_file($target)) {

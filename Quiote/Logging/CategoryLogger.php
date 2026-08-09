@@ -31,6 +31,7 @@ final class CategoryLogger implements LoggerInterface
 
     public function __construct(private readonly string $category) {}
 
+    /** Returns the category name this logger is bound to. */
     public function category(): string
     {
         return $this->category;

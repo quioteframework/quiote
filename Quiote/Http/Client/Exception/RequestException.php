@@ -20,6 +20,7 @@ final class RequestException extends TransportException implements RequestExcept
         parent::__construct($message, 0, $previous);
     }
 
+    /** Returns the malformed request that was rejected, as handed to the constructor. */
     public function getRequest(): RequestInterface
     {
         return $this->request;

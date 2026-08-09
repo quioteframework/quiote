@@ -658,6 +658,14 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 		parent::shutdown();
 	}
 
+	/**
+	 * Clears the authentication state on top of the parent reset.
+	 *
+	 * Forgets whether the user was authenticated, its credentials and credential
+	 * index, and any claims derived from a stateless token, then delegates to the
+	 * parent for the attribute and context state. Called between requests in a
+	 * long-running worker so no identity survives into the next one.
+	 */
 	#[\Override]
     public function reset() : void
 	{

@@ -17,8 +17,11 @@ final readonly class SlotContent implements SlotRenderable, \Stringable
     {
     }
 
+    /** Returns the module the slot action was dispatched from. */
     public function getModule(): string { return $this->module; }
+    /** Returns the name of the slot action that produced this content. */
     public function getAction(): string { return $this->action; }
+    /** Returns the output type the slot was rendered for, or null when the caller did not pin one. */
     public function getOutputType(): ?string { return $this->outputType; }
 
     /** @return array<string, mixed> */

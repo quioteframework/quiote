@@ -11,16 +11,28 @@ use Psr\Http\Message\ResponseInterface;
  */
 interface ViewInitContext
 {
+    /** Returns the application Context the view is rendering under. */
     public function getContext(): Context;
+    /** Returns the canonical name of the module hosting the view. */
     public function getViewModuleName(): string; // canonical module hosting the view
+    /** Returns the canonical name of the view being rendered. */
     public function getViewName(): string;       // canonical view name
+    /** Returns the lowercase name of the output type the view renders for. */
     public function getOutputTypeName(): string; // output type name (lowercase)
+    /**
+     * Returns the module of the action that selected this view.
+     *
+     * Null when the view was reached without an originating action, so callers
+     * that need a module name should fall back to the view module.
+     */
     public function getActionModuleName(): ?string; // originating action module (for slots/forwards)
+    /** Returns the name of the action that selected this view, or null when there was none. */
     public function getActionName(): ?string;       // originating action name
     /**
      * @return array<string, mixed>
      */
     public function getActionAttributes(): array;   // snapshot of action attributes (read-only for templates)
+    /** Returns the response the view writes its rendered output into. */
     public function getResponse(): WebResponse;   // canonical web response
     /**
      * Optional PSR-7 response adapter backing the legacy response.

@@ -28,6 +28,17 @@ use Quiote\Session\SessionPersistenceInterface;
  */
 final class AzureTableSessionFactory implements SessionFactoryInterface
 {
+    /**
+     * Builds table-backed session persistence from the slot's parameters.
+     *
+     * Reads `account_name`, `account_key`, an optional `endpoint` (empty means
+     * the public `*.table.core.windows.net` origin) and `table`, which defaults
+     * to `sessions`. The PSR-18 client comes from the container, not from the
+     * parameters.
+     *
+     * @param array<string, mixed> $parameters
+     * @throws \RuntimeException If no PSR-18 client is bound in the container.
+     */
     public function createPersistence(Context $context, array $parameters): SessionPersistenceInterface
     {
         $endpoint = AzureSessionParameters::str($parameters, 'endpoint');

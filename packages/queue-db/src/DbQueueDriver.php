@@ -40,6 +40,16 @@ final readonly class DbQueueDriver implements PollableQueueDriverInterface
     ) {
     }
 
+    /**
+     * Inserts the job as an unreserved row with a fresh random id.
+     *
+     * Params are stored as JSON, so they must be JSON-serializable. The row's
+     * `available_at` is {@see JobPayload::$availableAt} when set and the
+     * current time otherwise, which is what keeps a delayed job invisible to
+     * {@see self::reserve()} until it is due.
+     *
+     * @throws \JsonException if the payload params cannot be encoded.
+     */
     public function push(JobPayload $payload): void
     {
         $stmt = $this->pdo->prepare(sprintf(
@@ -55,6 +65,19 @@ final readonly class DbQueueDriver implements PollableQueueDriverInterface
         ]);
     }
 
+    /**
+     * Claims the oldest due, unreserved row and returns it as a reserved job.
+     *
+     * The claim stamps a random token and `reserved_at` onto exactly one row
+     * via UPDATE, then reads that row back by token. Returns null when the
+     * UPDATE matched nothing — the backlog holds no row that is both due
+     * (`available_at <= now`) and unreserved — or when the read-back finds no
+     * row for the token because another connection has since removed it.
+     *
+     * @throws \RuntimeException if the stored `job_class` does not implement
+     *         {@see Job}, or a column has an unusable type.
+     * @throws \JsonException if the stored params are not valid JSON.
+     */
     public function reserve(): ?ReservedJob
     {
         $now = time();
@@ -127,11 +150,19 @@ final readonly class DbQueueDriver implements PollableQueueDriverInterface
         return $result;
     }
 
+    /** Deletes the job's row, so a successfully processed job is never served again. */
     public function ack(ReservedJob $job): void
     {
         $this->deleteRow($job->id);
     }
 
+    /**
+     * Clears the reservation and makes the job due again after the delay.
+     *
+     * The stored attempt count is incremented, so a released job carries its
+     * retry history forward. A negative `$delaySeconds` is clamped to zero,
+     * making the job immediately due.
+     */
     public function release(ReservedJob $job, int $delaySeconds): void
     {
         $stmt = $this->pdo->prepare(sprintf(
@@ -145,6 +176,12 @@ final readonly class DbQueueDriver implements PollableQueueDriverInterface
         ]);
     }
 
+    /**
+     * Deletes the job's row after its retries are exhausted.
+     *
+     * Identical in effect to {@see self::ack()}; the dead-letter record has
+     * already been written by {@see \Quiote\Queue\JobExecutor}.
+     */
     public function discard(ReservedJob $job): void
     {
         $this->deleteRow($job->id);

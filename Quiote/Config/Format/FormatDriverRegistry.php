@@ -36,6 +36,14 @@ final class FormatDriverRegistry
 		}
 	}
 
+	/**
+	 * Appends a driver to the end of the resolution order.
+	 *
+	 * Order matters: {@see self::resolve()} returns the first driver whose
+	 * `supports()` matches, and {@see self::locate()} probes extensions in the
+	 * same order. A driver that resolves nested `parent`/`imports` references
+	 * is handed this registry, so those references can cross formats.
+	 */
 	public function register(FormatDriverInterface $driver): void
 	{
 		if ($driver instanceof AbstractArrayFormatDriver) {
@@ -65,6 +73,14 @@ final class FormatDriverRegistry
 		]);
 	}
 
+	/**
+	 * Returns the first registered driver that claims the given path.
+	 *
+	 * Drivers are asked in registration order, so an earlier registration wins
+	 * a tie.
+	 *
+	 * @throws ConfigurationException if no registered driver supports the path.
+	 */
 	public function resolve(string $path): FormatDriverInterface
 	{
 		foreach ($this->drivers as $driver) {

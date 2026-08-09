@@ -25,6 +25,13 @@ class RbacDefinitionConfigHandler extends XmlConfigHandler implements IArrayConf
 {
 	const XML_NAMESPACE = 'http://quiote.dev/quiote/config/parts/rbac_definitions/1.1';
 
+	/**
+	 * Returns the structural rule for the RBAC definitions.
+	 *
+	 * The canonical array is a flat map of role name to an entry holding the
+	 * role's optional parent and its list of permissions; the nesting XML
+	 * allows is already flattened into `parent` references by this point.
+	 */
 	public function schema(): Rule
 	{
 		return Rule::dictOf(Rule::struct([

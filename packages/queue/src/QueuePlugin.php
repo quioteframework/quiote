@@ -25,6 +25,16 @@ use Quiote\Queue\Console\QueueWorkCommand;
 #[PluginAttribute(name: 'quiote/queue')]
 final class QueuePlugin implements PluginInterface
 {
+    /**
+     * Publishes the `queue.*` config defaults, services and console commands.
+     *
+     * Registers the `sync` driver default and retry settings, a singleton
+     * {@see LogFailedJobStore} as the {@see FailedJobStoreInterface} binding,
+     * the {@see QueueConfig}/{@see JobExecutor}/{@see QueueWorker}/
+     * {@see QueueManager} singletons, and the `queue:work` and `queue:failed:*`
+     * commands. Because {@see PluginRegistrar::service()} only sets a binding
+     * that is absent, an app or a later plugin can override any of these.
+     */
     public function register(PluginRegistrar $registrar): void
     {
         $registrar->configDefault('queue.default_driver', 'sync');

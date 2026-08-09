@@ -31,6 +31,14 @@ final readonly class ObjectMetadata
     ) {
     }
 
+    /**
+     * Reads the typed fields out of a HEAD (or GET) response's headers.
+     *
+     * Each field independently becomes null when its header is absent or unusable: a
+     * `Content-Length` that is not all digits, an unparseable `Last-Modified`, an empty
+     * `ETag`. The ETag's surrounding quotes are stripped. Nothing throws — a response with
+     * none of the three headers yields an all-null instance.
+     */
     public static function fromResponse(ResponseInterface $response): self
     {
         $length = $response->getHeaderLine('Content-Length');

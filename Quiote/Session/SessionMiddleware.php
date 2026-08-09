@@ -45,6 +45,19 @@ class SessionMiddleware implements MiddlewareInterface
     ) {
     }
 
+    /**
+     * Loads or creates the session, runs the handler, then persists it and adds
+     * the Set-Cookie header to the response.
+     *
+     * The session is attached to the request as an attribute keyed by this
+     * class's name, and — when a context was given — also bound into the
+     * container as the request-scoped {@see SessionBagInterface}, so the
+     * framework's own session consumers share this session. Request state is
+     * flushed in a `finally`, so a user's roles and credentials are written
+     * before the session is serialized even when the handler throws; the
+     * exception itself is not caught and propagates without a cookie being
+     * baked.
+     */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $session = $this->sessionManager->startFromRequest($request);

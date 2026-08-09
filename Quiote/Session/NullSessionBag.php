@@ -24,38 +24,46 @@ namespace Quiote\Session;
  */
 final class NullSessionBag implements SessionBagInterface
 {
+    /** Always returns $default; nothing is ever stored. */
     public function get(string $key, mixed $default = null): mixed
     {
         return $default;
     }
 
+    /** Always false; no key is ever present. */
     public function has(string $key): bool
     {
         return false;
     }
 
+    /** Discards the value silently, so opportunistic writes need no session check. */
     public function set(string $key, mixed $value): void
     {
     }
 
+    /** No-op; there is nothing stored to remove. */
     public function remove(string $key): void
     {
     }
 
+    /** Always false, so callers persisting default or empty state skip their write entirely. */
     public function exists(): bool
     {
         return false;
     }
 
+    /** Always the empty string, the contract's "no session" id. */
     public function getId(): string
     {
         return '';
     }
 
+    /** No-op; with no id and no contents there is nothing to rotate. */
     public function regenerate(bool $deleteOld = true, bool $privilegeTransition = false): void
     {
     }
 
+    /** No-op; there is no session state to discard. */
     public function destroy(): void
     {
     }

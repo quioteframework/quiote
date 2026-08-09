@@ -131,6 +131,14 @@ class PhpRenderer extends Renderer implements IReusableRenderer, ResetInterface
 		return $retval !== false ? $retval : '';
 	}
 
+	/**
+	 * Returns the skeleton PHP template written for a newly scaffolded view.
+	 *
+	 * The echoed expression follows the renderer's current variable
+	 * configuration: a bare `$title` when `extract_vars` is on, otherwise the
+	 * `title` key of the configured template variable. The value is escaped in
+	 * the template itself, since a plain PHP template has no auto-escaping.
+	 */
 	#[\Override]
 	public function getStarterTemplate(): string
 	{
@@ -138,6 +146,13 @@ class PhpRenderer extends Renderer implements IReusableRenderer, ResetInterface
 		return "<p><?php echo htmlspecialchars({$expr} ?? '', ENT_QUOTES, 'UTF-8'); ?></p>\n";
 	}
 
+	/**
+	 * Clears the per-render state held for the template being included.
+	 *
+	 * Only the layer, attributes, slots and more-assigns are dropped; the
+	 * parent reset is deliberately not invoked, so the renderer's configured
+	 * variable names, extraction flag and assigns survive for the next render.
+	 */
 	#[\Override]
     public function reset() : void {
 		$this->layer = null;

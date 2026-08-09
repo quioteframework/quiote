@@ -24,16 +24,39 @@ final class Trace
 
     // --- configuration -----------------------------------------------------
 
+    /**
+     * Turns telemetry on or off process-wide, via {@see TraceRegistry}.
+     *
+     * The master switch every method here consults first: while off,
+     * {@see span()}/{@see current()}/{@see metrics()} return shared no-op
+     * handles without touching the provider at all. Category settings and the
+     * installed providers are left as they are, so flipping it back on resumes
+     * with the same configuration.
+     */
     public static function setEnabled(bool $enabled): void
     {
         TraceRegistry::setEnabled($enabled);
     }
 
+    /**
+     * Whether telemetry is switched on process-wide.
+     *
+     * Says nothing about whether a real provider has been wired up — a true
+     * here with no provider still yields no-op handles.
+     */
     public static function enabled(): bool
     {
         return TraceRegistry::isEnabled();
     }
 
+    /**
+     * Clears all telemetry state process-wide, via {@see TraceRegistry::reset()}:
+     * the enabled flag, the category map and its memoized resolutions, and the
+     * tracer/meter provider singletons.
+     *
+     * For test isolation and reconfiguration (simulating a fresh worker); not
+     * used on the request path.
+     */
     public static function reset(): void
     {
         TraceRegistry::reset();
@@ -139,6 +162,15 @@ final class Trace
         }
     }
 
+    /**
+     * The handle for recording histograms, counters and gauges.
+     *
+     * Returns the shared no-op meter when telemetry is disabled or no meter
+     * provider has been installed, so a call site can record unconditionally.
+     * Otherwise it is the worker-lifetime {@see OtelMeterHandle} cached in
+     * {@see TraceRegistry}, which keeps its per-instrument-name cache warm
+     * across calls.
+     */
     public static function metrics(): MeterHandle
     {
         if (!self::enabled()) {

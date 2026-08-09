@@ -34,6 +34,16 @@ final class AzureTableClient
     ) {
     }
 
+    /**
+     * Creates the table, treating "already exists" as success.
+     *
+     * A 409 means another caller created it first, which is the desired end
+     * state, so both 201 and 409 return normally.
+     *
+     * @throws     AzureStorageException On any other status, or if the request could not be sent
+     *             after the configured retries.
+     * @throws     \JsonException If the table name cannot be encoded.
+     */
     public function ensureTableExists(string $table): void
     {
         $response = $this->send('POST', '/Tables', body: json_encode(['TableName' => $table], JSON_THROW_ON_ERROR));
@@ -82,6 +92,16 @@ final class AzureTableClient
         }
     }
 
+    /**
+     * Deletes one entity, treating a missing one as success.
+     *
+     * Sends `If-Match: *`, so the entity is removed whatever its current ETag —
+     * this is an unconditional delete, not an optimistic-concurrency one. A 404
+     * returns normally so the call is idempotent.
+     *
+     * @throws     AzureStorageException On any other 4xx/5xx status, or a transport failure that
+     *             survived the retries.
+     */
     public function delete(string $table, string $partitionKey, string $rowKey): void
     {
         $response = $this->send('DELETE', $this->entityPath($table, $partitionKey, $rowKey), extraHeaders: ['If-Match' => '*']);

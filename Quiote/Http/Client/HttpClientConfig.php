@@ -64,6 +64,7 @@ final class HttpClientConfig
         return $this;
     }
 
+    /** Returns the configured base URI with any trailing slash removed, or an empty string when none was set. */
     public function getBaseUri(): string
     {
         return $this->baseUri;
@@ -75,16 +76,24 @@ final class HttpClientConfig
         return $this->headers;
     }
 
+    /**
+     * Returns the PSR-18 transport this client will use.
+     *
+     * When {@see transport()} was never called, {@see TransportFactory::default()} is asked for
+     * one and the result is memoised, so every request from this config shares a transport.
+     */
     public function getTransport(): ClientInterface
     {
         return $this->transport ??= TransportFactory::default();
     }
 
+    /** Returns how many extra attempts a transient failure earns; zero, the default, means no retrying. */
     public function getRetries(): int
     {
         return $this->retries;
     }
 
+    /** Returns the first backoff delay in milliseconds, from which later retries grow exponentially; 100 unless {@see retry()} changed it. */
     public function getRetryBaseDelayMs(): int
     {
         return $this->retryBaseDelayMs;

@@ -35,6 +35,12 @@ final class HttpClient implements ClientInterface
         private readonly Psr17Factory $psr17 = new Psr17Factory(),
     ) {}
 
+    /**
+     * Builds a client from a resolved {@see HttpClientConfig}, taking its transport, base URI,
+     * default headers and retry policy.
+     *
+     * The PSR-17 factory is not configurable this way: the client uses its own default.
+     */
     public static function fromConfig(HttpClientConfig $config): self
     {
         return new self(

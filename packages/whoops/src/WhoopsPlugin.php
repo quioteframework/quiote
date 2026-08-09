@@ -23,6 +23,12 @@ use Quiote\Plugin\PluginRegistrar;
 #[PluginAttribute(name: 'quiote/whoops')]
 final class WhoopsPlugin implements PluginInterface
 {
+    /**
+     * Registers {@see WhoopsRenderer} as the developer-exception renderer.
+     *
+     * The renderer is supplied as a factory, so Whoops is only constructed if
+     * an exception actually has to be rendered with developer detail enabled.
+     */
     public function register(PluginRegistrar $registrar): void
     {
         $registrar->developerExceptionRenderer(static fn() => new WhoopsRenderer());

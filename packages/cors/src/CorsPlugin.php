@@ -14,6 +14,13 @@ use Quiote\Plugin\PluginRegistrar;
 #[PluginAttribute(name: 'quiote/cors')]
 final class CorsPlugin implements PluginInterface
 {
+    /**
+     * Registers the CORS configuration defaults and the middleware itself.
+     *
+     * `cors.enabled` defaults to false, so installing the package alone does
+     * not switch CORS on. The middleware is registered through its
+     * `#[Middleware]` attribute, which places it in the pipeline.
+     */
     public function register(PluginRegistrar $registrar): void
     {
         $registrar->configDefault('cors.enabled', false);

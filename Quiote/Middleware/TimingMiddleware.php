@@ -15,6 +15,16 @@ class TimingMiddleware implements MiddlewareInterface
 {
     public function __construct(private readonly bool $emitHeader = false) {}
 
+    /**
+     * Measures total pipeline time into the request's ExecutionState metrics.
+     *
+     * Runs at the head of the `bootstrap` phase so the measurement spans
+     * essentially the whole stack. Reuses the ExecutionState already on the
+     * request, or creates one and attaches it, then writes `total_ms` into its
+     * metrics after the downstream handler returns. The `X-Quiote-Timing`
+     * header is added only when the constructor enabled it, and is skipped
+     * without complaint if the metrics cannot be JSON-encoded.
+     */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $start = microtime(true);

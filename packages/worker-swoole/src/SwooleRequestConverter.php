@@ -37,6 +37,15 @@ final class SwooleRequestConverter
     ) {
     }
 
+    /**
+     * Builds a PSR-7 server request from a Swoole request snapshot.
+     *
+     * Swoole's lowercase server keys are translated to CGI names, the request
+     * target gets its query string re-attached, and headers, cookies, query
+     * params and uploaded files are carried across. The parsed body is only set
+     * when Swoole itself parsed a form body — a JSON or other raw body is left
+     * unparsed so downstream payload handling can read it off the stream.
+     */
     public function toPsr7(SwooleRequestSnapshot $snapshot): ServerRequestInterface
     {
         $method = strtoupper($snapshot->serverValue('request_method') ?? 'GET');

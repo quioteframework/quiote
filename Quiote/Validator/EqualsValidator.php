@@ -16,6 +16,18 @@ namespace Quiote\Validator;
  */
 class EqualsValidator extends Validator
 {
+	/**
+	 * Returns the base Validator parameters plus 'value', 'asparam' and
+	 * 'strict'.
+	 *
+	 * 'value' is what every argument is compared against; leave it out and the
+	 * first argument's own value becomes the comparand, which turns the
+	 * validator into an all-arguments-equal check. 'asparam' reinterprets
+	 * 'value' as the name of another parameter and compares against that
+	 * parameter's value instead of the literal. 'strict' selects identity (===)
+	 * over loose (==) comparison and defaults to false.
+	 * @return     array<int, string> The accepted parameter names.
+	 */
 	#[\Override]
 	public static function getAcceptedParameters(): array
 	{

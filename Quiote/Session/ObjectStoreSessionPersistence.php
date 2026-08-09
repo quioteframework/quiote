@@ -41,6 +41,12 @@ class ObjectStoreSessionPersistence implements SessionPersistenceInterface
     ) {
     }
 
+    /**
+     * Fetches the session's object from the store and decodes it.
+     *
+     * Returns null when the store has no object under the derived key or the
+     * object is empty; a missing key is an ordinary miss, not an error.
+     */
     #[\Override]
     public function load(string $sid): ?array
     {
@@ -61,6 +67,11 @@ class ObjectStoreSessionPersistence implements SessionPersistenceInterface
         $this->client->put($this->key($sid), $this->codec->encode($data));
     }
 
+    /**
+     * Deletes the session's object from the store.
+     *
+     * Delegates straight to the client, which treats an absent key as a no-op.
+     */
     #[\Override]
     public function delete(string $sid): void
     {

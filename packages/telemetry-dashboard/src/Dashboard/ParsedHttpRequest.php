@@ -17,6 +17,10 @@ final class ParsedHttpRequest
     ) {
     }
 
+    /**
+     * The value of header $name, matched case-insensitively, or null when the
+     * request did not carry it.
+     */
     public function header(string $name): ?string
     {
         return $this->headers[strtolower($name)] ?? null;

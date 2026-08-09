@@ -41,6 +41,11 @@ final class ChartWidget extends AbstractWidget implements VerticallyExpandableIn
         return $this;
     }
 
+    /**
+     * Sets whether the chart claims the leftover vertical space of its
+     * container, invalidating the widget so the next frame re-lays it out.
+     * Enabled by default.
+     */
     public function expandVertically(bool $expand): static
     {
         $this->expand = $expand;
@@ -49,11 +54,22 @@ final class ChartWidget extends AbstractWidget implements VerticallyExpandableIn
         return $this;
     }
 
+    /**
+     * Whether the chart currently claims leftover vertical space; ancestor
+     * containers consult this to propagate expansion up the widget tree.
+     */
     public function isVerticallyExpanded(): bool
     {
         return $this->expand;
     }
 
+    /**
+     * Draws the current values as a bar chart filling the assigned area.
+     *
+     * Reads the row and column counts from $context on every frame — each
+     * floored at 1 — and resamples the series to that width before drawing,
+     * so a terminal resize is picked up without any explicit reconfiguration.
+     */
     public function render(RenderContext $context): array
     {
         $columns = max(1, $context->getColumns());

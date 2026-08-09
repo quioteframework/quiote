@@ -15,6 +15,14 @@ use Quiote\Plugin\PluginRegistrar;
 #[PluginAttribute(name: 'quiote/security-headers')]
 final class SecurityHeadersPlugin implements PluginInterface
 {
+    /**
+     * Registers the security-header configuration defaults and the middleware.
+     *
+     * `security_headers.enabled` defaults to true, so the headers are added as
+     * soon as the package is installed; the individual defaults set a
+     * self-only CSP, `DENY` framing, `nosniff`, a strict referrer policy and
+     * 180-day HSTS.
+     */
     public function register(PluginRegistrar $registrar): void
     {
         $registrar->configDefault('security_headers.enabled', true);

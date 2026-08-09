@@ -57,6 +57,18 @@ final class ContextRequestHandler implements RequestHandlerInterface
         return $this->correlationId;
     }
 
+    /**
+     * Serves one request against this handler's context.
+     *
+     * Opens the request scope (correlation id, ambient logging scope,
+     * request-state flush), builds the {@see \Quiote\Request\WebRequest} eagerly,
+     * exposes the correlation id on the request as the `quiote.rid` attribute and
+     * on the response as the configured header, and runs the middleware pipeline.
+     * {@see \Quiote\Event\Lifecycle\ResponseSendingEvent} is emitted last, with
+     * both request and response in hand.
+     *
+     * @since      4.0.0
+     */
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         $correlationId = $this->openRequestScope($request);

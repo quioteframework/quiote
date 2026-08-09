@@ -24,6 +24,10 @@ final class RequestDtoRegistry
     /** @var array<string, ?string> keyed by "{ActionClass}::{methodName}" */
     private static array $methodBindings = [];
 
+    /**
+     * The parsed definition for a `#[MapRequest]` DTO, reflected on first request and then
+     * served from the in-process cache for the life of the worker.
+     */
     public static function definitionFor(string $dtoClass): RequestDtoDefinition
     {
         return self::$definitions[$dtoClass] ??= RequestDtoScanner::scan($dtoClass);

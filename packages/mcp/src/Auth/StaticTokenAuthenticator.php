@@ -14,6 +14,13 @@ final class StaticTokenAuthenticator implements McpAuthenticatorInterface
     {
     }
 
+    /**
+     * Compares $token against the configured secret in constant time.
+     *
+     * Returns false whenever either the configured token or the presented one
+     * is null or empty, so a missing `mcp.auth_token` denies every request
+     * rather than accepting any.
+     */
     public function authenticate(#[\SensitiveParameter] string $token): bool
     {
         if ($this->expectedToken === null || $this->expectedToken === '' || $token === '') {

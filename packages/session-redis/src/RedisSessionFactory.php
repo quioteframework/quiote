@@ -29,6 +29,15 @@ use RuntimeException;
  */
 final class RedisSessionFactory implements SessionFactoryInterface
 {
+    /**
+     * Builds a {@see RedisSessionPersistence} over a Predis client.
+     *
+     * Parameters, all optional: `dsn` (default `redis://127.0.0.1:6379`),
+     * `prefix` (default `session:`) and `ttl` in seconds (default 1440), which
+     * Redis enforces as the session lifetime.
+     *
+     * @throws RuntimeException if predis/predis is not installed.
+     */
     public function createPersistence(Context $context, array $parameters): SessionPersistenceInterface
     {
         if (!class_exists(Client::class)) {

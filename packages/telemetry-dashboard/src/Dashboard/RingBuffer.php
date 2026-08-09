@@ -23,6 +23,12 @@ final class RingBuffer
     {
     }
 
+    /**
+     * Appends $value to the bucket for $second.
+     *
+     * Also prunes every bucket older than the configured window, so the
+     * caller's notion of "now" drives retention and memory stays bounded.
+     */
     public function record(int $second, float $value): void
     {
         $this->buckets[$second][] = $value;

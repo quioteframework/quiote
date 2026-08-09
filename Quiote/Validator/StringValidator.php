@@ -14,6 +14,17 @@ namespace Quiote\Validator;
  */
 class StringValidator extends Validator
 {
+	/**
+	 * Returns the base Validator parameters plus 'min', 'max', 'trim' and
+	 * 'utf8'.
+	 *
+	 * 'min' and 'max' bound the length in bytes and are each only checked when
+	 * present. 'trim' strips surrounding whitespace before the length checks and
+	 * before the value is exported; it defaults to false. 'utf8', on by default,
+	 * makes that trim use the Unicode separator and control classes rather than
+	 * the ASCII whitespace class.
+	 * @return     array<int, string> The accepted parameter names.
+	 */
 	#[\Override]
 	public static function getAcceptedParameters(): array
 	{

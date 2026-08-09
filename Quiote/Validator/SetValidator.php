@@ -10,6 +10,14 @@ namespace Quiote\Validator;
  */
 class SetValidator extends Validator
 {
+	/**
+	 * Returns the base Validator parameters plus 'value'.
+	 *
+	 * 'value' is the value this validator exports; it is passed through
+	 * untouched and the validator always succeeds, so there is nothing else to
+	 * configure.
+	 * @return     array<int, string> The accepted parameter names.
+	 */
 	#[\Override]
 	public static function getAcceptedParameters(): array
 	{

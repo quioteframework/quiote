@@ -14,6 +14,13 @@ use Quiote\Execution\ExecutionState;
 #[\Quiote\Middleware\Attribute\Middleware(phase: 'after_action', after: 'DispatchMiddleware')]
 class FinalizeMiddleware implements MiddlewareInterface
 {
+    /**
+     * Passes the request through and returns the response unchanged.
+     *
+     * The middleware holds the `after_action` slot immediately after
+     * DispatchMiddleware, which is where end-of-request persistence and
+     * cleanup belong; no such work is performed yet.
+     */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $response = $handler->handle($request);

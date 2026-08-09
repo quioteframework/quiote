@@ -15,6 +15,17 @@ namespace Quiote\Validator;
  */
 class RegexValidator extends Validator
 {
+	/**
+	 * Returns the base Validator parameters plus 'pattern' and 'match'.
+	 *
+	 * 'pattern' is the PCRE handed to preg_match() and must be a string.
+	 * 'match' is the expected outcome the preg_match() result is compared
+	 * against, so setting it falsy inverts the validator into a must-not-match
+	 * check. The inherited 'export' parameter is also read here: given a map of
+	 * subpattern name to argument name it exports individual captures of a
+	 * positive match, otherwise the whole input value.
+	 * @return     array<int, string> The accepted parameter names.
+	 */
 	#[\Override]
 	public static function getAcceptedParameters(): array
 	{

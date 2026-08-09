@@ -23,6 +23,13 @@ final class CompilationResult
 	) {
 	}
 
+	/**
+	 * Reports whether any recorded diagnostic is of error severity.
+	 *
+	 * Warnings and lesser severities do not count, so a result can carry
+	 * diagnostics and still answer false. A true here means the artifact, if
+	 * one was emitted at all, should not be trusted.
+	 */
 	public function hasErrors(): bool
 	{
 		foreach ($this->diagnostics as $diagnostic) {

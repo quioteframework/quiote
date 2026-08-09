@@ -31,6 +31,14 @@ final class RoadRunnerResponseEmitter implements ResponseEmitterInterface
     ) {
     }
 
+    /**
+     * Sends the response back over the RoadRunner relay.
+     *
+     * An ordinary body goes out in a single payload via
+     * {@see PSR7Worker::respond()}. An {@see SseStream} body is instead handed
+     * to the underlying HTTP worker as a generator, so each chunk leaves as its
+     * own frame while the action is still producing events.
+     */
     public function emit(ResponseInterface $response): void
     {
         $body = $response->getBody();
@@ -47,6 +55,7 @@ final class RoadRunnerResponseEmitter implements ResponseEmitterInterface
         );
     }
 
+    /** Always true: RoadRunner sends a generator body as a sequence of frames. */
     public function supportsStreaming(): bool
     {
         return true;

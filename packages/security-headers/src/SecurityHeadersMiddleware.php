@@ -27,6 +27,16 @@ use Quiote\Http\RequestScheme;
 #[\Quiote\Middleware\Attribute\Middleware(phase: 'bootstrap', priority: 1100)]
 class SecurityHeadersMiddleware implements MiddlewareInterface
 {
+    /**
+     * Adds the hardening headers to the response on the way back out.
+     *
+     * Runs the rest of the pipeline first, then sets each configured header
+     * only if the response does not already carry it, so an action's own choice
+     * always wins. Returns the response untouched when
+     * `security_headers.enabled` is off. `Permissions-Policy` is only sent when
+     * configured to a non-empty value, and HSTS only when enabled and the
+     * request arrived over HTTPS.
+     */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $response = $handler->handle($request);

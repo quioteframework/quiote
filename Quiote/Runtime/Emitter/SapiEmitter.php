@@ -19,6 +19,15 @@ use Quiote\Http\Sse\SseStream;
  */
 class SapiEmitter implements ResponseEmitterInterface
 {
+    /**
+     * Sends the response through http_response_code(), header() and echo.
+     *
+     * Any Content-Type already set on the SAPI is removed first, so an early
+     * fallback header cannot survive alongside the response's own. Remaining
+     * headers are appended in order, allowing repeated names. An
+     * {@see SseStream} body is flushed event by event instead of being echoed
+     * in one piece.
+     */
     public function emit(ResponseInterface $response): void
     {
         http_response_code($response->getStatusCode());
@@ -45,6 +54,7 @@ class SapiEmitter implements ResponseEmitterInterface
         }
     }
 
+    /** Always true: the SAPI can flush a body incrementally to the client. */
     public function supportsStreaming(): bool
     {
         return true;

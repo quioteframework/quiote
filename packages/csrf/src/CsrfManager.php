@@ -26,21 +26,44 @@ final readonly class CsrfManager
         );
     }
 
+    /**
+     * Whether CSRF protection is switched on for this application.
+     *
+     * Read from `core.csrf.enabled`, defaulting to true, so protection is
+     * opt-out rather than opt-in.
+     */
     public function isEnabled(): bool
     {
         return Config::getBool('core.csrf.enabled', true);
     }
 
+    /**
+     * Identifier under which the token is stored and looked up.
+     *
+     * Read from `core.csrf.token_id`, defaulting to `quiote_csrf`. It is the
+     * key the whole application shares, so token generation and validation
+     * agree on the same value.
+     */
     public function tokenId(): string
     {
         return Config::getString('core.csrf.token_id', 'quiote_csrf');
     }
 
+    /**
+     * Name of the hidden form field carrying the token in a normal form post.
+     *
+     * Read from `core.csrf.field_name`, defaulting to `_csrf_token`.
+     */
     public function fieldName(): string
     {
         return Config::getString('core.csrf.field_name', '_csrf_token');
     }
 
+    /**
+     * Name of the request header carrying the token for XHR/fetch clients.
+     *
+     * Read from `core.csrf.header_name`, defaulting to `X-CSRF-Token`.
+     */
     public function headerName(): string
     {
         return Config::getString('core.csrf.header_name', 'X-CSRF-Token');

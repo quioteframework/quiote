@@ -38,6 +38,16 @@ class ReturnArrayConfigHandler extends XmlConfigHandler implements IArrayConfigH
 		return $this->executeArray($this->toCanonicalArray($document), $document->documentURI);
 	}
 
+	/**
+	 * Converts the document's configuration elements into a plain array.
+	 *
+	 * Elements are read from the namespace named by the `namespace_uri`
+	 * parameter, which defaults to none. Each top-level configuration block is
+	 * converted recursively and merged into one array, so a later block's keys
+	 * win over an earlier one's. The conversion itself is driven by the
+	 * handler's `id_attribute`, `value_key`, `force_array_values`,
+	 * `attribute_prefix` and `literalize` parameters.
+	 */
 	public function toCanonicalArray(XmlConfigDomDocument $document): array
 	{
 		$document->setDefaultNamespace($this->getStringParameter('namespace_uri', ''));
@@ -50,6 +60,12 @@ class ReturnArrayConfigHandler extends XmlConfigHandler implements IArrayConfigH
 		return $data;
 	}
 
+	/**
+	 * Returns the canonical array unchanged as the declaration to cache.
+	 *
+	 * This handler's purpose is to surface a config file as a plain array, so
+	 * once the array exists there is nothing further to compile.
+	 */
 	public function executeArray(array $config, ?string $sourceRef = null): mixed
 	{
 		return $config;

@@ -18,6 +18,7 @@ abstract class Service implements ServiceInterface
 {
     public function __construct(protected readonly Context $context) {}
 
+    /** Returns the context this service was constructed with. */
     public function getContext(): Context
     {
         return $this->context;

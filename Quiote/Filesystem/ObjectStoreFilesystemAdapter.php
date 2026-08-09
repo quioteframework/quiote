@@ -40,6 +40,12 @@ readonly class ObjectStoreFilesystemAdapter implements FilesystemAdapterInterfac
     ) {
     }
 
+    /**
+     * Returns the body of the object stored under $path.
+     *
+     * @throws     FileNotFoundStorageException If the store reports no object for that key.
+     * @throws     FilesystemStorageException If the store call itself failed.
+     */
     #[\Override]
     public function read(string $path): string
     {
@@ -51,6 +57,12 @@ readonly class ObjectStoreFilesystemAdapter implements FilesystemAdapterInterfac
         return $body;
     }
 
+    /**
+     * Stores $contents as the object under $path, replacing any existing object.
+     *
+     * @throws     FilesystemStorageException If the store rejected the put; the provider's own
+     *             exception is kept as the previous exception.
+     */
     #[\Override]
     public function write(string $path, string $contents): void
     {
@@ -61,6 +73,14 @@ readonly class ObjectStoreFilesystemAdapter implements FilesystemAdapterInterfac
         }
     }
 
+    /**
+     * Deletes the object under $path.
+     *
+     * Deleting a key the store does not hold is not an error — object stores treat delete as
+     * idempotent — so only a transport or authorization failure is reported.
+     *
+     * @throws     FilesystemStorageException If the store rejected the delete.
+     */
     #[\Override]
     public function delete(string $path): void
     {
@@ -71,12 +91,29 @@ readonly class ObjectStoreFilesystemAdapter implements FilesystemAdapterInterfac
         }
     }
 
+    /**
+     * Reports whether the store holds an object under $path.
+     *
+     * Costs a metadata request, not a download.
+     *
+     * @throws     FilesystemStorageException If the metadata request failed for a reason other than
+     *             the object being absent.
+     */
     #[\Override]
     public function exists(string $path): bool
     {
         return $this->head($path) !== null;
     }
 
+    /**
+     * Returns the object's size in bytes, taken from its Content-Length metadata.
+     *
+     * A provider that answers the metadata request without a usable Content-Length is a failure,
+     * not a zero-length file, and is reported naming the provider.
+     *
+     * @throws     FileNotFoundStorageException If the store holds no object under $path.
+     * @throws     FilesystemStorageException If the metadata carried no content length.
+     */
     #[\Override]
     public function size(string $path): int
     {
@@ -92,6 +129,15 @@ readonly class ObjectStoreFilesystemAdapter implements FilesystemAdapterInterfac
         return $size;
     }
 
+    /**
+     * Returns the object's modification time, taken from its Last-Modified metadata.
+     *
+     * A provider that omits the header, or sends one that could not be parsed, is reported as a
+     * failure naming the provider rather than defaulting to the current time.
+     *
+     * @throws     FileNotFoundStorageException If the store holds no object under $path.
+     * @throws     FilesystemStorageException If the metadata carried no usable modification time.
+     */
     #[\Override]
     public function lastModified(string $path): DateTimeImmutable
     {

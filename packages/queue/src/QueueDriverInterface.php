@@ -10,5 +10,14 @@ namespace Quiote\Queue;
  */
 interface QueueDriverInterface
 {
+    /**
+     * Hands a job off to the driver's backend.
+     *
+     * Implementors either enqueue the payload for later execution or, for the
+     * in-process {@see SyncQueueDriver}, run it inline and block until it
+     * succeeds or exhausts its retries. A payload carrying a non-null
+     * {@see JobPayload::$availableAt} must not become visible to a worker
+     * before that moment.
+     */
     public function push(JobPayload $payload): void;
 }

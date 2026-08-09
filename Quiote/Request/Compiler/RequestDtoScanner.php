@@ -61,6 +61,18 @@ final class RequestDtoScanner
         return (new ReflectionClass($class))->getAttributes(MapRequest::class) !== [];
     }
 
+    /**
+     * Reflects the DTO's constructor into a {@see RequestDtoDefinition} describing one
+     * property per promoted parameter, in declaration order.
+     *
+     * Pure reflection: nothing is registered and no request is touched. Callers should go
+     * through {@see \Quiote\Request\RequestDtoRegistry::definitionFor()} so the walk happens
+     * once per class.
+     *
+     * @throws InvalidArgumentException when $dtoClass does not exist, carries no
+     *                                  `#[MapRequest]` attribute, has no constructor, or
+     *                                  declares a property whose type cannot be mapped
+     */
     public static function scan(string $dtoClass): RequestDtoDefinition
     {
         if (!class_exists($dtoClass)) {
@@ -84,6 +96,18 @@ final class RequestDtoScanner
         return new RequestDtoDefinition($dtoClass, $properties);
     }
 
+    /**
+     * Translates the DTO's constraint attributes into real validators on $validationManager.
+     *
+     * One validator is registered per promoted property — a type-inferred minimal one when the
+     * property carries no constraint attribute — which is also what puts the property's name on
+     * the request's strict-validation whitelist. $method scopes the registration to a single
+     * request method; null registers for all of them.
+     *
+     * @throws InvalidArgumentException when $dtoClass does not exist, carries no
+     *                                  `#[MapRequest]` attribute, has no constructor, or
+     *                                  declares a property whose type cannot be mapped
+     */
     public static function registerValidators(
         string $dtoClass,
         IValidatorContainer $validationManager,

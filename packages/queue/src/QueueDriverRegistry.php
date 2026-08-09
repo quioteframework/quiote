@@ -30,6 +30,13 @@ final class QueueDriverRegistry
         self::$aliases[$alias] = $driverClass;
     }
 
+    /**
+     * Whether $alias has been registered.
+     *
+     * Only tests the alias table; a fully-qualified class name that
+     * {@see resolve()} would happily pass through is not an alias and reports
+     * false here.
+     */
     public static function has(string $alias): bool
     {
         return isset(self::$aliases[$alias]);
@@ -41,6 +48,15 @@ final class QueueDriverRegistry
         return self::$aliases[$aliasOrClass] ?? $aliasOrClass;
     }
 
+    /**
+     * Resolves an alias or class name to a loadable {@see QueueDriverInterface}
+     * implementation and returns its class name — nothing is instantiated here.
+     *
+     * @throws RuntimeException if the resolved class does not exist (the
+     *         message distinguishes a registered alias whose package is missing
+     *         from an unknown alias), or exists but does not implement
+     *         {@see QueueDriverInterface}.
+     */
     public static function instantiateClassFor(string $aliasOrClass): string
     {
         $class = self::resolve($aliasOrClass);

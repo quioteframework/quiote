@@ -21,6 +21,14 @@ use Quiote\DI\Container;
 #[PluginAttribute(name: 'quiote/queue-redis')]
 final class QueueRedisPlugin implements PluginInterface
 {
+    /**
+     * Publishes the `queue.redis.*` defaults and registers the `redis` driver.
+     *
+     * Adds the `redis` alias to {@see QueueDriverRegistry} and binds
+     * {@see RedisQueueDriver} as a singleton whose factory builds a Predis
+     * client from `queue.redis.dsn`. The client is constructed lazily, when the
+     * driver is first resolved, not while plugins are registering.
+     */
     public function register(PluginRegistrar $registrar): void
     {
         $registrar->configDefault('queue.redis.dsn', 'redis://127.0.0.1:6379');

@@ -32,6 +32,16 @@ final class DashboardView
     private const WORKER_RSS_CEILING_BYTES = 256 * 1024 * 1024;
     private const MEMORY_PEAK_CEILING_BYTES = 32 * 1024 * 1024;
 
+    /**
+     * Builds the whole dashboard widget tree for one snapshot: header, the
+     * throughput/latency charts, the resource gauges, the route table, the
+     * recent-request feed and the footer.
+     *
+     * A snapshot with no data yet renders header, a "waiting for telemetry"
+     * panel naming $listeningAddress, and the footer instead of the panels.
+     * Pure: no terminal, no I/O, no `symfony/tui` runtime calls — the caller
+     * decides when to render the result.
+     */
     public static function build(DashboardSnapshot $snapshot, string $serviceName, string $listeningAddress): ContainerWidget
     {
         $root = new ContainerWidget();

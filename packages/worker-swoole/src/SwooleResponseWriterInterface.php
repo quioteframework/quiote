@@ -10,6 +10,7 @@ namespace Quiote\Runtime\Swoole;
  */
 interface SwooleResponseWriterInterface
 {
+    /** Sets the response status code; must be called before any body is written. */
     public function status(int $code): void;
 
     /**
@@ -21,5 +22,11 @@ interface SwooleResponseWriterInterface
     /** @return bool False once the client is gone, which ends a stream early. */
     public function write(string $chunk): bool;
 
+    /**
+     * Finishes the response, optionally sending a final body.
+     *
+     * Called once per request. After a streamed body the argument is omitted,
+     * because everything has already gone out through {@see self::write()}.
+     */
     public function end(string $body = ''): void;
 }

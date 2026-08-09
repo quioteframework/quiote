@@ -833,6 +833,17 @@ class Context implements \Stringable, ResetInterface, ContextInterface
     }
   }
 
+  /**
+   * Ends the request on this context and clears everything request-scoped.
+   *
+   * Resets the model locator and the controller, flushes any user state that the
+   * middleware did not already persist, and recycles the database manager's
+   * connections instead of shutting it down, so the manager survives into the next
+   * request. The registered lifecycle clears -- session bag, user, request, logging
+   * scopes, request-scoped container entries and the registered resettable instances
+   * -- run in a `finally`, so a throw anywhere above cannot leave request N's
+   * authenticated user installed for request N+1.
+   */
   public function reset(): void
   {
     $logger = \Quiote\Logging\Log::for($this);

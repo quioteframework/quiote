@@ -75,6 +75,14 @@ final class ResidueReport
 
     private bool $flushRegistered = false;
 
+    /**
+     * Records one accessor site that could not be rewritten, with the reason why.
+     *
+     * Sites are keyed by file, line and accessor, so a rule and the reporter both
+     * reaching the same site record it once. The first recorded site also registers
+     * a shutdown function that writes the collected report out, so callers do not
+     * have to flush it themselves.
+     */
     public function add(string $file, int $line, string $accessor, string $reason): void
     {
         $this->sites[$file . ':' . $line . ':' . $accessor] = [

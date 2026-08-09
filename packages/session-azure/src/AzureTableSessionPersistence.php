@@ -28,6 +28,16 @@ final class AzureTableSessionPersistence implements SessionPersistenceInterface
     ) {
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * Reads the entity whose row key is the session id from the shared
+     * partition and decodes its `Data` property. An absent entity, an entity
+     * without a `Data` property, or one whose `Data` is not a string all read
+     * as an unknown session.
+     *
+     * @return array<string, mixed>|null
+     */
     #[\Override]
     public function load(string $sid): ?array
     {
@@ -49,6 +59,15 @@ final class AzureTableSessionPersistence implements SessionPersistenceInterface
         ]);
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * Deletes the entity unconditionally; the table is not created for a
+     * delete, and an entity that is not there is not an error.
+     *
+     * @throws AzureStorageException If Azure answers with anything other than
+     *                               success or 404.
+     */
     #[\Override]
     public function delete(string $sid): void
     {

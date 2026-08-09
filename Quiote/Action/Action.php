@@ -17,6 +17,42 @@ use Quiote\Request\WebRequest;
 use Quiote\Validator\Compiler\Runtime\CompiledValidatorRegistry;
 use Quiote\Validator\IValidatorContainer;
 use Symfony\Contracts\Service\ResetInterface;
+
+/**
+ * Base class for an application's actions: the unit that runs the business
+ * logic of one routed request and names the view that presents the result.
+ *
+ * An application subclasses this and implements one or more `execute<Token>()`
+ * methods -- `executeRead()`, `executeWrite()`, `executeUpdate()`,
+ * `executeRemove()` for the tokens {@see \Quiote\Execution\HttpMethodMapper}
+ * derives from the HTTP verb, plus any custom token that mapping is extended
+ * with -- or a single `execute()` handling every verb. None of them is declared
+ * here: {@see \Quiote\Execution\ActionResolver} invokes the first one the
+ * subclass actually implements and falls back to {@see getDefaultViewName()}
+ * when it finds none. Such a method takes the {@see WebRequest} and returns the
+ * view to render, either as a name or as a `[module, view]` pair naming a view
+ * in another module.
+ *
+ * The framework builds the instance through the container, so constructor
+ * dependencies are autowired, then calls {@see initialize()} with the
+ * {@see ActionInitContext} for this dispatch and consults the hooks a subclass
+ * may override: {@see isSecure()} and {@see getCredentials()} for
+ * authorization, {@see isSimple()}, {@see registerValidators()} and
+ * {@see validate()} for validation, {@see handleError()} for the path taken
+ * when validation fails, and {@see isCacheable()}, {@see cacheTtlSeconds()} and
+ * {@see cacheVaryByUser()} for output caching. Every one has a working default,
+ * so a subclass overrides only what it needs.
+ *
+ * {@see registerValidators()} is the one default with real behaviour: it loads
+ * the module's compiled or hand-written validator-builder file for this action
+ * and registers the validators derived from a `#[MapRequest]` DTO parameter, so
+ * an override that still wants those must call `parent::registerValidators()`.
+ *
+ * An instance serves a single dispatch, and {@see reset()} drops the
+ * request-scoped context so a persistent worker never carries one request's
+ * state into the next -- per-request data belongs in local variables or on the
+ * request, not in properties that outlive it.
+ */
 abstract class Action implements ResetInterface
 {
 	use \Quiote\Util\InitContextAttributeAccess;

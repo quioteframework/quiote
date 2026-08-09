@@ -42,6 +42,7 @@ final class DatabaseDriverRegistry
         self::$aliases[$alias] = $adapterClass;
     }
 
+    /** Whether $alias has been registered as a driver alias. Fully-qualified class names are not aliases, so this is false for them. */
     public static function has(string $alias): bool
     {
         return isset(self::$aliases[$alias]);

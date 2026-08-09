@@ -39,6 +39,17 @@ class DateFormatter implements ITranslator, ResetInterface
 	/** @var string|null */
 	protected $resolvedPattern = null;
 
+	/**
+	 * Initializes this formatter from its factory parameters.
+	 *
+	 * Recognises "type" ('date', 'time' or 'datetime', anything else leaves the
+	 * default 'datetime'), "format" (an ICU pattern, a format specifier, or a map
+	 * of locale lookup path to format) and "translation_domain". A "format" given
+	 * as an array is already per-locale, so it clears the translation domain: the
+	 * map is used directly instead of being run through the translation manager.
+	 *
+	 * @throws     QuioteException If "translation_domain" is present but not a string.
+	 */
 	public function initialize(Context $context, array $parameters = [])
 	{
 		$this->context = $context;
@@ -64,11 +75,26 @@ class DateFormatter implements ITranslator, ResetInterface
 		}
 	}
 
+	/** {@inheritDoc} */
 	public function getContext()
 	{
 		return $this->context;
 	}
 
+	/**
+	 * Formats a date value for the given locale and translation domain.
+	 *
+	 * $message may be anything the internal coercion accepts (a DateTimeInterface,
+	 * a timestamp or a parsable string); the result is that value rendered with the
+	 * resolved ICU pattern. When an explicit $locale is passed, the work is done on
+	 * a clone re-resolved for that locale, so this instance keeps the locale the
+	 * translation manager gave it. When the format is a translatable specifier, it
+	 * is looked up in the configured translation domain, suffixed with $domain.
+	 *
+	 * @throws     QuioteException If no locale has been set and none was passed, if a
+	 *                             translation domain is configured but translations are
+	 *                             disabled, or if no pattern could be resolved.
+	 */
 	public function translate($message, $domain, ?QuioteLocale $locale = null)
 	{
 		if(!$this->locale && !$locale) {
@@ -103,6 +129,17 @@ class DateFormatter implements ITranslator, ResetInterface
 		return $formatter->formatWithPattern($dt, $pattern, $locale);
 	}
 
+	/**
+	 * Adopts a new locale and re-resolves the cached ICU pattern for it.
+	 *
+	 * A format configured as a map is looked up along the new locale's lookup
+	 * path; a plain format string is used as-is unless a translation domain is
+	 * configured, in which case the pattern is resolved per call in
+	 * {@see translate()} instead.
+	 *
+	 * @throws     QuioteException If the configured format resolves to a non-string
+	 *                             value for the new locale.
+	 */
 	public function localeChanged($newLocale)
 	{
 		$this->locale = $newLocale;

@@ -67,6 +67,23 @@ use Throwable;
  */
 class DateTimeValidator extends Validator
 {
+	/**
+	 * Returns the base Validator parameters plus 'check', 'formats', 'cast_to',
+	 * 'arguments_format', 'min', 'max' and 'locale'.
+	 *
+	 * 'formats' lists the input formats to try, each an array of a 'type'
+	 * (format, time, date, datetime, translation_domain, unix,
+	 * unix_milliseconds) with its matching 'format' and optional per-entry
+	 * 'locale'. 'arguments_format' is an sprintf pattern that joins several
+	 * arguments into the one string to parse. 'check', on by default, rejects a
+	 * date whose day does not exist in the given month. 'min' and 'max' bound
+	 * the resulting instant -- inclusive and exclusive respectively -- given
+	 * either as a literal date string or as an array naming another request
+	 * field to read the bound from. 'locale' overrides the current locale for
+	 * parsing and formatting, and 'cast_to' selects the shape of the exported
+	 * value ('unix', 'string', 'datetime', or an array naming a format).
+	 * @return     array<int, string> The accepted parameter names.
+	 */
 	#[\Override]
 	public static function getAcceptedParameters(): array
 	{

@@ -57,12 +57,24 @@ final class OtelSpanHandle implements SpanHandle
     ) {
     }
 
+    /**
+     * Renames the underlying span, substituting `(unnamed)` for an empty
+     * string so an exported span always carries a name.
+     */
     public function updateName(string $name): static
     {
         $this->safely(fn() => $this->span->updateName($name !== '' ? $name : '(unnamed)'));
         return $this;
     }
 
+    /**
+     * Sets a single attribute, passing key and value through
+     * {@see AttributeSanitizer::sanitizeEntry()} first.
+     *
+     * A key or value the SDK cannot accept makes the sanitizer throw; that is
+     * caught and logged at debug level, so the attribute is dropped rather
+     * than failing the caller.
+     */
     public function setAttribute(string $key, mixed $value): static
     {
         $this->safely(function () use ($key, $value): void {
@@ -72,30 +84,61 @@ final class OtelSpanHandle implements SpanHandle
         return $this;
     }
 
+    /**
+     * Sets several attributes at once, sanitized as in {@see setAttribute()}.
+     *
+     * The batch is applied as a unit: if sanitizing any entry throws, none of
+     * them reach the span and the failure is logged at debug level.
+     */
     public function setAttributes(array $attributes): static
     {
         $this->safely(fn() => $this->span->setAttributes(AttributeSanitizer::sanitize($attributes)));
         return $this;
     }
 
+    /**
+     * Adds a timestamped event to the span. Failures are swallowed and logged
+     * at debug level.
+     */
     public function addEvent(string $name, array $attributes = []): static
     {
         $this->safely(fn() => $this->span->addEvent($name, $attributes));
         return $this;
     }
 
+    /**
+     * Records $e on the span as an exception event.
+     *
+     * Does not change the span's status — call {@see setStatusError()} for
+     * that. Failures are swallowed and logged at debug level.
+     */
     public function recordException(\Throwable $e): static
     {
         $this->safely(fn() => $this->span->recordException($e));
         return $this;
     }
 
+    /**
+     * Sets the span's status to `ERROR` with an optional description.
+     *
+     * The SDK ignores status changes on an already-ended span, so this has no
+     * effect after {@see end()}. Failures are swallowed and logged at debug
+     * level.
+     */
     public function setStatusError(?string $description = null): static
     {
         $this->safely(fn() => $this->span->setStatus(StatusCode::STATUS_ERROR, $description));
         return $this;
     }
 
+    /**
+     * Ends the underlying span and detaches the scope it was activated in.
+     *
+     * Guarded by an `$ended` flag, so repeated calls — including the one from
+     * `__destruct()` on a handle that owns its span's lifecycle — do nothing
+     * after the first. Both the end and the detach are swallowed on failure
+     * and logged at debug level.
+     */
     public function end(): void
     {
         if ($this->ended) {
@@ -113,6 +156,13 @@ final class OtelSpanHandle implements SpanHandle
         }
     }
 
+    /**
+     * The 32-hex-character trace ID of the underlying span.
+     *
+     * Null when the span context is invalid (a non-recording or propagation
+     * placeholder span) or when reading it throws. Independent of the sampling
+     * decision — an unsampled span still reports its ID.
+     */
     public function traceId(): ?string
     {
         try {
@@ -123,6 +173,10 @@ final class OtelSpanHandle implements SpanHandle
         }
     }
 
+    /**
+     * The 16-hex-character span ID of the underlying span, or null under the
+     * same conditions as {@see traceId()}.
+     */
     public function spanId(): ?string
     {
         try {

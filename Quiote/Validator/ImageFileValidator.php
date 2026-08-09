@@ -24,6 +24,19 @@ use Psr\Http\Message\UploadedFileInterface;
  */
 class ImageFileValidator  extends BaseFileValidator
 {
+	/**
+	 * Returns the file-validator parameters plus 'min_width', 'max_width',
+	 * 'min_height', 'max_height' and 'format'.
+	 *
+	 * The four dimension parameters bound the pixel size read out of the
+	 * uploaded image itself, each checked only when present. 'format' is a list
+	 * of acceptable image formats, given either as an array or as a
+	 * space-delimited string and matched case-insensitively against the
+	 * extension for the detected image type, with 'jpg' and 'tif' accepted
+	 * alongside the 'jpeg' and 'tiff' PHP reports. The size, extension and MIME
+	 * parameters inherited from BaseFileValidator apply as well.
+	 * @return     array<int, string> The accepted parameter names.
+	 */
 	#[\Override]
 	public static function getAcceptedParameters(): array
 	{

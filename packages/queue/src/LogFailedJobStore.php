@@ -17,6 +17,13 @@ final readonly class LogFailedJobStore implements FailedJobStoreInterface
     {
     }
 
+    /**
+     * Logs the failure at `error` level and keeps nothing.
+     *
+     * The message names the job class, attempt count and exception; the job's
+     * params and the exception trace travel in the log context. Nothing is
+     * stored, so the failure cannot be listed or retried afterwards.
+     */
     public function record(FailedJob $failedJob): void
     {
         $this->logger->error(sprintf(

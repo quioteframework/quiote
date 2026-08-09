@@ -104,6 +104,13 @@ class NotoperatorValidator extends OperatorValidator implements ResetInterface
 		}
 	}	
 
+	/**
+	 * Returns the operator to its initial state for reuse across requests.
+	 *
+	 * Resets the inherited state through OperatorValidator::reset(), then
+	 * drops the single child and puts the result back to SUCCESS, so the
+	 * validator has to be re-registered before it does anything again.
+	 */
 	#[\Override]
     public function reset() : void
 	{

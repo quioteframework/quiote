@@ -26,6 +26,17 @@ use Quiote\DI\Container;
 #[PluginAttribute(name: 'quiote/mcp')]
 final class McpPlugin implements PluginInterface
 {
+    /**
+     * Publishes the `mcp.*` config defaults and wires the MCP capability.
+     *
+     * Registers the `mcp:serve` and `mcp:warmup` commands and the singleton
+     * {@see McpAuthenticatorInterface} binding backed by
+     * {@see StaticTokenAuthenticator}. When `mcp.transports` includes `http`,
+     * also splices {@see McpEndpointMiddleware} into the pipeline before
+     * `SecurityMiddleware`, followed by {@see McpAuthMiddleware} before it —
+     * the latter only when `mcp.auth` is neither `none` (no auth) nor `oauth2`
+     * (enforced inside the SDK's own transport middleware instead).
+     */
     public function register(PluginRegistrar $registrar): void
     {
         $registrar->configDefault('mcp.enabled', false);

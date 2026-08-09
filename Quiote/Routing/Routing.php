@@ -17,6 +17,37 @@ use Symfony\Component\Routing\RouteCollection;
 use Symfony\Component\Routing\Route;
 use Symfony\Contracts\Service\ResetInterface;
 
+/**
+ * Base class for an application's route table, and the matcher and URL
+ * generator built from it.
+ *
+ * An application subclasses this and implements {@see build()}, returning the
+ * Symfony {@see RouteCollection} plus the parallel meta array holding the
+ * Quiote-specific per-route data (generation pattern, parent linkage, the `cut`
+ * flag). Typical implementations return a generated route aggregate's
+ * `build()` result, merge `#[Route]`-attributed routes into it with
+ * {@see \Quiote\Routing\AttributeRoutes::mergeInto()}, or both. The subclass is
+ * named in `factories.xml` (`<routing class="..."/>`) and one instance is
+ * created per {@see Context}; collaborators take it as a constructor dependency
+ * or resolve `Routing::class` from the container instead of constructing one.
+ *
+ * build() runs from the constructor, so the table is complete before the object
+ * is usable. {@see match()} prefers a precompiled Symfony matcher dumped by
+ * `quiote cache:warmup` and falls back to the dynamic matcher when none exists,
+ * when the dump no longer matches the route definitions, or when
+ * `core.routing.compiled_matcher` is false. {@see addRoute()} and
+ * {@see importRoutes()} change the table at runtime and invalidate the matcher,
+ * which is then rebuilt dynamically on the next match;
+ * {@see exportRoutes()} round-trips the whole table back out.
+ *
+ * URL generation is {@see gen()} -- by route name, or a self-referential URL
+ * when given null -- and {@see genSelf()}. {@see getBaseHref()} composes the
+ * absolute origin those URLs are rooted at from the request and its proxy
+ * headers, passing the resulting host through the `core.trusted_hosts`
+ * allow-list. During a request {@see \Quiote\Middleware\RoutingMiddleware}
+ * drives the matching and keeps the Symfony {@see RequestContext} returned by
+ * {@see getRequestContext()} in step with the incoming HTTP method.
+ */
 abstract class Routing implements ResetInterface, \Quiote\ContextComponentInterface
 {
 	private RouteCollection $routes;
@@ -295,6 +326,7 @@ abstract class Routing implements ResetInterface, \Quiote\ContextComponentInterf
 		return $path . ($qs ? ('?' . $qs) : '');
 	}
 
+	/** Returns the Symfony route collection the routing matches and generates against. */
 	public function getRouteCollection(): RouteCollection
 	{
 		return $this->routes;
@@ -304,6 +336,12 @@ abstract class Routing implements ResetInterface, \Quiote\ContextComponentInterf
 	{
 		return $this->meta;
 	}
+	/**
+	 * Returns the path generated URLs are rooted at.
+	 *
+	 * Always `/`. Use {@see getBaseHref()} for the absolute origin
+	 * (scheme, host and port) needed to build a fully qualified URL.
+	 */
 	public function getBasePath(): string
 	{
 		return '/';
@@ -381,6 +419,13 @@ abstract class Routing implements ResetInterface, \Quiote\ContextComponentInterf
 		$authority = $this->buildAuthority($host, $port, $scheme, $explicitPort);
 		return rtrim($scheme . '://' . $authority, '/');
 	}
+    /**
+     * Returns the Symfony request context matching and URL generation run against.
+     *
+     * The same instance the routing keeps, so mutating it (scheme, host,
+     * base URL, path info) changes how subsequent matches and generated
+     * URLs resolve.
+     */
     public function getRequestContext(): RequestContext
     {
         return $this->requestContext;

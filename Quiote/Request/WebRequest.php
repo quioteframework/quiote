@@ -145,6 +145,12 @@ class WebRequest implements ServerRequestInterface, ResetInterface, \Quiote\Cont
 		// runtime that never went through a SAPI (RoadRunner, Swoole).
 	}
 
+	/**
+	 * Does nothing but raise an `E_USER_DEPRECATED` notice.
+	 *
+	 * A WebRequest is itself the PSR-7 server request, so there is nothing to
+	 * attach; the argument is ignored.
+	 */
 	#[\Deprecated(message: 'No longer needed - WebRequest IS the PSR-7 request')]
 	public function attachPsrRequest(ServerRequestInterface $request): void
 	{
@@ -156,21 +162,40 @@ class WebRequest implements ServerRequestInterface, ResetInterface, \Quiote\Cont
 	// URL metadata
 	// -----------------------
 
+	/**
+	 * Returns the protocol string of the request, e.g. `HTTP/1.1`.
+	 *
+	 * Null when the URL metadata carries no protocol, which happens for a
+	 * request built outside a SAPI.
+	 */
 	public function getProtocol(): ?string
 	{
 		return $this->url->protocol;
 	}
 
+	/** Returns the request's URL scheme, `http` or `https`. */
 	public function getUrlScheme(): string
 	{
 		return $this->url->scheme;
 	}
 
+	/**
+	 * Returns the host the request was made against, without the port.
+	 *
+	 * Already passed through the `core.trusted_hosts` allow-list where the
+	 * metadata was derived from client-controlled headers.
+	 */
 	public function getUrlHost(): string
 	{
 		return $this->url->host;
 	}
 
+	/**
+	 * Returns the port the request was made against.
+	 *
+	 * Falls back to the scheme's default (443 for HTTPS, 80 for HTTP) when no
+	 * explicit port is known.
+	 */
 	public function getUrlPort(): int
 	{
 		return $this->url->effectivePort();
@@ -185,16 +210,19 @@ class WebRequest implements ServerRequestInterface, ResetInterface, \Quiote\Cont
 		return $this->url->authority($forcePort);
 	}
 
+	/** Returns the path and query string as they appeared on the request line. */
 	public function getRequestUri(): string
 	{
 		return $this->url->requestUri;
 	}
 
+	/** Returns the path portion of the request URL, without the query string. */
 	public function getUrlPath(): string
 	{
 		return $this->url->path;
 	}
 
+	/** Returns the query string without its leading `?`, or an empty string when there is none. */
 	public function getUrlQuery(): string
 	{
 		return $this->url->query;
@@ -214,6 +242,7 @@ class WebRequest implements ServerRequestInterface, ResetInterface, \Quiote\Cont
 			$this->getRequestUri();
 	}
 
+	/** Reports whether the request was made over HTTPS, per its resolved URL scheme. */
 	public function isHttps(): bool
 	{
 		return $this->url->isHttps();
@@ -409,6 +438,14 @@ class WebRequest implements ServerRequestInterface, ResetInterface, \Quiote\Cont
 		$this->parametersCache = null;
 	}
 
+	/**
+	 * Returns a clone using the given URI.
+	 *
+	 * Beyond the PSR-7 contract, the clone's URL metadata is rederived from
+	 * the new URI, so {@see getUrlHost()}, {@see getUrlPath()} and the rest
+	 * stay in step with {@see getUri()}. With `$preserveHost` set, the
+	 * existing Host header wins over the URI's host, as PSR-7 requires.
+	 */
 	#[\Override]
 	public function withUri(UriInterface $uri, $preserveHost = false): static
 	{
@@ -428,7 +465,7 @@ class WebRequest implements ServerRequestInterface, ResetInterface, \Quiote\Cont
 	 * setParameter() from application code.
 	 *
 	 * When called WITHOUT a default (getParameter('foo')): accessing an
-	 * unvalidated parameter throws — no escape hatch, catches dev errors.
+	 * unvalidated parameter throws, which catches developer errors early.
 	 * When called WITH a default (getParameter('foo', null)): the default
 	 * is returned silently. The caller has signalled they expect the
 	 * parameter may be absent; raw unvalidated HTTP input is never leaked.
@@ -487,6 +524,17 @@ class WebRequest implements ServerRequestInterface, ResetInterface, \Quiote\Cont
 		return $default;
 	}
 
+	/**
+	 * Reports whether a readable request parameter of that name exists.
+	 *
+	 * Returns false outright for a name that is not on the strict-validation
+	 * whitelist, whether or not a value was submitted -- this is the plural-safe
+	 * counterpart of the guard {@see getParameter()} applies, and must not
+	 * become a way to probe unvalidated input. For a whitelisted name it looks
+	 * through the runtime store, the intrinsic HTTP parameters, the `name[]`
+	 * array form and, finally, nested bracket paths within the merged
+	 * parameters.
+	 */
 	public function hasParameter(string $name): bool
 	{
 		if (!$this->params->isWhitelisted($name)) {
@@ -733,6 +781,12 @@ class WebRequest implements ServerRequestInterface, ResetInterface, \Quiote\Cont
 		return $new;
 	}
 
+	/**
+	 * Returns a clone with every query, parsed-body and runtime parameter dropped.
+	 *
+	 * The strict-validation whitelist survives, so names already declared stay
+	 * readable once values are set again. This request is left untouched.
+	 */
 	public function clearParameters(): static
 	{
 		$new = $this

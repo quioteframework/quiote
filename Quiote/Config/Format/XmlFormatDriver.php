@@ -44,6 +44,7 @@ final class XmlFormatDriver implements FormatDriverInterface, PositionAwareForma
 	) {
 	}
 
+	/** Whether the path names an `.xml` file, matched case-insensitively. */
 	public function supports(string $path): bool
 	{
 		return str_ends_with(strtolower($path), '.xml');

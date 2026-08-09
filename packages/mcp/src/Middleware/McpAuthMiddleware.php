@@ -31,6 +31,20 @@ final class McpAuthMiddleware implements MiddlewareInterface
     {
     }
 
+    /**
+     * Rejects requests to the MCP path that carry no valid bearer token.
+     *
+     * Passes the request straight down the pipeline when MCP is disabled, when
+     * `mcp.auth` is `'none'`, or when the path is not the configured
+     * `mcp.path`. Otherwise the `Authorization` header's Bearer credential is
+     * handed to the container-resolved {@see McpAuthenticatorInterface}; a
+     * missing, empty or rejected token yields a 401 problem-details response
+     * carrying `WWW-Authenticate: Bearer`, and the inner handler is never
+     * called.
+     *
+     * @throws \RuntimeException if the service registered for
+     *         {@see McpAuthenticatorInterface} does not implement it
+     */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $config = McpConfig::fromConfig();

@@ -27,6 +27,36 @@ use Psr\Http\Message\ServerRequestInterface;
 use \Exception;
 use Psr\Http\Message\ResponseInterface;
 
+/**
+ * The per-context registry and factory that dispatch routes through.
+ *
+ * One instance lives in each {@see Context}'s container; application code
+ * resolves it as `Controller::class` or receives it as a constructor
+ * dependency, and normally neither subclasses nor instantiates it. It answers
+ * the questions dispatch asks: does this thing exist ({@see moduleExists()},
+ * {@see actionExists()}, {@see viewExists()}, {@see modelExists()}), give me an
+ * instance of it ({@see createActionInstance()}, {@see createViewInstance()},
+ * both autowired through the container and type-checked against the Action and
+ * View contracts), and which {@see OutputType} is in play
+ * ({@see getOutputType()}, {@see getOutputTypeNames()}). Class lookups accept
+ * either the namespaced `App\Modules\<Module>\Actions\<Name>Action` form or the
+ * underscored `<Module>_<Name>Action` one.
+ *
+ * Module initialization is its other responsibility.
+ * {@see initializeModule()} applies a module's own configuration, registers its
+ * config handlers, seeds the conventional per-module path and naming
+ * directives, and rejects a disabled module; the create and check methods call
+ * it themselves, so direct calls are rare. Output types are built from the
+ * compiled `output_types.xml` during {@see initialize()}, and
+ * {@see getGlobalResponse()} hands out the response the whole request writes
+ * to.
+ *
+ * {@see countExecution()} caps how many dispatches one request may chain (the
+ * `max_executions` parameter, 20 by default) and throws once that is exceeded.
+ * {@see reset()} restores the per-request baseline in worker mode, including
+ * putting back the configured default output type rather than leaving the
+ * previous request's choice in place.
+ */
 class Controller extends ParameterHolder implements ResetInterface, ControllerInterface
 {
 	/** Enable verbose controller lifecycle logging (worker diagnostics). */

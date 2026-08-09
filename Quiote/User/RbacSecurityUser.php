@@ -405,6 +405,14 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 		parent::shutdown();
 	}
 
+	/**
+	 * Clears the role state on top of the parent reset.
+	 *
+	 * Drops the granted roles and the cached role definitions along with the
+	 * context, parameters and attributes, then delegates to the parent so the
+	 * authentication and credential state goes too. Nothing is persisted --
+	 * roles held only in memory are discarded.
+	 */
 	#[\Override]
     public function reset() : void
 	{

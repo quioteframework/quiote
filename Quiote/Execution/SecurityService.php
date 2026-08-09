@@ -13,6 +13,15 @@ class SecurityService
 {
     public function __construct(private readonly Controller $controller) {}
 
+    /**
+     * Decides how the controller should proceed with a security-guarded action.
+     *
+     * An action that does not declare itself secure is allowed outright. Otherwise the user is
+     * resolved from the controller's context container: anything that is not an ISecurityUser,
+     * or an ISecurityUser that is not authenticated, yields a login forward. An authenticated
+     * user that lacks the action's declared credentials yields a secure forward; one that has
+     * them, or an action declaring no credentials, is allowed.
+     */
     public function decide(Action $action): SecurityDecision
     {
         if(!$action->isSecure()) { return SecurityDecision::Allow; }

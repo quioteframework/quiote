@@ -66,12 +66,34 @@ class ActionViewCache
         $this->cache->set($this->key($module,$action,$outputType,$fingerprint,$locale), $payload, $ttlSeconds ?? $this->defaultTtlSeconds);
     }
 
+    /**
+     * Drops the single entry matching this exact key combination.
+     *
+     * Only the entry for the given fingerprint and locale is removed; variants
+     * rendered for another user or another locale survive. Use
+     * invalidateAction() to drop them all at once.
+     */
     public function delete(string $module, string $action, string $outputType, ?string $fingerprint = null, ?string $locale = null): void
     { $this->cache->delete($this->key($module,$action,$outputType,$fingerprint,$locale)); }
 
+    /**
+     * Invalidates every cached entry belonging to a module.
+     *
+     * Delegates to CacheManager, which bumps the module's namespace version so
+     * existing entries can no longer be addressed. Nothing is deleted from the
+     * underlying pool; the orphaned entries expire on their own TTL.
+     */
     public function invalidateModule(string $module): void
     { CacheManager::invalidateModule($module); }
 
+    /**
+     * Invalidates every cached entry for one action, across all output types,
+     * locales and user fingerprints.
+     *
+     * Delegates to CacheManager, which bumps that action's namespace version;
+     * the module's other actions are unaffected and the stale entries are left
+     * to expire rather than being deleted.
+     */
     public function invalidateAction(string $module, string $action): void
     { CacheManager::invalidateAction($module, $action); }
 }

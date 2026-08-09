@@ -13,6 +13,7 @@ use Quiote\Plugin\PluginRegistrar;
 #[PluginAttribute(name: 'quiote/propulsion')]
 final class PropulsionPlugin implements PluginInterface
 {
+    /** Registers `propulsion` as a database driver alias for {@see PropulsionDatabase}. */
     public function register(PluginRegistrar $registrar): void
     {
         $registrar->databaseDriver('propulsion', PropulsionDatabase::class);

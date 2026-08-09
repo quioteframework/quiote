@@ -9,6 +9,14 @@ namespace Quiote\Telemetry\Dashboard;
  */
 final class Bars
 {
+    /**
+     * Renders $value against $ceiling as exactly $width characters: the clamped
+     * ratio (see {@see ratio()}) worth of $fill, padded out with $empty.
+     *
+     * Returns the empty string for a non-positive $width. A non-positive
+     * ceiling or a non-finite input renders as an all-empty bar rather than
+     * failing.
+     */
     public static function render(float $value, float $ceiling, int $width = 20, string $fill = '█', string $empty = '░'): string
     {
         if ($width <= 0) {

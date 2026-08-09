@@ -26,6 +26,26 @@ class PropulsionDatabase extends Database
 {
     private string $datasource = 'default';
 
+    /**
+     * Bootstraps Propulsion from the configured runtime config file.
+     *
+     * Requires the `quioteframework/propulsion` package and a `config`
+     * parameter pointing at a readable PHP file that returns an array;
+     * directives in the path are expanded first. Propulsion is initialized
+     * from that file if it has not been initialized yet, otherwise the
+     * already-running instance is reconfigured with this array. The datasource
+     * is then resolved, `overrides` are applied to the configuration,
+     * `init_queries` are appended to the datasource's connection queries, and
+     * instance pooling is switched on or off if `enable_instance_pooling` was
+     * given. No connection is opened here.
+     *
+     * @param array<string, mixed> $parameters
+     * @throws DatabaseException If Propulsion is not installed, the `config`
+     *                           parameter is missing or unreadable, the config
+     *                           file does not return an array, the
+     *                           configuration object cannot be resolved, or no
+     *                           datasource can be determined.
+     */
     #[\Override]
     public function initialize(DatabaseManager $databaseManager, array $parameters = [])
     {
@@ -97,6 +117,15 @@ class PropulsionDatabase extends Database
         $this->connection = $this->resource = Propulsion::getConnection($this->datasource);
     }
 
+    /**
+     * Returns the `config` parameter as configured.
+     *
+     * This is the raw parameter value, not the directive-expanded path that
+     * initialize() actually loaded.
+     *
+     * @throws DatabaseException If the `config` parameter is absent or not a
+     *                           non-empty string.
+     */
     public function getConfigPath(): string
     {
         $configPath = $this->getParameter('config');
@@ -110,11 +139,27 @@ class PropulsionDatabase extends Database
         ));
     }
 
+    /**
+     * Returns the Propulsion datasource this database connects through.
+     *
+     * Resolved during initialize() from the `datasource` parameter or from the
+     * config file's default datasource; `default` until then.
+     */
     public function getDatasource(): string
     {
         return $this->datasource;
     }
 
+    /**
+     * Returns the connection narrowed to Propulsion's own PDO subclass.
+     *
+     * Connects lazily on first call. Use this over getConnection() when the
+     * caller needs Propulsion-specific PDO behaviour.
+     *
+     * @throws DatabaseException If a connection could not be created, or the
+     *                           datasource handed back something that is not a
+     *                           PropulsionPDO.
+     */
     public function getPropulsionConnection(): PropulsionPDO
     {
         $connection = $this->getConnection();
@@ -130,12 +175,26 @@ class PropulsionDatabase extends Database
         ));
     }
 
+    /**
+     * Returns the datasource connection as a plain PDO handle.
+     *
+     * @throws DatabaseException If the connection could not be created or is
+     *                           not a PropulsionPDO.
+     */
     #[\Override]
     public function getPdo(): \PDO
     {
         return $this->getPropulsionConnection();
     }
 
+    /**
+     * Probes the connection with `SELECT 1`.
+     *
+     * Returns true when no connection has been opened yet, since lazy connect
+     * will create a fresh one on first use. On any failure — including the
+     * connection not being a PDO instance — the connection and resource are
+     * cleared so the next getConnection() reconnects, and false is returned.
+     */
     #[\Override]
     public function ping(): bool
     {
@@ -172,6 +231,13 @@ class PropulsionDatabase extends Database
         }
     }
 
+    /**
+     * Closes Propulsion and drops the connection.
+     *
+     * Propulsion::close() is only called when Propulsion was initialized; the
+     * connection and resource are cleared either way, so a later
+     * getConnection() opens a new one.
+     */
     #[\Override]
     public function shutdown()
     {

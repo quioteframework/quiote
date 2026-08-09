@@ -176,6 +176,12 @@ class ValidationError implements ResetInterface
 		return $this->hasArgument(new ValidationArgument($fieldname));
 	}
 
+	/**
+	 * Returns the error to its initial state for reuse across requests.
+	 *
+	 * Drops the affected arguments, the message and the name, and detaches the
+	 * error from the incident it belonged to, without touching that incident.
+	 */
 	public function reset() : void
 	{
 		$this->arguments = [];

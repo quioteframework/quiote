@@ -122,6 +122,13 @@ final class PluginManager
 
     // --- deferred contribution stores (called by PluginRegistrar) -----------
 
+    /**
+     * Records a directory a plugin contributes as a module search root.
+     *
+     * De-duplicated on the exact string, so re-registering the same directory is a
+     * no-op. The contribution is stored statically and applied later by whoever
+     * reads {@see moduleDirectories()}, not at the moment of the call.
+     */
     public static function addModuleDirectory(string $dir): void
     {
         if (!in_array($dir, self::$moduleDirs, true)) {
@@ -135,6 +142,13 @@ final class PluginManager
         return self::$moduleDirs;
     }
 
+    /**
+     * Records a console command class a plugin contributes to the CLI application.
+     *
+     * De-duplicated on the class name, so registering the same command twice adds it
+     * once. The class is not loaded or instantiated here; it is handed over when the
+     * console application reads {@see contributedCommands()}.
+     */
     public static function addCommand(string $fqcn): void
     {
         if (!in_array($fqcn, self::$commands, true)) {
@@ -154,6 +168,14 @@ final class PluginManager
         self::$containerServices[] = ['id' => $id, 'concrete' => $concrete, 'scope' => $scope, 'aliases' => $aliases];
     }
 
+    /**
+     * Records a configurator for a named HTTP client, keyed by $name.
+     *
+     * Registering the same name twice replaces the earlier configurator rather than
+     * stacking. The configurator is only invoked when
+     * {@see configureHttpClients()} applies it to a factory, and only for a name the
+     * factory has not already configured.
+     */
     public static function addHttpClientConfig(string $name, callable $configurator): void
     {
         self::$httpClientConfigs[$name] = $configurator;
@@ -226,6 +248,12 @@ final class PluginManager
         return self::$plugins;
     }
 
+    /**
+     * Reports whether plugin registration has already run in this process.
+     *
+     * The flag guards registration against running twice per worker; {@see reset()}
+     * clears it along with the contributions.
+     */
     public static function isBooted(): bool
     {
         return self::$registered;

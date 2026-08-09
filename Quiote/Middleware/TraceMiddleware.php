@@ -15,6 +15,16 @@ class TraceMiddleware implements MiddlewareInterface
 {
     public function __construct(private readonly bool $emitHeader = false, private readonly string $headerName = 'X-Quiote-Trace') {}
 
+    /**
+     * Appends this middleware's class name to the ExecutionState trace.
+     *
+     * Reuses the ExecutionState already on the request, or creates one and
+     * attaches it, and records `static::class` so a subclass traces under its
+     * own name. When the constructor enabled the header, the trace is re-read
+     * from the shared ExecutionState after the downstream handler returns, so
+     * entries appended by middleware further down the stack are included;
+     * non-scalar entries are rendered as their debug type.
+     */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $execAttribute = $request->getAttribute(ExecutionState::class);

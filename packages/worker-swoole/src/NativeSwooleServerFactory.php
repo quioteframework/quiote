@@ -32,6 +32,15 @@ final class NativeSwooleServerFactory implements SwooleServerFactory
         $this->extensionAvailable = $extensionAvailable ?? class_exists(SwooleHttpServer::class);
     }
 
+    /**
+     * Builds a \Swoole\Http\Server bound to $host:$port in SWOOLE_BASE mode.
+     *
+     * The settings array is passed to the server's own `set()` untouched. The
+     * server is created but not started; {@see SwooleServerInterface::start()}
+     * does that.
+     *
+     * @throws RuntimeException if ext-swoole is not available in this process.
+     */
     public function create(string $host, int $port, array $settings): SwooleServerInterface
     {
         if (!$this->extensionAvailable) {

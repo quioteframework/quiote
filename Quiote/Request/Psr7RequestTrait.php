@@ -6,6 +6,19 @@ namespace Quiote\Request;
 
 use Psr\Http\Message\ServerRequestInterface;
 
+/**
+ * Reading and stripping of intrinsic PSR-7 request data, used by {@see WebRequest}.
+ *
+ * The three protected helpers work purely against a `ServerRequestInterface`: one looks a
+ * single name up across parsed body, query, cookies, headers and uploaded files; one returns
+ * everything, or just one of the named sources (`parameters`, `cookies`, `files`, `headers`,
+ * `attributes`); and one returns a request clone with a name removed from whichever source
+ * holds it, or null when no source did.
+ *
+ * They see only what arrived with the request. Runtime parameters set through
+ * `WebRequest::setParameter()`, the strict-validation whitelist and PSR-7 attributes are
+ * WebRequest's own concern and are applied around these helpers, not inside them.
+ */
 trait Psr7RequestTrait
 {
     /**

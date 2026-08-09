@@ -169,11 +169,13 @@ final readonly class ProblemDetails
         return $out;
     }
 
+    /** Encodes {@see toArray()} as the JSON body of an `application/problem+json` response, leaving slashes and unicode unescaped. */
     public function toJson(): string
     {
         return (string) json_encode($this->toArray(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
 
+    /** Returns the HTTP status code this problem document describes, which the response should also carry. */
     public function getStatus(): int
     {
         return $this->status;

@@ -121,6 +121,18 @@ class PdoSessionPersistence implements SessionPersistenceInterface
         return $this->deleteStmt ??= $this->pdo->prepare("DELETE FROM {$this->table} WHERE sess_id = ?");
     }
 
+    /**
+     * Selects the session row and decodes its payload through the codec.
+     *
+     * Returns null when the id has no row or the stored blob is empty. A bytea
+     * column comes back from pdo_pgsql as a stream resource rather than a
+     * string, so the blob is drained before decoding. The cursor is always
+     * closed, including on failure: `fetchColumn()` leaves the cached statement
+     * open, which on SQLite holds a shared lock that a later {@see save()}
+     * upsert cannot upgrade.
+     *
+     * @throws StorageException if the query fails.
+     */
     public function load(string $sid): ?array
     {
         $stmt = null;
@@ -161,6 +173,15 @@ class PdoSessionPersistence implements SessionPersistenceInterface
         }
     }
 
+    /**
+     * Upserts the encoded session payload against the id.
+     *
+     * The statement is the driver-specific upsert built once per instance, and
+     * the payload is bound as a LOB so a binary encoding survives on drivers
+     * with a bytea/blob column.
+     *
+     * @throws StorageException if encoding or the write fails.
+     */
     public function save(string $sid, array $data): void
     {
         try {
@@ -174,6 +195,14 @@ class PdoSessionPersistence implements SessionPersistenceInterface
         }
     }
 
+    /**
+     * Deletes the session row.
+     *
+     * A database failure is logged at error rather than thrown — the caller is
+     * usually mid-logout or mid-rotation and has nothing useful to do with the
+     * exception — so a failed delete leaves the session loadable until it
+     * expires.
+     */
     public function delete(string $sid): void
     {
         try {

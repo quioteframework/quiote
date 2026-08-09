@@ -29,6 +29,12 @@ final readonly class JobPayload
     ) {
     }
 
+    /**
+     * Returns a copy with the attempt counter replaced.
+     *
+     * Job class, params and availability time are carried over unchanged; the
+     * receiver is not modified.
+     */
     public function withAttempts(int $attempts): self
     {
         return new self($this->jobClass, $this->params, $attempts, $this->availableAt);

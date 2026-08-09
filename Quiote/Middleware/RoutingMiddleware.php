@@ -44,6 +44,29 @@ class RoutingMiddleware implements MiddlewareInterface
 
     public function __construct(private readonly Routing $routing, private readonly Controller $controller) {}
 
+    /**
+     * Matches the request path and attaches the resolved route to the request.
+     *
+     * Syncs the routing RequestContext to the incoming HTTP method first —
+     * nothing else in the framework does, and it otherwise stays on GET and
+     * would reject every method-constrained non-GET route. On a match the
+     * request gains `module`, `action`, `output_type`, `route_name`,
+     * `route_params` and an ActionDescriptor attribute, and a
+     * RequestMatchedEvent is emitted. The route's own output type wins;
+     * without one the value negotiated earlier is kept, falling back to `html`.
+     *
+     * A path that resolves to no module/action, and a
+     * ResourceNotFoundException, both leave the attributes unset and let the
+     * request continue so downstream middleware can produce a 404. A
+     * MethodNotAllowedException returns a 405 carrying an `Allow` header,
+     * except for OPTIONS, which is passed on unrouted so a CORS preflight
+     * handler still gets its chance.
+     *
+     * Owns the route-match span when `telemetry.spans.route` is on, and renames
+     * the enclosing root request span to the matched route's low-cardinality
+     * identity; the span is always ended, including on the early 405/OPTIONS
+     * returns.
+     */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $path = $request->getUri()->getPath();

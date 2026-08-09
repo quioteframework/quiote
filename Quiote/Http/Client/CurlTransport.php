@@ -46,6 +46,17 @@ final class CurlTransport implements ClientInterface
         }
     }
 
+    /**
+     * Performs the request with curl and builds a PSR-7 response from the result.
+     *
+     * Redirects are not followed, so a 3xx is returned as-is; response headers are collected
+     * line by line and re-added to the response, preserving repeated names. Any HTTP status,
+     * including 4xx and 5xx, is returned rather than thrown.
+     *
+     * @throws NetworkException when curl reports a connectivity-level failure (DNS, connect,
+     *                          timeout, TLS handshake, or a truncated exchange)
+     * @throws RequestException when the URI is empty, or curl fails for any other reason
+     */
     public function sendRequest(RequestInterface $request): ResponseInterface
     {
         $uri = (string) $request->getUri();

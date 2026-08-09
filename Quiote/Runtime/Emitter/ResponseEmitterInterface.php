@@ -17,6 +17,15 @@ use Psr\Http\Message\ResponseInterface;
  */
 interface ResponseEmitterInterface
 {
+    /**
+     * Writes the status line, headers and body out through the host's channel.
+     *
+     * Called once per request by the runtime, after {@see \Quiote\Runtime\Worker\WorkerLoop::handle()}
+     * has produced the response. An emitter reporting
+     * {@see self::supportsStreaming()} must deliver an
+     * {@see \Quiote\Http\Sse\SseStream} body chunk by chunk rather than
+     * casting it to a string.
+     */
     public function emit(ResponseInterface $response): void;
 
     /**

@@ -113,6 +113,7 @@ class DependencyManager implements ResetInterface
 		return $this->depData;
 	}
 
+	/** Discards every dependency token collected so far, by delegating to {@see clear()}. */
 	public function reset() : void
 	{
 		$this->clear();

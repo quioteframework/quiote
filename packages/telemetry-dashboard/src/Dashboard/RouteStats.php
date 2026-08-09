@@ -20,6 +20,14 @@ final class RouteStats
     /** @var array<string, array{count:int,errorCount:int,totalMs:float,cacheHits:int,lastSeenSecond:int}> */
     private array $routes = [];
 
+    /**
+     * Folds one request into the aggregates for $route.
+     *
+     * Once the tracked-route cap is reached, a previously unseen route name is
+     * rewritten to the `(other)` bucket instead of adding a new entry, so an
+     * app emitting unbounded distinct route labels cannot grow the map without
+     * limit.
+     */
     public function record(string $route, float $durationMs, bool $isError, bool $cacheHit, int $second): void
     {
         if (!isset($this->routes[$route]) && count($this->routes) >= self::MAX_TRACKED_ROUTES && $route !== self::OTHER_LABEL) {

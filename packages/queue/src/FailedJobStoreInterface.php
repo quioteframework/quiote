@@ -11,5 +11,13 @@ namespace Quiote\Queue;
  */
 interface FailedJobStoreInterface
 {
+    /**
+     * Takes delivery of a job that has permanently failed.
+     *
+     * Called by {@see JobExecutor} once retries are exhausted, before the
+     * driver is told to discard the job. Implementors decide whether the
+     * record is kept (a queryable store) or merely reported and dropped
+     * ({@see LogFailedJobStore}).
+     */
     public function record(FailedJob $failedJob): void;
 }

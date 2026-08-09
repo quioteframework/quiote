@@ -11,5 +11,14 @@ namespace Quiote\Queue;
  */
 interface Job
 {
+    /**
+     * Performs the job's work.
+     *
+     * Called once per attempt on a freshly built instance. Throwing signals
+     * failure: {@see JobExecutor} retries the job up to
+     * `queue.retry.max_attempts` and then records it with the configured
+     * {@see FailedJobStoreInterface}. Returning normally marks the attempt
+     * successful.
+     */
     public function handle(): void;
 }

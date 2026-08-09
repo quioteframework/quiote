@@ -159,7 +159,7 @@ class MiddlewareCatalog
     }
 
     /**
-     * Escape hatch: replace Quiote's ENTIRE built-in middleware stack — including
+     * Replaces Quiote's ENTIRE built-in middleware stack — including
      * ErrorHandlingMiddleware, SessionMiddleware, CSRF, SecurityMiddleware, and
      * RoutingMiddleware — with one supplied by the application.
      *
