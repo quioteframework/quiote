@@ -74,9 +74,9 @@ final class QuioteSessionBag implements SessionBagInterface
 
     /**
      * A brand-new session nothing has been written to yet is reported as
-     * absent, which is what keeps a default/empty write -- a logout, a
-     * token-derived marker -- from persisting a row and emitting a cookie for
-     * a client that never had a session. It matches the guard
+     * absent, which is what keeps a default/empty write -- a logout on a
+     * client that never logged in -- from persisting a row and emitting a
+     * cookie for a client that never had a session. It matches the guard
      * persistAndBakeCookies() already applies on the way out.
      */
     public function exists(): bool

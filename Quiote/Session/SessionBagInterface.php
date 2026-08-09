@@ -67,10 +67,11 @@ interface SessionBagInterface
      * Whether a write can land in a session that already exists, rather than
      * manufacturing one for a client that has none.
      *
-     * Callers persisting default or empty state -- a logout, a token-derived
-     * identity -- consult this so an anonymous or stateless request does not
-     * acquire a session row and a Set-Cookie it never asked for. A deliberate
-     * write that should create a session (a login) simply does not ask.
+     * Callers persisting default or empty state -- a logout by a client that
+     * was never logged in -- consult this so an anonymous or stateless request
+     * does not acquire a session row and a Set-Cookie it never asked for. A
+     * deliberate write that should create a session (a login) simply does not
+     * ask.
      */
     public function exists(): bool;
 
