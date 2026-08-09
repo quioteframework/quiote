@@ -333,9 +333,11 @@ class RoutingValue implements IRoutingValue, ResetInterface
 	 * encoding flag, so a container-managed instance holds nothing from the
 	 * previous request. The instance is unusable until it is re-initialized:
 	 * reading the value or casting to string before then hits an
-	 * uninitialized property, and the static offset map the ArrayAccess
-	 * methods consult is unset too, so `pre`/`val`/`post` access stops
-	 * resolving.
+	 * uninitialized property.
+	 *
+	 * Only instance state is cleared. The `pre`/`val`/`post` offset map is a
+	 * constant shared by every instance, so it stays put and ArrayAccess keeps
+	 * resolving for the rest of the process.
 	 */
 	public function reset(): void
 	{
@@ -348,11 +350,9 @@ class RoutingValue implements IRoutingValue, ResetInterface
 		$this->valueEncoded = false;
 		$this->postfixEncoded = false;
 		$this->prefixEncoded = false;
-		
+
 		unset($this->value);
 		unset($this->valueNeedsEncoding);
-		
-		unset(self::$arrayMap);
 	}
 }
 

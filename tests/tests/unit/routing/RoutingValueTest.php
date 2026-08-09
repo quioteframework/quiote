@@ -81,4 +81,40 @@ class RoutingValueTest extends TestCase
         $this->expectException(QuioteException::class);
         (string) $value;
     }
+
+    public function testResetKeepsOffsetsAddressableOnTheResetInstance(): void
+    {
+        $value = new RoutingValue('foo');
+        $value->setPrefix('pre');
+
+        $value->reset();
+
+        $this->assertTrue($value->offsetExists('pre'));
+        $this->assertNull($value->offsetGet('pre'));
+    }
+
+    public function testResetDoesNotBreakArrayAccessForOtherInstances(): void
+    {
+        (new RoutingValue('discarded'))->reset();
+
+        $fresh = new RoutingValue('bar');
+        $this->assertTrue($fresh->offsetExists('val'));
+        $this->assertSame('bar', $fresh->offsetGet('val'));
+    }
+
+    public function testArrayAccessSurvivesRepeatedResetsAcrossInstances(): void
+    {
+        // A worker runtime resets container-managed instances between requests;
+        // the shared offset map has to outlive every one of them.
+        for ($request = 0; $request < 3; $request++) {
+            $value = new RoutingValue('value-' . $request);
+            $value->setPrefix('pre-' . $request);
+
+            $this->assertTrue($value->offsetExists('val'));
+            $this->assertSame('value-' . $request, $value->offsetGet('val'));
+            $this->assertSame('pre-' . $request, $value->offsetGet('pre'));
+
+            $value->reset();
+        }
+    }
 }
