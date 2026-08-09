@@ -408,7 +408,6 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 	public function setAuthenticated($authenticated)
 	{
 		if($authenticated === true) {
-			$wasAuthenticated = ($this->authenticated === true);
 			$this->authenticated = true;
 			$this->logoutIntent = false; // clear any previous logout marker
 			$this->dirty = true;
@@ -437,7 +436,14 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 				// it the old id stayed rideable for a few seconds after every login,
 				// which is precisely the fixation window regenerating is meant to
 				// close.
-				if(!$wasAuthenticated) {
+				//
+				// The transition read is the session's, not this object's: an identity
+				// authenticated in memory that never reached the session -- a
+				// token-derived request promoting itself to a browser session by
+				// clearing its marker -- is still a first login as far as the cookie
+				// is concerned, and skipping the rotation would leave exactly the id
+				// an attacker could have fixed.
+				if($bag->get(self::AUTH_NAMESPACE) !== true) {
 					$bag->regenerate(true, privilegeTransition: true);
 				}
 				// Deliberately not gated on an existing session: login is the

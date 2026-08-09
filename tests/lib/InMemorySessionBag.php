@@ -10,8 +10,7 @@ use Quiote\Session\SessionBagInterface;
  * read and write want this, not a real session backend.
  *
  * exists() is settable, because it is the switch several write-on-change
- * behaviours key off -- a logout or a token-derived marker must not create a
- * session that was not there.
+ * behaviours key off -- a logout must not create a session that was not there.
  */
 class InMemorySessionBag implements SessionBagInterface
 {

@@ -285,6 +285,36 @@ class SecurityUserDirtyTrackingTest extends UnitTestCase
     }
 
     /**
+     * The session-establishing endpoint an SPA calls once: clearing the marker
+     * hands the identity to the session, and that is a first login as far as the
+     * cookie is concerned -- the in-memory authentication the token already set
+     * never reached the session, so the id still has to rotate.
+     */
+    public function testPromotingATokenIdentityToTheSessionStillRegeneratesTheId(): void
+    {
+        $bag = new InMemorySessionBag();
+        $context = $this->contextWithBag('user-dirty-test::tests-anonymous', $bag);
+        $idBefore = $bag->getId();
+
+        $user = $this->rbacUser($context);
+        // What the stateless firewall did earlier in the request.
+        $user->markTokenDerived();
+        $user->setAuthenticated(true);
+        $this->assertSame($idBefore, $bag->getId(), 'precondition: the token request left the session alone');
+
+        // What the endpoint does to turn that token into a browser session.
+        $user->markTokenDerived(false);
+        $user->setAuthenticated(true);
+        $user->grantRole('administrator');
+        $user->shutdown();
+
+        $this->assertNotSame($idBefore, $bag->getId());
+        $this->assertTrue($bag->lastRegenerateWasPrivilegeTransition);
+        $this->assertTrue($bag->get(SecurityUser::AUTH_NAMESPACE));
+        $this->assertSame(['administrator'], $bag->get(\Quiote\User\RbacSecurityUser::ROLES_NAMESPACE));
+    }
+
+    /**
      * The concrete leak the request scoping closes: a token call that happens to
      * carry a session cookie must not log that session in as the token's bearer,
      * nor write the token's roles and credentials over the ones it holds.
