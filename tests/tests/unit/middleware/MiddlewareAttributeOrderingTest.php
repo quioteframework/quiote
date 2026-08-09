@@ -6,6 +6,7 @@ use Quiote\Middleware\MiddlewarePipeline;
 use Quiote\Middleware\Config\MiddlewareConfigRegistry;
 use Quiote\Middleware\MiddlewareCatalog;
 use Quiote\Middleware\ErrorHandlingMiddleware;
+use Quiote\Middleware\StealthMiddleware;
 use Quiote\Middleware\SessionMiddleware;
 use Quiote\Middleware\TelemetryMiddleware;
 use Quiote\Middleware\TimingMiddleware;
@@ -76,6 +77,7 @@ class MiddlewareAttributeOrderingTest extends TestCase
     public function testAttributeScannedOrderMatchesLegacyHardCodedOrder(): void
     {
         $this->assertSame([
+            StealthMiddleware::class,
             ErrorHandlingMiddleware::class,
             TelemetryMiddleware::class,
             SessionMiddleware::class,

@@ -65,6 +65,7 @@ final class CoreMiddlewareRegistry
         AssetAggregationMiddleware::class,
         FormPopulationMiddleware::class,
         ExecutionTimeMiddleware::class,
+        StealthMiddleware::class,
     ];
 
     /**
@@ -116,6 +117,10 @@ final class CoreMiddlewareRegistry
             AssetAggregationMiddleware::class => static fn(): AssetAggregationMiddleware => new AssetAggregationMiddleware(),
             FormPopulationMiddleware::class => static fn(): FormPopulationMiddleware => new FormPopulationMiddleware($controller),
             ExecutionTimeMiddleware::class => static fn(): ExecutionTimeMiddleware => new ExecutionTimeMiddleware(),
+            StealthMiddleware::class => static fn(): StealthMiddleware => new StealthMiddleware(
+                \Quiote\Config\Config::getBool('core.stealth_mode', false),
+                \Quiote\Config\Config::getStringList('core.stealth_additional_headers', ['X-Powered-By'])
+            ),
         ];
 
         $missing = array_diff(self::CORE, array_keys($factories));

@@ -72,6 +72,8 @@ final class Quiote
 			// behavior; this only controls exception response detail).
 			Config::set('core.developer_exceptions', false, false);
 
+			Config::set('core.stealth_mode', false, false);
+
 			if(!Config::has('core.app_dir')) {
 				throw new QuioteException('Configuration directive "core.app_dir" not defined, terminating...');
 			}

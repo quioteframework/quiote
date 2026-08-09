@@ -5,6 +5,7 @@ use Quiote\Context;
 use Quiote\Middleware\MiddlewarePipeline;
 use Quiote\Middleware\MiddlewareCatalog;
 use Quiote\Middleware\ErrorHandlingMiddleware;
+use Quiote\Middleware\StealthMiddleware;
 use Quiote\Middleware\TimingMiddleware;
 use Quiote\Middleware\TraceMiddleware;
 use Quiote\Middleware\ExecutionTimeMiddleware;
@@ -35,7 +36,10 @@ class MiddlewarePipelineContextTest extends TestCase
     {
         $pipeline = new MiddlewarePipeline($this->ctx());
     $order = $this->buildAndGetOrder($pipeline);
-        $this->assertSame(ErrorHandlingMiddleware::class, $order[0]);
+        // StealthMiddleware sits outside ErrorHandlingMiddleware so it can also
+        // strip identifying headers from error/404 responses.
+        $this->assertSame(StealthMiddleware::class, $order[0]);
+        $this->assertSame(ErrorHandlingMiddleware::class, $order[1]);
         $this->assertEquals('__TERMINAL__', end($order));
         // Ensure relative ordering: Timing before Trace when enabled
         $timingIdx = array_search(TimingMiddleware::class, $order, true);

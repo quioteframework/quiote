@@ -6,6 +6,7 @@ use Quiote\Middleware\MiddlewarePipeline;
 use Quiote\Middleware\MiddlewareCatalog;
 use Quiote\Middleware\ExecutionTimeMiddleware;
 use Quiote\Middleware\ErrorHandlingMiddleware;
+use Quiote\Middleware\StealthMiddleware;
 use Nyholm\Psr7\ServerRequest;
 use Psr\Http\Server\RequestHandlerInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -52,7 +53,10 @@ class MiddlewarePipelineTest extends TestCase
         $normalizer->normalize();
         $end = ob_get_level();
         $order = $pipeline->debugStack();
-        $this->assertSame(ErrorHandlingMiddleware::class, $order[0]);
+        // StealthMiddleware sits outside ErrorHandlingMiddleware so it can also
+        // strip identifying headers from error/404 responses.
+        $this->assertSame(StealthMiddleware::class, $order[0]);
+        $this->assertSame(ErrorHandlingMiddleware::class, $order[1]);
         $this->assertContains(ExecutionTimeMiddleware::class, $order);
         $this->assertEquals('__TERMINAL__', end($order));
         $this->assertSame($normalizer->startLevel(), $end);
