@@ -93,8 +93,13 @@ class RbacSecurityUserTest extends UnitTestCase
 		$this->assertEquals($this->_u->getCredentials(), []);
 	}
 
+	/**
+	 * A token call made on a browser's session cookie leaves that session's own
+	 * roles alone -- both the ones it holds, which the token request replaces
+	 * in memory, and the ones it reads back afterwards.
+	 */
 	#[RunInSeparateProcess]
-	public function testTokenDerivedRolesAreNotRehydratedFromStaleSession(): void
+	public function testATokenDerivedRequestNeitherKeepsNorClobbersTheSessionRoles(): void
 	{
 		// NullStorage (the default test storage) discards everything, so
 		// persistence across separate User instances needs a real,
@@ -105,19 +110,33 @@ class RbacSecurityUserTest extends UnitTestCase
 		// test, so the context would otherwise answer a NullSessionBag.
 		$context->getContainer()->set(\Quiote\Session\SessionBagInterface::class, new InMemorySessionBag(), \Quiote\DI\Container::SCOPE_REQUEST);
 
-		$u = new SimpleRbacSecurityUser();
-		$u->initialize($context);
-		$u->setAuthenticated(true);
-		$u->grantRole('admin');
-		$u->markTokenDerived();
-		$u->shutdown();
+		// A browser that logged in the ordinary way.
+		$session = new SimpleRbacSecurityUser();
+		$session->initialize($context);
+		$session->setAuthenticated(true);
+		$session->grantRole('member');
+		$session->shutdown();
 
+		// A token request on the same cookie, as AuthenticationManager::apply()
+		// drives it for a stateless firewall.
+		$token = new SimpleRbacSecurityUser();
+		$token->initialize($context);
+		$token->markTokenDerived();
+		$token->revokeAllRoles();
+		$token->clearCredentials();
+		$token->setAuthenticated(true);
+		$token->grantRole('admin');
+		$this->assertSame(['admin'], $token->getRoles(), 'the token decides this request');
+		$token->shutdown();
+
+		// A later classic page load on that same cookie.
 		$fresh = new SimpleRbacSecurityUser();
 		$fresh->initialize($context);
 
-		$this->assertTrue($fresh->isTokenDerived());
-		$this->assertSame([], $fresh->getRoles());
-		$this->assertSame([], $fresh->getCredentials());
+		$this->assertFalse($fresh->isTokenDerived());
+		$this->assertSame(['member'], $fresh->getRoles());
+		$this->assertTrue($fresh->hasCredentials('products.rate'), 'and its credentials were rebuilt');
+		$this->assertFalse($fresh->hasCredentials('products.add'), 'without inheriting the token request\'s');
 	}
 
 	#[RunInSeparateProcess]

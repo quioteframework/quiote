@@ -176,15 +176,6 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 
 		$this->loadDefinitions();
 
-		if($this->isTokenDerived()) {
-			// Token-authenticated identities have their roles re-granted from
-			// fresh claims each request (see SecurityUser::$tokenDerived); a
-			// stale session role set must not be rehydrated here.
-			$this->roles = [];
-			$this->markClean();
-			return;
-		}
-
 		$storedRolesRaw = $this->getContext()->getContainer()->get(\Quiote\Session\SessionBagInterface::class)->get(self::ROLES_NAMESPACE);
 		$this->roles = is_array($storedRolesRaw) ? array_values(array_filter($storedRolesRaw, 'is_string')) : [];
 
@@ -355,6 +346,15 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 		if (!$this->isDirty()) {
 			// See SecurityUser::shutdown(): an unchanged user writes nothing,
 			// so an anonymous request creates no session row.
+			return;
+		}
+
+		if ($this->isTokenDerived()) {
+			// These roles were derived from this request's token, not from the
+			// session (see SecurityUser::$tokenDerived), so they are not the
+			// session's to keep. The parent skips the rest of the user state
+			// for the same reason.
+			parent::shutdown();
 			return;
 		}
 

@@ -23,11 +23,6 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 	const CREDENTIAL_NAMESPACE = 'org.quiote.user.BasicSecurityUser.credentials';
 
 	/**
-	 * The namespace under which the token-derived marker will be stored.
-	 */
-	const TOKEN_DERIVED_NAMESPACE = 'org.quiote.user.BasicSecurityUser.tokenDerived';
-
-	/**
 	 * Storage keys considered part of this user's "core identity" (e.g. a
 	 * legacy user id, company id, external uuid). Subclasses populate this
 	 * so {@see restoreIdentityFromStorage()} knows which attributes must
@@ -96,9 +91,14 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 	/**
 	 * True when this user's identity/credentials were (re-)established from
 	 * a token (bearer/JWT/OIDC) rather than read back from the session as
-	 * the source of truth. While true, session *credential* rehydration is
-	 * skipped in {@see initialize()} -- credentials come from the token/DB
-	 * each request -- but session *attribute* storage stays live.
+	 * the source of truth.
+	 *
+	 * Scoped to the request that presented the token: it is established by
+	 * the authenticator (see
+	 * {@see \Quiote\Security\Auth\AuthenticationManager::apply()}) and never
+	 * persisted, so a token call made with a session cookie attached neither
+	 * inherits that session's authentication and credentials nor writes its
+	 * own over them. Session *attribute* storage stays live either way.
 	 */
 	protected bool $tokenDerived = false;
 
@@ -232,19 +232,18 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 
 		$storedAuth = $bag->get(self::AUTH_NAMESPACE);
 		$storedCreds = $bag->get(self::CREDENTIAL_NAMESPACE);
-		$storedTokenDerived = $bag->get(self::TOKEN_DERIVED_NAMESPACE);
-		$this->tokenDerived = (bool)$storedTokenDerived;
+		// A rehydrated user is session-derived by definition: whether this
+		// request also carries a token is for the authenticator to say, later
+		// in the request, on the instance it authenticates (see
+		// {@see markTokenDerived()}).
+		$this->tokenDerived = false;
 		// Preserve externally pre-set authenticated=true (e.g. test) if storage has null
 		if($storedAuth !== null) {
 			$this->authenticated = (bool)$storedAuth;
 		} elseif($this->authenticated === null) {
 			$this->authenticated = false;
 		}
-		if($this->tokenDerived) {
-			// Token-authenticated identities are re-derived from the token/DB every
-			// request; a stale session credential set must not be rehydrated here.
-			$this->credentials = [];
-		} elseif(is_array($storedCreds)) {
+		if(is_array($storedCreds)) {
 			$this->credentials = array_values($storedCreds);
 		} elseif($this->credentials === null) {
 			$this->credentials = [];
@@ -316,33 +315,22 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 	}
 
 	/**
-	 * Mark (or clear) this user as token-derived. Called by a token
-	 * authenticator (e.g. `BearerTokenAuthenticator`) once it has resolved
-	 * and granted the credentials for this request; clearing it (e.g. on
-	 * logout, or a subsequent form login) restores normal session
-	 * credential rehydration.
+	 * Mark (or clear) this user as token-derived, for this request only --
+	 * the marker is not persisted (see {@see $tokenDerived}). Called by a
+	 * token authenticator (e.g. `BearerTokenAuthenticator`) once it has
+	 * resolved and granted the credentials for this request.
+	 *
+	 * Clearing it is how an endpoint that deliberately turns a token into a
+	 * browser session (an SPA's session-establishing call) opts the identity
+	 * back into session persistence: call `markTokenDerived(false)` before
+	 * granting roles and authenticating, and the login is written out like
+	 * any form login's.
 	 * @since      1.0.0
 	 */
 	public function markTokenDerived(bool $tokenDerived = true): void
 	{
 		$this->tokenDerived = $tokenDerived;
 		$this->dirty = true;
-		try {
-			$bag = $this->getContext()->getContainer()->get(\Quiote\Session\SessionBagInterface::class);
-			// A token-authenticated request typically carries no session cookie.
-			// Writing this marker unconditionally would manufacture a session --
-			// and a Set-Cookie -- for a stateless API client on every call.
-			if($bag->exists()) {
-				$bag->set(self::TOKEN_DERIVED_NAMESPACE, $tokenDerived);
-			}
-		} catch(\Throwable $e) {
-			// The marker is what tells a later request this identity came from a token rather
-			// than the session, so losing it can make a token-authenticated caller look
-			// session-authenticated on the next request.
-			\Quiote\Logging\Log::for($this)->error(
-				'[SecurityUser] could not record the token-derived marker in the session: ' . $e->getMessage()
-			);
-		}
 	}
 
 
@@ -424,6 +412,14 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 			$this->authenticated = true;
 			$this->logoutIntent = false; // clear any previous logout marker
 			$this->dirty = true;
+			if($this->tokenDerived) {
+				// This identity lasts exactly as long as the request that
+				// presented the token. Recording it would log whatever session
+				// the call happened to carry in as the token's bearer, and
+				// regenerating that session's id would break the browser tab
+				// that owns it.
+				return;
+			}
 			// Written eagerly rather than left to shutdown(): a getUser()
 			// recreation later in this request must see an authenticated user.
 			// Note this reaches $_SESSION only -- the session is written out
@@ -524,7 +520,6 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 			}
 
 			$bag->set(self::AUTH_NAMESPACE, false);
-			$bag->set(self::TOKEN_DERIVED_NAMESPACE, false);
 		} catch(\Throwable $e) {
 			// A logout that did not land leaves a session that still authenticates, which is
 			// the most consequential failure in this class.
@@ -543,7 +538,7 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 	 */
 	private function destroySessionData(\Quiote\Session\SessionBagInterface $bag): void
 	{
-		foreach([self::AUTH_NAMESPACE, self::CREDENTIAL_NAMESPACE, self::TOKEN_DERIVED_NAMESPACE, $this->storageNamespace] as $key) {
+		foreach([self::AUTH_NAMESPACE, self::CREDENTIAL_NAMESPACE, $this->storageNamespace] as $key) {
 			try {
 				$bag->remove($key);
 			} catch(\Throwable $e) {
@@ -578,6 +573,16 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 			// Nothing changed this request. Writing anyway is what made every
 			// anonymous request -- health checks, bots, read-only API calls --
 			// create a session row and a Set-Cookie.
+			return;
+		}
+
+		if ($this->tokenDerived) {
+			// The credential this identity came from is presented again on the
+			// next request, so there is nothing here worth keeping -- and
+			// writing it would leave a session cookie that happened to ride
+			// along authenticated as the token's bearer. Attributes still go
+			// out, via the parent.
+			parent::shutdown();
 			return;
 		}
 

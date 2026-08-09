@@ -78,6 +78,18 @@ class NeverSupportsAuthenticator implements AuthenticatorInterface
 	}
 }
 
+class AuthManagerRbacUser extends \Quiote\User\RbacSecurityUser
+{
+	#[\Override]
+	protected function loadDefinitions()
+	{
+		$this->definitions = [
+			'session-role' => ['permissions' => ['photos.list']],
+			'token-role' => ['permissions' => ['api.call']],
+		];
+	}
+}
+
 class AuthenticationManagerTest extends UnitTestCase
 {
 	#[\Override]
@@ -164,6 +176,76 @@ class AuthenticationManagerTest extends UnitTestCase
 		$manager->authenticate($this->request(), $firewall);
 
 		$this->assertNull($this->securityUser()->getTokenClaims());
+	}
+
+	/**
+	 * A stateless firewall re-derives the whole identity from the credential the
+	 * caller presented. Whatever the session had rehydrated onto the user before
+	 * that -- a browser login on a cookie sent alongside the token -- is not part
+	 * of it and must be gone before the passport's own grants land.
+	 */
+	public function testAuthenticateDropsRehydratedCredentialsForAStatelessFirewall(): void
+	{
+		$user = $this->securityUser();
+		$user->addCredential('session.credential');
+
+		$identity = new InMemoryUserIdentity('service', 'hash', ['api']);
+		$passport = new Passport($identity, ['api'], stateless: true);
+		$manager = new AuthenticationManager($this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class));
+		$firewall = new Firewall('api', '^/api/', [new AlwaysSupportsAuthenticator($passport)], new HttpChallengeEntryPoint(), stateless: true);
+
+		$manager->authenticate($this->request(), $firewall);
+
+		$this->assertTrue($user->hasCredentials('api'));
+		$this->assertFalse($user->hasCredentials('session.credential'));
+	}
+
+	public function testAuthenticateKeepsRehydratedCredentialsForANonStatelessFirewall(): void
+	{
+		$user = $this->securityUser();
+		$user->addCredential('session.credential');
+
+		$identity = new InMemoryUserIdentity('alice', 'hash', ['user']);
+		$passport = new Passport($identity, ['user'], stateless: false);
+		$manager = new AuthenticationManager($this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class));
+		$firewall = new Firewall('main', '^/', [new AlwaysSupportsAuthenticator($passport)], new LoginRedirectEntryPoint());
+
+		$manager->authenticate($this->request(), $firewall);
+
+		$this->assertTrue($user->hasCredentials('user'));
+		$this->assertTrue($user->hasCredentials('session.credential'), 'a form login adds to the session identity');
+	}
+
+	/**
+	 * The same for an RBAC user, where the roles are the identity: the token's
+	 * roles replace the session's rather than joining them.
+	 */
+	public function testAuthenticateDropsRehydratedRolesForAStatelessFirewall(): void
+	{
+		$container = $this->getContext()->getContainer();
+		$original = $container->get(\Quiote\User\ISecurityUser::class);
+
+		$user = new AuthManagerRbacUser();
+		$user->initialize($this->getContext());
+		$user->grantRole('session-role');
+		$container->set('user', $user, \Quiote\DI\Container::SCOPE_REQUEST);
+
+		try {
+			$identity = new InMemoryUserIdentity('service', 'hash', ['token-role']);
+			$passport = new Passport($identity, ['token-role'], stateless: true);
+			$manager = new AuthenticationManager($container->get(\Quiote\Controller\Controller::class));
+			$firewall = new Firewall('api', '^/api/', [new AlwaysSupportsAuthenticator($passport)], new HttpChallengeEntryPoint(), stateless: true);
+
+			$manager->authenticate($this->request(), $firewall);
+
+			$this->assertSame(['token-role'], $user->getRoles());
+			$this->assertTrue($user->hasCredentials('api.call'));
+			$this->assertFalse($user->hasCredentials('photos.list'));
+		} finally {
+			// The binding is request-scoped, but every test in this class shares
+			// this context's container within the process.
+			$container->set('user', $original, \Quiote\DI\Container::SCOPE_REQUEST);
+		}
 	}
 
 	public function testAuthenticatePropagatesTheAuthenticationExceptionOnFailure(): void

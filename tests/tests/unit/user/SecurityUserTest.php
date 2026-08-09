@@ -151,8 +151,13 @@ class SecurityUserTest extends UnitTestCase
 		$this->assertFalse($u->isTokenDerived());
 	}
 
+	/**
+	 * The marker is scoped to the request that presented the token, so the next
+	 * request on the same session reads its own credentials back normally
+	 * instead of being permanently downgraded to none.
+	 */
 	#[RunInSeparateProcess]
-	public function testTokenDerivedCredentialsAreNotRehydratedFromStaleSession(): void
+	public function testTokenDerivedStateDoesNotSurviveTheRequest(): void
 	{
 		// NullStorage (the default test storage) discards everything, so
 		// persistence across separate User instances needs a real,
@@ -166,14 +171,12 @@ class SecurityUserTest extends UnitTestCase
 		$u = new SampleSecurityUser();
 		$u->initialize($context);
 		// Establish the session the way a real request does: markTokenDerived()
-		// and setAuthenticated(false) no longer create one on their own -- a
+		// and setAuthenticated(false) do not create one on their own -- a
 		// stateless token client, which is exactly what token-derived means,
 		// must not be handed a session per call.
 		$u->setAuthenticated(true);
 		$u->clearCredentials();
-		$u->addCredential('stale_session_credential');
-		// Persist the credential, so the next instance really does have a stale
-		// session credential available to (wrongly) rehydrate.
+		$u->addCredential('session_credential');
 		$u->shutdown();
 		$u->markTokenDerived();
 
@@ -181,8 +184,8 @@ class SecurityUserTest extends UnitTestCase
 		$fresh = new SampleSecurityUser();
 		$fresh->initialize($context);
 
-		$this->assertTrue($fresh->isTokenDerived());
-		$this->assertSame([], $fresh->getCredentials());
+		$this->assertFalse($fresh->isTokenDerived());
+		$this->assertSame(['session_credential'], $fresh->getCredentials());
 	}
 
 	#[RunInSeparateProcess]

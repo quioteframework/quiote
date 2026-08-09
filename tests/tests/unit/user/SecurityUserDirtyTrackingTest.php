@@ -225,16 +225,24 @@ class SecurityUserDirtyTrackingTest extends UnitTestCase
         );
     }
 
-    public function testTokenDerivedInitializeLeavesTheUserClean(): void
+    /**
+     * A rehydrated user is session-derived: only this request's authenticator
+     * can make it token-derived, and it does so on the instance it authenticates.
+     */
+    public function testRehydrationNeverReportsTokenDerived(): void
     {
-        $bag = new InMemorySessionBag();
-        $bag->set(SecurityUser::TOKEN_DERIVED_NAMESPACE, true);
-        $context = $this->contextWithBag('user-dirty-test::tests-anonymous', $bag);
+        $context = $this->contextWithBag('user-dirty-test::tests-anonymous', new InMemorySessionBag());
+
+        $first = $this->rbacUser($context);
+        $first->setAuthenticated(true);
+        $first->grantRole('administrator');
+        $first->markTokenDerived();
+        $first->shutdown();
 
         $user = $this->rbacUser($context);
 
-        $this->assertTrue($user->isTokenDerived());
-        $this->assertFalse($user->isDirty(), 'the token-derived early return must also leave the user clean');
+        $this->assertFalse($user->isTokenDerived());
+        $this->assertFalse($user->isDirty(), 'rehydration is not a change');
     }
 
     public function testRestoreIdentityFromStoragePreservesTheDirtyFlagInBothDirections(): void
@@ -256,21 +264,46 @@ class SecurityUserDirtyTrackingTest extends UnitTestCase
     // ---------------------------------------------------------------- writes
 
     /**
-     * markTokenDerived() runs on stateless API requests that carry no session.
-     * Writing its marker unconditionally handed every such client a session and
-     * a cookie.
+     * The marker describes this request's credential, so it is in-memory state
+     * and nothing else: a stateless API client gets no session (and no cookie)
+     * out of it, and a client that does carry a session cookie does not get
+     * that session marked on its behalf.
      */
-    public function testMarkTokenDerivedDoesNotWriteWhenThereIsNoSession(): void
+    public function testMarkTokenDerivedNeverWritesToTheSession(): void
     {
-        $bag = new InMemorySessionBag(exists: false);
+        foreach ([true, false] as $sessionExists) {
+            $bag = new InMemorySessionBag(exists: $sessionExists);
+            $context = $this->contextWithBag('user-dirty-test::tests-anonymous', $bag);
+
+            $user = new SecurityUser();
+            $user->initialize($context);
+            $user->markTokenDerived();
+
+            $this->assertTrue($user->isTokenDerived(), 'the in-memory state still applies to this request');
+            $this->assertSame(0, $bag->writes, 'session exists: ' . var_export($sessionExists, true));
+        }
+    }
+
+    /**
+     * The concrete leak the request scoping closes: a token call that happens to
+     * carry a session cookie must not log that session in as the token's bearer,
+     * nor write the token's roles and credentials over the ones it holds.
+     */
+    public function testATokenDerivedRequestWritesNoneOfItsIdentityToTheSession(): void
+    {
+        $bag = new InMemorySessionBag();
         $context = $this->contextWithBag('user-dirty-test::tests-anonymous', $bag);
 
-        $user = new SecurityUser();
-        $user->initialize($context);
+        $user = $this->rbacUser($context);
         $user->markTokenDerived();
+        $user->setAuthenticated(true);
+        $user->grantRole('administrator');
+        $writesBefore = $bag->writes;
+        $user->shutdown();
 
-        $this->assertTrue($user->isTokenDerived(), 'the in-memory state still applies to this request');
-        $this->assertSame(0, $bag->writes, 'but nothing was written to a session that does not exist');
+        $this->assertTrue($user->isAuthenticated(), 'the identity still applies to this request');
+        $this->assertSame(['administrator'], $user->getRoles());
+        $this->assertSame($writesBefore, $bag->writes, 'nothing about it reached the session');
     }
 
     public function testLogoutDoesNotWriteWhenThereIsNoSession(): void

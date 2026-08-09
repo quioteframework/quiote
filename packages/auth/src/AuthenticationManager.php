@@ -71,11 +71,18 @@ final class AuthenticationManager
 		}
 
 		if($firewall->isStateless()) {
-			// Credentials are re-derived from the credential every request;
-			// stale session credentials must not be rehydrated (see
-			// SecurityUser::$tokenDerived).
+			// The token is the whole identity here: it is presented again on
+			// every request, and it -- not the session cookie the call may also
+			// carry -- decides what this caller is. Anything rehydrated from
+			// that session goes before the passport's own grants land below,
+			// and the marker keeps this identity out of the session on the way
+			// back out (see SecurityUser::$tokenDerived).
 			$user->markTokenDerived(true);
 			$user->setTokenClaims($passport->getClaims());
+			if($user instanceof RbacSecurityUser) {
+				$user->revokeAllRoles();
+			}
+			$user->clearCredentials();
 		}
 
 		$user->setAuthenticated(true);
