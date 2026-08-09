@@ -115,9 +115,19 @@ final class ApiIndex
         $tops = [];
 
         foreach ($this->byNamespace as $namespace => $_) {
+            // The root namespace is not a section of its own -- the landing page lists its
+            // types directly. Folding it in here would invent a `Quiote\Quiote` that has no
+            // page and whose link lands on the framework's own class instead.
+            if ($namespace === 'Quiote') {
+                continue;
+            }
+
             $relative = str_starts_with($namespace, 'Quiote\\') ? substr($namespace, 7) : $namespace;
-            $first = $relative === '' ? '' : explode('\\', $relative)[0];
-            $tops[$first === '' ? 'Quiote' : 'Quiote\\' . $first] = true;
+            if ($relative === '') {
+                continue;
+            }
+
+            $tops['Quiote\\' . explode('\\', $relative)[0]] = true;
         }
 
         $names = array_keys($tops);

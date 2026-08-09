@@ -249,6 +249,25 @@ final class DocsGeneratorTest extends TestCase
         $this->assertStringContainsString('[`Context`](/api/context/)', $artifacts['index.md']->phpSource);
     }
 
+    /**
+     * The root namespace is not a section of its own, so it must not appear beside the real
+     * ones -- a `Quiote\Quiote` entry has no page, and its link resolves to the framework's
+     * own class instead.
+     */
+    public function testTheRootNamespaceIsNotListedAmongTheTopLevelNamespaces(): void
+    {
+        $index = $this->index(
+            $this->classDoc('Quiote\Quiote', 'Quiote'),
+            $this->classDoc('Quiote\Execution\SlotStack', 'Quiote\Execution'),
+        );
+
+        $this->assertSame(['Quiote\Execution'], $index->topLevelNamespaces());
+
+        $landing = (new DocsGenerator())->generate($index)['index.md']->phpSource;
+        $this->assertStringNotContainsString('Quiote\\Quiote', $landing);
+        $this->assertStringContainsString('[`Quiote`](/api/quiote/)', $landing, 'it belongs under the root types');
+    }
+
     public function testEveryPageEndsWithExactlyOneNewline(): void
     {
         $index = $this->index($this->classDoc('Quiote\Execution\SlotStack', 'Quiote\Execution'));
