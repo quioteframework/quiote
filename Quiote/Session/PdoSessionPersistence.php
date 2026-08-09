@@ -132,7 +132,17 @@ class PdoSessionPersistence implements SessionPersistenceInterface
             if (in_array($blob, [false, null, ''], true)) {
                 return null;
             }
-            if (!is_string($blob)) {
+            // pdo_pgsql returns a bytea column as a stream resource, not a
+            // string -- unconditionally, with no fetch-mode flag to opt out.
+            // Every other supported driver (mysql, sqlite) returns a plain
+            // string. Without this, fetchColumn() on Postgres always came
+            // back as a resource, is_string() always failed, and load()
+            // treated every existing session as absent.
+            if (is_resource($blob)) {
+                $contents = stream_get_contents($blob);
+                $blob = $contents === false ? null : $contents;
+            }
+            if (!is_string($blob) || $blob === '') {
                 return null;
             }
 
