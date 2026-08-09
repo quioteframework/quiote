@@ -29,6 +29,7 @@
                  test` run; `composer test:integration` runs them explicitly. -->
             <directory>packages/mcp/tests</directory>
             <directory>packages/rector/tests</directory>
+            <directory>packages/docs/tests</directory>
             <directory>packages/auth/tests</directory>
             <directory>packages/auth-jwt/tests</directory>
             <directory>packages/auth-oauth/tests</directory>

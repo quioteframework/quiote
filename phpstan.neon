@@ -19,3 +19,6 @@ parameters:
 		- samples
 	excludePaths:
 		- tests/sandbox/app/cache/*
+		# Input for the docs scanner's tokenizer, never executed: these files deliberately
+		# import symbols that do not exist, which is what makes them useful fixtures.
+		- packages/docs/tests/fixtures/*

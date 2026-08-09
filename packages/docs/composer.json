@@ -1,0 +1,33 @@
+{
+	"name": "quioteframework/docs",
+	"description": "Generates the framework's API reference from reflection and docblocks as Markdown pages for the Astro/Starlight documentation site (`docs:api`). Development tooling, not part of the request path.",
+	"keywords": ["quiote", "documentation", "reference", "reflection", "astro"],
+	"homepage": "https://github.com/quioteframework/docs",
+	"type": "library",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "Quiote Contributors",
+			"homepage": "https://github.com/quioteframework/quiote/graphs/contributors"
+		}
+	],
+	"support": {
+		"issues": "https://github.com/quioteframework/quiote/issues"
+	},
+	"require": {
+		"php": ">=8.5.0",
+		"quioteframework/quiote": "^4.0",
+		"phpstan/phpdoc-parser": "^2.3"
+	},
+	"autoload": {
+		"psr-4": {
+			"Quiote\\Docs\\": "src/"
+		}
+	},
+	"extra": {
+		"branch-alias": {
+			"dev-main": "4.0.x-dev"
+		},
+		"quiote-monorepo-note": "Developed in-tree under quioteframework/quiote's packages/docs/; split to this standalone repo via splitsh/lite on tag push. PRs go to the monorepo, not here. This package is development tooling: it is required as a dev dependency and its `docs:api` command is registered by Console\\Application behind a class_exists() guard, so a production install never loads it."
+	}
+}
