@@ -12,8 +12,6 @@ final class SlotStack
     // Transient per-request set of keys we've already warned about to avoid log spam
     /** @var array<string,bool> */
     private array $warnedKeys = [];
-    // Original PSR-7 request before validation pruning - used by SlotDispatcher
-    private ?\Psr\Http\Message\ServerRequestInterface $originalRequest = null;
 
     /** Marks the start of a nested slot execution by pushing its key onto the stack. */
     public function push(string $key): void { $this->stack[] = $key; }
@@ -33,31 +31,4 @@ final class SlotStack
     public function hasWarned(string $key): bool { return isset($this->warnedKeys[$key]); }
     /** Records that a warning has been emitted for this key, so later checks can suppress duplicates. */
     public function markWarned(string $key): void { $this->warnedKeys[$key] = true; }
-
-    /**
-     * Stores the request as it stood before validation pruned its parameters.
-     *
-     * Slot dispatch reads this back so a nested action sees the parameters the parent
-     * request arrived with rather than the reduced set validation left behind.
-     */
-    public function setOriginalRequest(\Psr\Http\Message\ServerRequestInterface $request): void
-    {
-        $this->originalRequest = $request;
-    }
-
-    /**
-     * Returns the pre-validation request recorded for this stack.
-     *
-     * Null when nothing recorded one, which is the case for any dispatch that did not
-     * pass through validation before reaching a slot.
-     *
-     * @internal Exists so {@see SlotDispatcher} can restore a parameter the slot overlay
-     *           replaced. The request it returns has not been through validation, so its
-     *           parameters carry raw client input; application code must read parameters
-     *           through {@see \Quiote\Request\WebRequest::getParameter()} instead.
-     */
-    public function getOriginalRequest(): ?\Psr\Http\Message\ServerRequestInterface
-    {
-        return $this->originalRequest;
-    }
 }

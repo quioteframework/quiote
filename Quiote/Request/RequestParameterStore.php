@@ -233,6 +233,25 @@ final class RequestParameterStore
     }
 
     /**
+     * Returns a copy with the parameter removed and its strict-validation
+     * whitelist entry revoked.
+     *
+     * The counterpart of {@see withParameter()}, which whitelists a name as a
+     * side effect of setting it. {@see withRemovedParameter()} undoes only the
+     * value, leaving the name declared and therefore still readable; this
+     * undoes both halves, so the name reads as never-declared again.
+     */
+    public function withRevokedParameter(string $name): self
+    {
+        $runtimeParameters = $this->runtimeParameters;
+        unset($runtimeParameters[$name]);
+        $validatedKeys = $this->validatedKeys;
+        unset($validatedKeys[$name]);
+
+        return new self($runtimeParameters, $validatedKeys);
+    }
+
+    /**
      * Returns a copy with every runtime parameter dropped.
      *
      * The strict-validation whitelist is kept, so names already declared stay

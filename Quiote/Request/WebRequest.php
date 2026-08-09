@@ -642,6 +642,24 @@ class WebRequest implements ServerRequestInterface, ResetInterface, \Quiote\Cont
 	}
 
 	/**
+	 * Remove a runtime parameter and revoke its strict-validation whitelist entry.
+	 *
+	 * {@see removeParameter()} drops the value alone, so a name whitelisted by an
+	 * earlier setParameter() stays declared and getParameter() answers null rather
+	 * than refusing. This undoes both halves, which is what a caller needs when it
+	 * is putting the request back exactly as it found it -- notably the slot
+	 * parameter overlay, which must not leave a name readable that the parent
+	 * request never exposed.
+	 */
+	public function revokeParameter(string $name): static
+	{
+		$new = clone $this;
+		$new->params = $this->params->withRevokedParameter($name);
+		$new->parametersCache = null;
+		return $new;
+	}
+
+	/**
 	 * Legacy write API: set a runtime parameter (not an attribute, not HTTP input).
 	 */
 	public function setParameter(string $name, mixed $value): static

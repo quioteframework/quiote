@@ -22,10 +22,7 @@ class SlotMiddleware implements MiddlewareInterface
      * Attaches a SlotStack to the request so downstream code can render nested slots.
      *
      * Does nothing if the request already carries one, which is what keeps a
-     * slot rendered through a nested pipeline from starting a fresh stack. On a
-     * fresh request the new stack is seeded with the `_original_psr_request`
-     * attribute set by MiddlewarePipeline, so slot parameters are read from the
-     * request as it was before validation pruned it.
+     * slot rendered through a nested pipeline from starting a fresh stack.
      *
      * When a context was injected, the rewritten request is republished through
      * RequestState so anything reading Context::getRequest() sees the instance
@@ -37,11 +34,6 @@ class SlotMiddleware implements MiddlewareInterface
     {
         if (!$request->getAttribute(self::ATTR)) {
             $slotStack = new SlotStack();
-            // Save original request from MiddlewarePipeline for slot parameter access
-            $originalRequest = $request->getAttribute('_original_psr_request');
-            if ($originalRequest instanceof ServerRequestInterface) {
-                $slotStack->setOriginalRequest($originalRequest);
-            }
             $request = $request->withAttribute(self::ATTR, $slotStack);
             // Log request identity and presence of SlotStack for debugging in FrankenPHP
             if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {

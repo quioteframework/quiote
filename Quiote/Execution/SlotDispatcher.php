@@ -164,24 +164,18 @@ class SlotDispatcher
                 if (!($rdh instanceof WebRequest)) {
                     throw new \RuntimeException('Canonical WebRequest missing when applying slot parameters');
                 }
-                // Get original PSR-7 request from SlotStack (saved before validation pruning)
-                $originalRequest = $stack->getOriginalRequest();
                 foreach ($parameters as $k => $v) {
                     if (!array_key_exists($k, $originals)) {
-                        // Check original request for parameters pruned during parent validation
-                        $originalValue = null;
-                        if ($originalRequest) {
-                            $query = $originalRequest->getQueryParams();
-                            if (array_key_exists($k, $query)) {
-                                $originalValue = $query[$k];
-                            } else {
-                                $body = $originalRequest->getParsedBody();
-                                if (is_array($body) && array_key_exists($k, $body)) {
-                                    $originalValue = $body[$k];
-                                }
-                            }
-                        }
-                        $originals[$k] = $originalValue;
+                        // Snapshot what the parent request exposes for this name right now, so the
+                        // overlay can be undone exactly. This reads the validated request, not the
+                        // one the client sent: a parameter that validation pruned must stay pruned,
+                        // because restoring the submitted value here would publish unvalidated
+                        // input to everything rendered after this slot.
+                        $present = $rdh->hasParameter($k);
+                        $originals[$k] = [
+                            'present' => $present,
+                            'value' => $present ? $rdh->getParameter($k, null) : null,
+                        ];
                     }
                     $rdh = $rdh->setParameter($k, $v);
                 }
@@ -629,13 +623,14 @@ class SlotDispatcher
         } finally {
             // Restore original parameters if overlay applied
             if (isset($overlayApplied) && $overlayApplied && isset($rdh) && isset($originals)) {
-                foreach ($originals as $k => $v) {
-                    if ($v === null) {
-                        // Parameter didn't exist before overlay; remove if current matches overlay value.
-                        // We can't know overlay value without storing; accept leaving value as is if mismatch risk.
-                        // Safer: remove unconditionally when original null and key exists.
+                foreach ($originals as $k => $original) {
+                    if (!$original['present']) {
+                        // The parent request did not expose this name before the overlay, so
+                        // neither the slot's value nor the whitelist entry setParameter() added
+                        // for it may survive: leaving the name declared would turn a later
+                        // getParameter() from a refusal into a silent null.
                         try {
-                            $rdh = $rdh->removeParameter($k);
+                            $rdh = $rdh->revokeParameter((string)$k);
                         } catch (\Throwable $e) {
                             // A parameter the overlay introduced is still on the request, so the
                             // rest of the page can read a value that belonged to this slot alone.
@@ -646,7 +641,7 @@ class SlotDispatcher
                         }
                     } else {
                         try {
-                            $rdh = $rdh->setParameter($k, $v);
+                            $rdh = $rdh->setParameter((string)$k, $original['value']);
                         } catch (\Throwable $e) {
                             // The parent's original value could not be put back, so the slot's
                             // value stands in for it for the rest of the render.

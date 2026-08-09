@@ -145,4 +145,56 @@ class WebRequestParameterWhitelistTest extends UnitTestCase
         }
         $this->assertEquals(1, $countKey);
     }
+
+    public function testRemoveParameterDropsTheValueButKeepsTheNameDeclared(): void
+    {
+        $this->request = $this->request->setParameter('kept', 'value');
+
+        $this->request = $this->request->removeParameter('kept');
+
+        // The declaration survives, so reading it answers the default instead of refusing.
+        $this->assertNull($this->request->getParameter('kept'));
+    }
+
+    public function testRevokeParameterUndeclaresTheNameSoReadingItRefuses(): void
+    {
+        $this->request = $this->request->setParameter('revoked', 'value');
+        $this->assertSame('value', $this->request->getParameter('revoked'));
+
+        $this->request = $this->request->revokeParameter('revoked');
+
+        $this->assertFalse($this->request->hasParameter('revoked'));
+        $this->expectException(\Quiote\Exception\UnvalidatedParameterAccessException::class);
+        $this->request->getParameter('revoked');
+    }
+
+    public function testRevokeParameterLeavesOtherParametersDeclared(): void
+    {
+        $this->request = $this->request->setParameter('revoked', 'gone');
+        $this->request = $this->request->setParameter('kept', 'still-here');
+
+        $this->request = $this->request->revokeParameter('revoked');
+
+        $this->assertSame('still-here', $this->request->getParameter('kept'));
+    }
+
+    public function testRevokeParameterOnAnUnknownNameIsANoOp(): void
+    {
+        $this->request = $this->request->setParameter('kept', 'value');
+
+        $this->request = $this->request->revokeParameter('neverSet');
+
+        $this->assertSame('value', $this->request->getParameter('kept'));
+        $this->assertFalse($this->request->hasParameter('neverSet'));
+    }
+
+    public function testRevokeParameterReturnsANewInstanceAndLeavesTheOriginalIntact(): void
+    {
+        $original = $this->request->setParameter('revoked', 'value');
+
+        $revoked = $original->revokeParameter('revoked');
+
+        $this->assertNotSame($original, $revoked);
+        $this->assertSame('value', $original->getParameter('revoked'), 'WebRequest is immutable');
+    }
 }

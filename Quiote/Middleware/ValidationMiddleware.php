@@ -463,7 +463,7 @@ class ValidationMiddleware implements MiddlewareInterface
         // The error view renders inside this middleware, before the pipeline reaches
         // SlotMiddleware, so nothing has attached a SlotStack yet and a view calling
         // renderSlot() would fail. Attach one here, as SlotMiddleware would.
-        $webRequest = $this->ensureSlotStack($webRequest, $request);
+        $webRequest = $this->ensureSlotStack($webRequest);
         $this->publish($webRequest);
 
         if ($viewName === View::NONE) {
@@ -828,21 +828,15 @@ class ValidationMiddleware implements MiddlewareInterface
 
     /**
      * Attach a {@see SlotMiddleware::ATTR} SlotStack to $webRequest if one
-     * isn't already present, mirroring SlotMiddleware::process() exactly
-     * (including preserving the pre-pruning original request slots read
-     * from). Needed because the validation-failure path renders its error
-     * view before SlotMiddleware ever runs.
+     * isn't already present, mirroring SlotMiddleware::process(). Needed
+     * because the validation-failure path renders its error view before
+     * SlotMiddleware ever runs.
      */
-    private function ensureSlotStack(WebRequest $webRequest, ServerRequestInterface $request): WebRequest
+    private function ensureSlotStack(WebRequest $webRequest): WebRequest
     {
         if ($webRequest->getAttribute(SlotMiddleware::ATTR)) {
             return $webRequest;
         }
-        $slotStack = new \Quiote\Execution\SlotStack();
-        $originalRequest = $request->getAttribute('_original_psr_request');
-        if ($originalRequest instanceof ServerRequestInterface) {
-            $slotStack->setOriginalRequest($originalRequest);
-        }
-        return $webRequest->withAttribute(SlotMiddleware::ATTR, $slotStack);
+        return $webRequest->withAttribute(SlotMiddleware::ATTR, new \Quiote\Execution\SlotStack());
     }
 }
