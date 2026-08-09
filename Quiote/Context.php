@@ -1002,6 +1002,16 @@ class Context implements \Stringable, ResetInterface, ContextInterface
       }
     });
 
+    // The middleware stack is built once and reused for every request this worker serves, so a
+    // middleware that keeps request state in a property would otherwise serve it to the next
+    // request -- and possibly the next user. Instances that declare ResetInterface get cleared
+    // here; the stack itself is kept, and a handler that was never built is not built for this.
+    $cleanup->onRequestEnd('the middleware instances', function (): void {
+      if ($this->requestHandler?->hasPipeline() === true) {
+        $this->requestHandler->pipeline()->resetInstances();
+      }
+    });
+
     // Routing holds compiled-route caches that corrupt if carried across a request.
     $cleanup->onRequestEnd('the routing component', function (): void {
       $this->routing?->reset();

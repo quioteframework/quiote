@@ -15,6 +15,22 @@ use Relay\Relay;
 
 /**
  * MiddlewarePipeline builds and caches the PSR-15 middleware chain; safe for worker reuse.
+ *
+ * Worker reuse is the part with teeth for anyone writing a middleware: the
+ * stack is built once per worker process and every instance in it then serves
+ * every request that worker handles, however many users those come from. A
+ * middleware is therefore process-scoped, not request-scoped, whatever the
+ * usual PSR-15 mental model suggests -- so a `$this->currentUser = $request->
+ * getAttribute(...)`, or a `$this->cached ??= lookup()` memo of anything
+ * user-specific, is read back by the next request on that worker and hands one
+ * caller another caller's data.
+ *
+ * Keep request-scoped values on the request's attribute bag or resolve them
+ * per call from the container; reserve instance properties for what is
+ * genuinely process-wide (config, a shared connection, a compiled table). A
+ * middleware that must hold per-request state anyway can implement
+ * {@see \Symfony\Contracts\Service\ResetInterface}, and {@see resetInstances()}
+ * clears it at every request boundary.
  */
 class MiddlewarePipeline implements RequestHandlerInterface
 {
@@ -22,6 +38,12 @@ class MiddlewarePipeline implements RequestHandlerInterface
     private bool $built = false;
     /** @var list<class-string|string> */
     private array $debugStack = [];
+    /**
+     * The built stack's instances, in stack order, kept so {@see resetInstances()}
+     * can reach the resettable ones -- Relay closes over them and hands them back out.
+     * @var list<\Psr\Http\Server\MiddlewareInterface>
+     */
+    private array $instances = [];
 
     public function __construct(private readonly Context $context)
     {
@@ -61,6 +83,40 @@ class MiddlewarePipeline implements RequestHandlerInterface
         $this->handler = null;
         $this->built = false;
         $this->debugStack = [];
+        $this->instances = [];
+    }
+
+    /**
+     * Clears the per-request state of every middleware in the built stack that
+     * declares any, by calling {@see \Symfony\Contracts\Service\ResetInterface::reset()}
+     * on it. The stack itself is kept -- this is the request boundary, not a rebuild.
+     *
+     * Run for each request in a persistent worker, where the instances outlive
+     * the request that populated them. A middleware that keeps nothing between
+     * calls (the norm, and what {@see MiddlewarePipeline} asks for) implements
+     * nothing and is skipped.
+     *
+     * @return     void
+     * @since      4.0.0
+     */
+    public function resetInstances(): void
+    {
+        foreach ($this->instances as $middleware) {
+            if (!$middleware instanceof \Symfony\Contracts\Service\ResetInterface) {
+                continue;
+            }
+            try {
+                $middleware->reset();
+            } catch (\Throwable $e) {
+                // Whatever this middleware was holding is now carried into the next
+                // request on this worker, which is the leak reset() exists to close --
+                // and the remaining middleware still get their turn.
+                \Quiote\Logging\Log::for($this)->error(
+                    '[MiddlewarePipeline] "' . $middleware::class . '" failed to reset at the request '
+                    . 'boundary; its state carries into the next request: ' . $e->getMessage()
+                );
+            }
+        }
     }
 
     /**
@@ -96,6 +152,7 @@ class MiddlewarePipeline implements RequestHandlerInterface
     private function doBuild(): void
     {
         $this->debugStack = [];
+        $this->instances = [];
         $stack = [];
 
         $context = $this->context;
@@ -113,6 +170,7 @@ class MiddlewarePipeline implements RequestHandlerInterface
             );
             foreach (MiddlewareCatalog::buildCoreStack($context) as $mw) {
                 $stack[] = $mw;
+                $this->instances[] = $mw;
                 $this->debugStack[] = $mw::class;
             }
         } else {
@@ -137,6 +195,9 @@ class MiddlewarePipeline implements RequestHandlerInterface
             // declares.
             $construct = function (string $label, callable $factory) use (&$stack, $spanEachMiddleware, $context): void {
                 $mw = $factory($context);
+                // Recorded before any decoration: resetInstances() has to reach the
+                // middleware that holds the state, not the span wrapper around it.
+                $this->instances[] = $mw;
                 if ($spanEachMiddleware) {
                     $mw = new \Quiote\Telemetry\MiddlewareSpanDecorator($mw, $label);
                 }
@@ -310,6 +371,9 @@ class MiddlewarePipeline implements RequestHandlerInterface
                     \Psr\Http\Server\MiddlewareInterface::class,
                 ));
             }
+            // See doBuild()'s $construct: the undecorated instance is the one
+            // resetInstances() must be able to reach.
+            $this->instances[] = $mw;
             if ($spanEachMiddleware) {
                 $mw = new \Quiote\Telemetry\MiddlewareSpanDecorator($mw, $entry['fqcn']);
             }
