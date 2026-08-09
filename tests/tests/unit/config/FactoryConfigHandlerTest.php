@@ -222,10 +222,53 @@ class FactoryConfigHandlerTest extends ConfigHandlerTestBase
 			'request' => ['class' => 'FCHTestRequest', 'params' => []],
 			'controller' => ['class' => 'FCHTestController', 'params' => []],
 			'user' => ['class' => 'FCHTestUser', 'params' => []],
-			// Present regardless of core.use_translation, so these tests assert
-			// on the session slot rather than on an unrelated global flag.
+			// Declared unconditionally: whether it is built is decided by
+			// core.use_translation, which the tests that care set explicitly.
 			'translation_manager' => ['class' => 'FCHTestTranslationManager', 'params' => []],
 		];
+	}
+
+	/**
+	 * A setting that switches a factory off wins over the configuration:
+	 * turning translation off must not leave a declared translation_manager
+	 * still being built, whether the declaration survived in a factories file
+	 * or arrived through a PHP/YAML source that never passes toCanonicalArray().
+	 */
+	public function testADisabledFactoryIsNotBuiltEvenWhenDeclared(): void
+	{
+		Config::set('core.use_translation', false);
+		$FCH = new FactoryConfigHandler();
+
+		$definitions = FactoryDefinitions::fromCompiled(
+			$FCH->executeArray($this->baseFactories(), 'tests/factories.xml'),
+			'the test fixture',
+		);
+
+		$this->assertNotContains('translation_manager', $definitions->builtRoles());
+		$this->assertNotContains('translation_manager', $definitions->shutdownOrder);
+		$this->assertContains('user', $definitions->builtRoles(), 'the other roles are unaffected');
+	}
+
+	/**
+	 * The counterpart: a disabled factory is still reported by the canonical
+	 * array, which says what the source declares and nothing more. Deciding it
+	 * here instead would make an optional slot unconfigurable, since "switched
+	 * off" and "declared but not built" would both arrive as "absent".
+	 */
+	public function testDeclaredFactoriesAreReadWhetherOrNotTheyAreEnabled(): void
+	{
+		Config::set('core.use_translation', false);
+		$FCH = new FactoryConfigHandler();
+		$FCH->initialize(null, []);
+
+		$canonical = $FCH->toCanonicalArray($this->parseConfiguration(
+			Config::getString('core.config_dir') . '/factories.xml',
+			null,
+			'testing',
+		));
+
+		$this->assertArrayHasKey('translation_manager', $canonical, 'a disabled factory is still read');
+		$this->assertArrayHasKey('session', $canonical, 'an optional factory is still read');
 	}
 
 	public function testAnUnconfiguredSessionSlotEmitsNothing(): void

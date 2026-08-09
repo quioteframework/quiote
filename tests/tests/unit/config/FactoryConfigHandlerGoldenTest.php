@@ -8,11 +8,10 @@ require_once(__DIR__ . '/ConfigHandlerTestBase.php');
 
 /**
  * Locks in FactoryConfigHandler's compiled output against the real
- * tests/sandbox/app/Config/factories.xml fixture. execute() is now a
- * two-line adapter over toCanonicalArray() + executeArray() (phase 2,
- * second handler after SettingConfigHandler); this is the parity guarantee
- * that refactor
- * promised, generated from the pre-refactor handler's actual output.
+ * tests/sandbox/app/Config/factories.xml fixture: execute() is a two-line
+ * adapter over toCanonicalArray() + executeArray(), and this golden file
+ * is what keeps the pair producing the compiled shape ComponentInstaller
+ * expects.
  */
 class FactoryConfigHandlerGoldenTest extends ConfigHandlerTestBase
 {
@@ -32,6 +31,13 @@ class FactoryConfigHandlerGoldenTest extends ConfigHandlerTestBase
 		// the pre-replacement value in that (effectively unreachable) case.
 		$code = preg_replace('/^\/\/ Date: .*$/m', '// Date: <normalized>', $code) ?? $code;
 		$code = preg_replace('/^\/\/ Compiled from: .*$/m', '// Compiled from: <normalized>', $code) ?? $code;
+		// The fixture's session factory resolves '%core.app_dir%/cache/sessions'
+		// against wherever this checkout lives, which would otherwise make the
+		// golden file fail on every other machine/CI checkout path.
+		$appDir = Config::getString('core.app_dir');
+		if ($appDir !== '') {
+			$code = str_replace($appDir, '<app_dir>', $code);
+		}
 
 		$goldenFile = __DIR__ . '/golden/factories_default.php.golden';
 		$this->assertFileExists($goldenFile);

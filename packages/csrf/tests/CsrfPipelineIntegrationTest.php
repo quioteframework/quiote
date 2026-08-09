@@ -3,11 +3,15 @@
 use PHPUnit\Framework\TestCase;
 use Quiote\Config\Config;
 use Quiote\Context;
+use Quiote\DI\Container;
 use Quiote\Middleware\MiddlewareCatalog;
 use Quiote\Middleware\MiddlewarePipeline;
 use Quiote\Security\Csrf\CsrfManager;
 use Quiote\Security\Csrf\CsrfPlugin;
 use Quiote\Plugin\PluginRegistrar;
+use Quiote\Session\QuioteSessionBag;
+use Quiote\Session\SessionBagInterface;
+use Quiote\Session\SessionManager;
 use Nyholm\Psr7\ServerRequest;
 
 /**
@@ -21,13 +25,20 @@ use Nyholm\Psr7\ServerRequest;
  * enforcing CSRF middleware -- this test exists specifically to prove the
  * wiring, not just the standalone logic, actually works.
  *
- * Uses the sandbox app's attr_routing.add route (POST /attr-routing/new),
- * an existing attribute-routed action that requires no other setup to
- * dispatch successfully.
+ * Both cases target the same route, the sandbox app's `health` route
+ * (/healthz -> Core/Health), so the token is the only difference between a
+ * rejected request and one that dispatches. It has to be a route the
+ * configured routing actually carries: SandboxRouting is built from the
+ * generated route files, which hold the routing.xml routes and no
+ * attribute-declared ones, and a path it cannot match would 404 after CSRF
+ * passes -- which looks like success to any assertion that only rules out
+ * 403.
  */
 #[\PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses]
 final class CsrfPipelineIntegrationTest extends TestCase
 {
+    private const ROUTE = 'http://localhost/healthz';
+
     protected function setUp(): void
     {
         $root = dirname(__DIR__, 3);
@@ -40,9 +51,6 @@ final class CsrfPipelineIntegrationTest extends TestCase
         Config::set('core.csrf.enabled', true);
         MiddlewareCatalog::reset();
         (new CsrfPlugin())->register(new PluginRegistrar('quiote/csrf'));
-
-        $ctx = $this->context();
-        $ctx->getContainer()->set(\Quiote\Session\SessionBagInterface::class, new InMemorySessionBag(), \Quiote\DI\Container::SCOPE_REQUEST);
     }
 
     private function context(): Context
@@ -67,10 +75,42 @@ final class CsrfPipelineIntegrationTest extends TestCase
         return (new ServerRequest($method, $uri))->withCookieParams([$name => 'fake-session-id']);
     }
 
+    /**
+     * A request carrying a token the pipeline can actually resolve, built the
+     * way a browser round-trip builds one: the token is written into a real
+     * session, that session is persisted, and its real id travels back as the
+     * session cookie.
+     *
+     * Nothing shorter works, because SessionMiddleware runs for real and
+     * replaces whatever SessionBagInterface is bound with the session it
+     * loads from the request's cookie. A cookie naming no persisted session
+     * is indistinguishable from no cookie at all: the middleware starts a
+     * fresh, empty one, and the token the test wrote is nowhere in it.
+     */
+    private function sessionCookieRequestWithToken(string $method, string $uri): ServerRequest
+    {
+        $ctx = $this->context();
+        $manager = $ctx->getContainer()->get(SessionManager::class);
+        $session = $manager->startFromRequest(new ServerRequest('GET', 'http://localhost/'));
+        $ctx->getContainer()->set(
+            SessionBagInterface::class,
+            new QuioteSessionBag($manager, $session),
+            Container::SCOPE_REQUEST,
+        );
+
+        $csrf = new CsrfManager($ctx);
+        $token = $csrf->getTokenValue();
+        $manager->persist($session);
+
+        return (new ServerRequest($method, $uri))
+            ->withCookieParams([$csrf->sessionCookieName() => $session->getId()])
+            ->withParsedBody(['_csrf_token' => $token]);
+    }
+
     public function testUnsafeRequestWithoutTokenIsRejectedByTheRealPipeline(): void
     {
         $response = $this->pipeline()->handle(
-            $this->sessionCookieRequest('POST', 'http://localhost/attr-routing/new')
+            $this->sessionCookieRequest('POST', self::ROUTE)
         );
 
         $this->assertSame(403, $response->getStatusCode(), 'a real dispatch, wired end-to-end through CsrfPlugin, must reject a tokenless unsafe request');
@@ -79,13 +119,10 @@ final class CsrfPipelineIntegrationTest extends TestCase
 
     public function testUnsafeRequestWithValidTokenReachesTheAction(): void
     {
-        $token = (new CsrfManager($this->context()))->getTokenValue();
-
         $response = $this->pipeline()->handle(
-            $this->sessionCookieRequest('POST', 'http://localhost/attr-routing/new')
-                ->withParsedBody(['_csrf_token' => $token])
+            $this->sessionCookieRequestWithToken('POST', self::ROUTE)
         );
 
-        $this->assertNotSame(403, $response->getStatusCode(), 'a valid token must let the request reach the action, wired end-to-end through CsrfPlugin');
+        $this->assertSame(200, $response->getStatusCode(), 'a valid token must let the request reach the action, wired end-to-end through CsrfPlugin');
     }
 }

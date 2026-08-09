@@ -111,6 +111,14 @@ return array (
       array (
       ),
     ),
+    'session' => 
+    array (
+      'class' => 'Quiote\\Session\\FileSessionFactory',
+      'parameters' => 
+      array (
+        'dir' => '<app_dir>/cache/sessions',
+      ),
+    ),
   ),
   'shutdownOrder' => 
   array (
