@@ -51,6 +51,11 @@ final class Application extends SymfonyApplication
 		if (class_exists(TelemetryDashboardCommand::class)) {
 			$this->addCommand(new TelemetryDashboardCommand());
 		}
+		// Development tooling: quioteframework/docs is a dev dependency of the framework
+		// itself, so this command is absent from an application's install.
+		if (class_exists(\Quiote\Docs\Console\DocsApiCommand::class)) {
+			$this->addCommand(new \Quiote\Docs\Console\DocsApiCommand());
+		}
 		$this->addContributedCommands();
 	}
 
