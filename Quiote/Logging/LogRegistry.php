@@ -27,6 +27,18 @@ final class LogRegistry
     private static array $sinks = [];
 
     /**
+     * Bumped by every configuration change (level rules, sinks, reset).
+     *
+     * {@see CategoryLogger} caches its resolved threshold and its per-level
+     * isEnabled() answers on the instance, and those instances are shared and
+     * long-lived. Clearing this class's own memo cannot reach them, so they
+     * compare this counter against the one they last resolved at and
+     * re-resolve when it has moved -- which is what makes a level or sink
+     * registered after a logger was handed out actually take effect.
+     */
+    private static int $generation = 0;
+
+    /**
      * Sets the minimum level applied to categories with no matching prefix rule.
      *
      * Discards the resolved-threshold memo, so categories that had fallen through to
@@ -36,6 +48,7 @@ final class LogRegistry
     {
         self::$defaultLevel = $level;
         self::$resolved = [];
+        ++self::$generation;
     }
 
     /**
@@ -49,6 +62,7 @@ final class LogRegistry
     {
         self::$categoryLevels[$categoryPrefix] = $level;
         self::$resolved = [];
+        ++self::$generation;
     }
 
     /**
@@ -60,6 +74,7 @@ final class LogRegistry
             self::$categoryLevels[$prefix] = $level;
         }
         self::$resolved = [];
+        ++self::$generation;
     }
 
     /**
@@ -71,6 +86,16 @@ final class LogRegistry
     public static function addSink(SinkInterface $sink): void
     {
         self::$sinks[] = $sink;
+        ++self::$generation;
+    }
+
+    /**
+     * The current configuration generation, for consumers that memoize a
+     * resolved level or sink decision of their own.
+     */
+    public static function generation(): int
+    {
+        return self::$generation;
     }
 
     /** @return list<SinkInterface> */
@@ -124,5 +149,6 @@ final class LogRegistry
         self::$categoryLevels = [];
         self::$resolved = [];
         self::$sinks = [];
+        ++self::$generation;
     }
 }

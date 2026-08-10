@@ -9,8 +9,14 @@ use Psr\Log\LoggerTrait;
  * A PSR-3 logger bound to a single category. The 8 level methods come from
  * {@see LoggerTrait} and funnel into {@see log()}; {@see isEnabled()} is the
  * cheap hot-path guard for callers to skip expensive message construction.
- * The category threshold is resolved once (via {@see LogRegistry}) and cached on
- * the instance — safe because logging config is immutable for the worker lifetime.
+ * The category threshold is resolved via {@see LogRegistry} and cached on the
+ * instance, along with the per-level isEnabled() answers.
+ *
+ * Those caches are keyed to {@see LogRegistry::generation()}, which every
+ * configuration change bumps. Instances are shared per category and live for
+ * the worker's lifetime, so a level rule or sink registered after one was
+ * handed out would otherwise never be seen by it -- the hot path pays one
+ * integer comparison to make reconfiguration actually take effect.
  */
 final class CategoryLogger implements LoggerInterface
 {
@@ -19,15 +25,16 @@ final class CategoryLogger implements LoggerInterface
     private ?Level $threshold = null;
 
     /**
-     * Memoized isEnabled() result per Level, keyed by Level::value. Logging
-     * config (threshold + registered sinks) is immutable for the worker
-     * lifetime, same invariant $threshold already relies on -- this avoids
-     * reallocating the array_any() closure and re-scanning all sinks on
-     * every isEnabled() call, of which there are dozens per request on the
-     * happy path (guarding debug() calls).
+     * Memoized isEnabled() result per Level, keyed by Level::value. Avoids
+     * reallocating the array_any() closure and re-scanning all sinks on every
+     * isEnabled() call, of which there are dozens per request on the happy
+     * path (guarding debug() calls).
      * @var array<int, bool>
      */
     private array $enabledCache = [];
+
+    /** The {@see LogRegistry::generation()} the caches above were resolved at. */
+    private int $resolvedAt = -1;
 
     public function __construct(private readonly string $category) {}
 
@@ -37,8 +44,26 @@ final class CategoryLogger implements LoggerInterface
         return $this->category;
     }
 
+    /**
+     * Drops the memoized threshold and isEnabled() answers when the logging
+     * configuration has changed since they were resolved.
+     */
+    private function synchronizeWithConfiguration(): void
+    {
+        $generation = LogRegistry::generation();
+        if ($this->resolvedAt === $generation) {
+            return;
+        }
+
+        $this->threshold = null;
+        $this->enabledCache = [];
+        $this->resolvedAt = $generation;
+    }
+
     private function threshold(): Level
     {
+        $this->synchronizeWithConfiguration();
+
         return $this->threshold ??= LogRegistry::resolveLevel($this->category);
     }
 
@@ -49,6 +74,8 @@ final class CategoryLogger implements LoggerInterface
      */
     public function isEnabled(Level $level): bool
     {
+        $this->synchronizeWithConfiguration();
+
         return $this->enabledCache[$level->value] ??= $this->computeEnabled($level);
     }
 
