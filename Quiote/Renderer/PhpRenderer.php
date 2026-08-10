@@ -63,18 +63,14 @@ class PhpRenderer extends Renderer implements IReusableRenderer, ResetInterface
 			extract($this->attributes, EXTR_REFS | EXTR_PREFIX_INVALID, '_');
 		}
 
-		// Expose template attributes under $t (or configured varName).
-		// To avoid PHP 8 undefined array key warnings in legacy templates when
-		// accessing missing keys (e.g. $t['embeddedReports']), present $t
-		// as an ArrayAccess/Iterator wrapper that returns null for missing
-		// keys but still allows reads/writes to the underlying array.
-	// Expose the attributes array directly under the configured varName so
-	// templates access the real array and PHP will emit notices for
-	// undefined keys (crucial debugging info). Action and view
-	// attributes must already be merged into $this->attributes by the
-	// layer/view code; use a reference so writes in templates propagate.
-	${$this->varName} =& $this->attributes;
-		
+		// Expose the attributes under the configured varName -- "template" unless the renderer's
+		// var_name parameter says otherwise. It is the array itself, not a null-returning wrapper
+		// around it, so reading a key the action never set is an undefined-key warning rather than
+		// silence: that warning is how a typo in a template gets found. Bound by reference, so a
+		// template writing to it writes back to the attributes the view passed in. Merging action
+		// and view attributes has already happened by this point, in the layer/view code.
+		${$this->varName} =& $this->attributes;
+
 		${$this->slotsVarName} =& $this->slots; 
 		
 		foreach($this->assigns as $name => $resolve) {
@@ -83,9 +79,10 @@ class PhpRenderer extends Renderer implements IReusableRenderer, ResetInterface
 		unset($name, $resolve);
 		
 		extract($this->moreAssigns ?? [], EXTR_REFS | EXTR_PREFIX_INVALID, '_');
-		// Provide backwards-compatible template variables: ensure moduleName
-		// and actionName are present in the attributes array. These keys are
-		// expected by many templates (available as $t['moduleName'] etc).
+		// The layer knows which module and template it is rendering, but the attributes do not
+		// carry either, so supply them as "moduleName" and "actionName" keys on the attributes
+		// array a template already reads. An attribute the action set itself wins: this only
+		// fills a gap, it never overwrites.
 		$layerParams = $this->layer?->getParameters() ?? [];
 		if (!isset($this->attributes['moduleName']) && isset($layerParams['module'])) {
 			$this->attributes['moduleName'] = $layerParams['module'];
