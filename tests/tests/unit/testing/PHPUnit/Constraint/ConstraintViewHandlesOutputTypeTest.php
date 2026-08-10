@@ -58,6 +58,34 @@ class ConstraintViewHandlesOutputTypeTest extends PhpUnitTestCase
         $this->expectExceptionMessageMatches('/expects a string output type name/');
         $method->invoke($constraint, ['Xml'], '', false);
     }
+
+    /**
+     * The negated description is what a failing assertNotHandlesOutputType()
+     * prints, so it has to read as the opposite claim rather than repeat the
+     * positive one.
+     */
+    public function testCustomFailureDescriptionReadsAsADenialWhenNegated(): void
+    {
+        $constraint = new ConstraintViewHandlesOutputType($this->newView(), false);
+        $method = new \ReflectionMethod($constraint, 'customFailureDescription');
+
+        $description = $method->invoke($constraint, 'Html', '', true);
+
+        $this->assertIsString($description);
+        $this->assertStringContainsString('does not handle output type "Html"', $description);
+    }
+
+    /**
+     * PHPUnit prints toString() as part of a failing assertThat(), so it has
+     * to name the view class under test.
+     */
+    public function testToStringNamesTheViewUnderTest(): void
+    {
+        $view = $this->newView();
+        $constraint = new ConstraintViewHandlesOutputType($view, false);
+
+        $this->assertSame($view::class . ' handles output type', $constraint->toString());
+    }
 }
 
 ?>

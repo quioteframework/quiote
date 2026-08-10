@@ -55,6 +55,34 @@ class ConstraintActionHandlesMethodTest extends PhpUnitTestCase
         $this->expectExceptionMessageMatches('/expects a string method name/');
         $method->invoke($constraint, ['Write'], '', false);
     }
+
+    /**
+     * The negated description is what a failing assertNotHandlesMethod()
+     * prints, so it has to read as the opposite claim rather than repeat the
+     * positive one.
+     */
+    public function testCustomFailureDescriptionReadsAsADenialWhenNegated(): void
+    {
+        $constraint = new ConstraintActionHandlesMethod($this->newAction(), false);
+        $method = new \ReflectionMethod($constraint, 'customFailureDescription');
+
+        $description = $method->invoke($constraint, 'Read', '', true);
+
+        $this->assertIsString($description);
+        $this->assertStringContainsString('does not handle method "Read"', $description);
+    }
+
+    /**
+     * PHPUnit prints toString() as part of a failing assertThat(), so it has
+     * to name the action class under test.
+     */
+    public function testToStringNamesTheActionUnderTest(): void
+    {
+        $action = $this->newAction();
+        $constraint = new ConstraintActionHandlesMethod($action, false);
+
+        $this->assertSame($action::class . ' handles method', $constraint->toString());
+    }
 }
 
 ?>
