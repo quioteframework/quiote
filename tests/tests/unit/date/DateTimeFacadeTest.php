@@ -34,6 +34,50 @@ class DateTimeFacadeTest extends TestCase
         DateTimeFacade::format(new DateTimeImmutable('now', new DateTimeZone('UTC')), 'yyyy-MM-dd XXX');
     }
 
+    /**
+     * The subset is deliberately small, so the rejection has to say what is
+     * actually available rather than leave the caller guessing.
+     */
+    public function testTheUnsupportedTokenMessageNamesTheSupportedTokens(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage("Unsupported date pattern token 'MMMM'");
+        $this->expectExceptionMessage('supported tokens are: yyyy, MM, dd, HH, mm, ss');
+
+        DateTimeFacade::format(new DateTimeImmutable('now', new DateTimeZone('UTC')), 'MMMM dd');
+    }
+
+    /**
+     * A single letter is a literal separator, not a pattern token, so it must
+     * survive the token check -- an ISO-style "T" being the common case.
+     */
+    public function testASingleLetterIsTreatedAsALiteralRatherThanAToken(): void
+    {
+        $dt = DateTimeFacade::parse('2030-02-05T07:08:09', "yyyy-MM-dd'T'HH:mm:ss", 'UTC');
+
+        $this->assertSame('2030-02-05 07:08:09', $dt->format('Y-m-d H:i:s'));
+    }
+
+    public function testParsingAValueThatDoesNotMatchThePatternThrows(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage("Failed to parse datetime 'not a date'");
+
+        DateTimeFacade::parse('not a date', 'yyyy-MM-dd HH:mm:ss', 'UTC');
+    }
+
+    /**
+     * The whole value has to be consumed: a pattern matching only a prefix
+     * would otherwise silently discard the rest.
+     */
+    public function testParsingRejectsTrailingTextThePatternDoesNotAccountFor(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Failed to parse datetime');
+
+        DateTimeFacade::parse('2030-02-05 and then some', 'yyyy-MM-dd', 'UTC');
+    }
+
     public function testFormatterCacheReusesInstanceForSameLocaleTimezoneAndPattern(): void
     {
         if (!class_exists(\IntlDateFormatter::class)) {
