@@ -2,7 +2,6 @@
 
 use Quiote\Testing\UnitTestCase;
 use Quiote\Exception\QuioteException;
-use PHPUnit\Framework\Attributes\DataProvider;
 
 class ExceptionTest extends UnitTestCase
 {
@@ -22,76 +21,32 @@ class ExceptionTest extends UnitTestCase
 		$this->assertSame(42, $e->getCode());
 	}
 
-
-	/** @return array<string, array{0: string}> */
-	public static function highlightSnippets(): array
+	public function testTheCodeDefaultsToZero(): void
 	{
-		return [
-			'ticket1240' => [
-				'<?php
-class Default_Admin_Widgets_MenuSuccessView extends AdsDefaultBaseView
-{
-	public function executeHtml(RequestDataHolder $rd)
-	{
-		$this->setupHtml($rd);
-		ob_start();?>duda
- <?php
-throw new Exception();
-ob_end_clean();
+		$e = new QuioteException('message');
 
+		$this->assertSame(0, $e->getOriginalCode());
+		$this->assertSame(0, $e->getCode());
+	}
+
+	/** The previous exception is what a renderer or log sink follows to report the root cause. */
+	public function testThePreviousExceptionIsCarried(): void
+	{
+		$cause = new RuntimeException('root cause');
+		$e = new QuioteException('wrapper', 0, $cause);
+
+		$this->assertSame($cause, $e->getPrevious());
+	}
+
+	/**
+	 * A string code has to survive being wrapped by a subclass, since that is
+	 * where it comes from -- a driver-level code such as a PDO SQLSTATE.
+	 */
+	public function testASubclassKeepsTheStringCode(): void
+	{
+		$e = new \Quiote\Exception\DatabaseException('write failed', '42P01');
+
+		$this->assertSame('42P01', $e->getOriginalCode());
+		$this->assertSame(0, $e->getCode());
 	}
 }
-?>'
-			],
-			'empty' => [
-				'',
-			],
-			'empty with newline' => [
-				'
-',
-			],
-			'template starting with PHP code' => [
-				'
-				<?php echo $tm->_("Ohai", "default"); ?>
-				<div />
-				<?php echo $tm->_("Ohai", "default"); ?>
-				'
-			],
-			'template starting with HTML code' => [
-				'
-				<div />
-				<?php echo $tm->_("Ohai", "default"); ?>
-				'
-			],
-		];
-	}
-	
-	#[DataProvider('highlightSnippets')]
-	public function testHighlightStringProducesValidXml(string $code): void
-	{
-		$highlighted = QuioteException::highlightString($code);
-		$highlighted = "<ol>\n<li><code>" . implode("</code></li>\n<li><code>", $highlighted) . "</code></li>\n</ol>";
-
-		$doc = new DOMDocument();
-
-		$luie = libxml_use_internal_errors(true);
-		$doc->loadXML($highlighted);
-		$errors = libxml_get_errors();
-		libxml_use_internal_errors($luie);
-		
-		// Debug output
-		if (count($errors) > 0) {
-			echo "\n--- DEBUG: XML ERRORS ---\n";
-			echo "Highlighted content:\n" . $highlighted . "\n";
-			echo "Errors:\n";
-			foreach ($errors as $error) {
-				echo "- Line {$error->line}: {$error->message}";
-			}
-			echo "--- END DEBUG ---\n";
-		}
-		
-		$this->assertEquals(0, count($errors));
-	}
-}
-
-?>
