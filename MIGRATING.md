@@ -574,6 +574,81 @@ host had no honest way to reach them:
   subclass named by `core.context_implementation` must keep the constructor
   signature — that was always true, and is now declared.
 
+## BREAKING: four deprecated validation methods are gone
+
+| Deleted | Use instead |
+| --- | --- |
+| `ValidationError::setMessageIndex()` | `setName()` — the deleted method only forwarded to it |
+| `ValidationError::getMessageIndex()` | `getName()` — likewise |
+| `ValidationIncident::hasFieldError($field)` | `getArguments()`, keyed by `ValidationArgument::getHash()` |
+| `ValidationIncident::getFieldErrors($field)` | `getErrors()`, filtered on `ValidationError::hasArgument()` |
+
+Nothing in the framework called any of them. `ValidationManager::getFieldErrors()`
+is a *different* method with the same name and is unaffected — it collects
+`ValidationIncident::getErrors()` and never used the incident-level accessor.
+`ValidationIncident::getFields()` also stays: it is still deprecated, but
+`ValidationManager` genuinely calls it.
+
+## BREAKING: `ValidationService::xmlOnlyValidate()` is now `validateDeclaredOnly()`
+
+A rename, same signature and same behaviour:
+
+```php
+$service->xmlOnlyValidate($action, $request, $module, $action, $method);   // 3.x
+$service->validateDeclaredOnly($action, $request, $module, $action, $method); // 4.0
+```
+
+The old name was wrong twice over. Validators have not been XML-only for some
+time — a declaration can come from the fluent builder or a compiled declaration
+just as well — and "only" never referred to the declaration format anyway: what
+this method skips is the *other* kind of validation, the `validate()` /
+`validate{Method}()` methods an action implements in PHP. `validate()` runs both
+and reports one combined outcome; `validateDeclaredOnly()` leaves the manual
+methods to the caller, which is what lets `ValidationMiddleware` tell a client
+which of the two rejected the request.
+
+Only the name changed; nothing about which validators run, or when, is
+different.
+
+## BREAKING: `Quiote\Execution\ViewResolver` and `ActionExecutionSession` are gone
+
+Two classes nothing constructed. `ViewResolver` was a deprecated stub that
+triggered a deprecation warning and forwarded to `ViewNameResolver`; call
+`ViewNameResolver` directly, which has the same `resolve()` signature.
+`ActionExecutionSession` was a transitional wrapper that was never wired into
+dispatch — if you built one yourself, its two jobs were setting
+`ExecutionState::$viewModule`/`$viewName` from an `ActionExecutionContext` and
+reading `$context->content`; do both directly.
+
+## BREAKING: `QuioteException`'s exception-page helpers are gone
+
+Four public statics are deleted from `QuioteException`, and so from every exception
+that extends it:
+
+| Deleted | What it did |
+| --- | --- |
+| `QuioteException::getFixedTrace()` | Stack trace with the origin forced into the first frame |
+| `QuioteException::buildParamList()` | Formatted a frame's arguments for display |
+| `QuioteException::highlightFile()` | Syntax-highlighted a file, as HTML lines |
+| `QuioteException::highlightString()` | Syntax-highlighted a code string, as HTML lines |
+
+These were the Agavi error page's rendering machinery, and nothing has called them
+since that page was replaced. Rendering an exception is now the job of
+`Quiote\Exception\Rendering\ExceptionRenderer`: the default `SafeRenderer` deliberately
+reveals nothing — no message, no class name, no trace — and the developer-facing page
+comes from the opt-in `quioteframework/whoops` package, which does its own frame and
+source rendering. Neither had any use for these, so they sat as four public methods
+nothing could reach a purpose for.
+
+`getOriginalCode()` and the `int|string` constructor code are untouched.
+
+**If you call them**, you are rendering your own error page. Install
+`quioteframework/whoops` and register it, or implement `ExceptionRenderer` and register
+it with `ExceptionRendererRegistry`; both give you the frames and source that these
+methods were assembling by hand. To keep the exact old output instead, copy the four
+methods out of the 3.x tag into your own class — they depend on nothing else in
+`QuioteException`.
+
 ---
 
 # Migrating to Quiote 3.2
