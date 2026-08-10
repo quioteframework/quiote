@@ -24,6 +24,107 @@ class NumberValidatorTest extends UnitTestCase
 		$this->vm = $ctx->getContainer()->get(\Quiote\Validator\ValidationManager::class);
 	}
 
+	public function testMinAndMaxAndTypeAreAcceptedParameters(): void
+	{
+		$accepted = NumberValidator::getAcceptedParameters();
+
+		foreach (['no_locale', 'in_locale', 'type', 'cast_to', 'min', 'max'] as $name) {
+			$this->assertContains($name, $accepted);
+		}
+	}
+
+	/**
+	 * count() and arithmetic on a non-scalar would raise notices before ever
+	 * reaching a verdict, so an array or object submitted where a number was
+	 * expected is rejected up front.
+	 */
+	public function testANonScalarValueIsRejectedRatherThanParsed(): void
+	{
+		$validator = $this->vm->createValidator(NumberValidator::class, ['number'], ['' => 'not a number'], []);
+
+		$this->assertSame(Validator::ERROR, $validator->execute($this->newWebRequest(['number' => ['1', '2']])));
+	}
+
+	/**
+	 * A value already of a numeric type skips parsing entirely: there is no
+	 * string to interpret, and running it through the locale formatter could
+	 * only lose precision.
+	 */
+	public function testAnAlreadyNumericValueBypassesLocaleParsing(): void
+	{
+		$validator = $this->vm->createValidator(NumberValidator::class, ['number'], ['' => 'invalid'], ['type' => 'float']);
+		$request = $this->newWebRequest(['number' => 1.5]);
+
+		$this->assertSame(Validator::SUCCESS, $validator->execute($request));
+
+		$mutated = $validator->getMutatedRequest() ?? $request;
+		$this->assertSame(1.5, $mutated->getParameter('number'));
+	}
+
+	public function testAnAlreadyIntegerValuePassesAnIntegerTypeCheck(): void
+	{
+		$validator = $this->vm->createValidator(NumberValidator::class, ['number'], ['' => 'invalid'], ['type' => 'int']);
+
+		$this->assertSame(Validator::SUCCESS, $validator->execute($this->newWebRequest(['number' => 42])));
+	}
+
+	/**
+	 * "double" is an accepted spelling of the float type, since that is what
+	 * PHP's own gettype() calls it.
+	 */
+	public function testDoubleIsAcceptedAsASpellingOfFloat(): void
+	{
+		$validator = $this->vm->createValidator(NumberValidator::class, ['number'], ['' => 'invalid'], ['type' => 'double']);
+
+		$this->assertSame(Validator::SUCCESS, $validator->execute($this->newWebRequest(['number' => '1.25'])));
+	}
+
+	public function testDoubleIsAlsoAcceptedAsACastTarget(): void
+	{
+		$validator = $this->vm->createValidator(NumberValidator::class, ['number'], ['' => 'invalid'], ['cast_to' => 'double']);
+		$request = $this->newWebRequest(['number' => '7']);
+
+		$this->assertSame(Validator::SUCCESS, $validator->execute($request));
+
+		$mutated = $validator->getMutatedRequest() ?? $request;
+		$this->assertSame(7.0, $mutated->getParameter('number'));
+	}
+
+	/**
+	 * With no type configured, anything the formatter could parse is a number
+	 * -- but trailing junk it had to ignore is not.
+	 */
+	public function testWithoutATypeAnUnparseableValueIsRejected(): void
+	{
+		$validator = $this->vm->createValidator(NumberValidator::class, ['number'], ['' => 'invalid'], []);
+
+		$this->assertSame(Validator::ERROR, $validator->execute($this->newWebRequest(['number' => 'not a number at all'])));
+	}
+
+	public function testWithoutATypeTrailingCharactersAreRejected(): void
+	{
+		$validator = $this->vm->createValidator(NumberValidator::class, ['number'], ['' => 'invalid'], []);
+
+		$this->assertSame(Validator::ERROR, $validator->execute($this->newWebRequest(['number' => '12abc'])));
+	}
+
+	/**
+	 * Locale-aware parsing is what makes "1,5" a number in a locale that
+	 * writes decimals that way; no_locale turns that off for a field that
+	 * carries a machine-formatted value.
+	 */
+	public function testNoLocaleParsesTheValueWithoutTheCurrentLocale(): void
+	{
+		$validator = $this->vm->createValidator(
+			NumberValidator::class,
+			['number'],
+			['' => 'invalid'],
+			['no_locale' => true, 'type' => 'float'],
+		);
+
+		$this->assertSame(Validator::SUCCESS, $validator->execute($this->newWebRequest(['number' => '1.5'])));
+	}
+
 	public function testNoCastOnFail(): void
 	{
 		$number = '1.23';
