@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use Quiote\Controller\Controller;
-use Quiote\Execution\SlotDispatcher;
+use Quiote\Execution\Slot\SlotCache;
+use Quiote\Logging\Log;
 use Quiote\Testing\UnitTestCase;
 
 /**
@@ -19,27 +19,26 @@ final class SlotDispatcherCachePayloadTest extends UnitTestCase
 {
     private const MARKER = "\x00SCTTL1\x00";
 
-    private function dispatcher(): SlotDispatcher
+    private function dispatcher(): \Quiote\Execution\SlotDispatcher
     {
-        return new SlotDispatcher($this->getContext()->getContainer()->get(Controller::class));
+        return new \Quiote\Execution\SlotDispatcher(
+            $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)
+        );
+    }
+
+    private function cache(): SlotCache
+    {
+        return new SlotCache(Log::create('Quiote.Execution.Slot.SlotCache'), 'test-slot');
     }
 
     private function encode(string $content, ?int $ttl): string
     {
-        $result = (new ReflectionMethod(SlotDispatcher::class, 'encodeSlotCachePayload'))
-            ->invoke($this->dispatcher(), $content, $ttl);
-        $this->assertIsString($result);
-
-        return $result;
+        return $this->cache()->encode($content, $ttl);
     }
 
     private function decode(mixed $payload): ?string
     {
-        $result = (new ReflectionMethod(SlotDispatcher::class, 'decodeSlotCachePayload'))
-            ->invoke($this->dispatcher(), $payload);
-        $this->assertTrue($result === null || is_string($result));
-
-        return $result;
+        return $this->cache()->decode($payload);
     }
 
     // --- encoding ----------------------------------------------------------
@@ -139,7 +138,7 @@ final class SlotDispatcherCachePayloadTest extends UnitTestCase
     public function testAShortTraceIsReportedInFull(): void
     {
         $trace = str_repeat('a', 100);
-        $truncate = new ReflectionMethod(SlotDispatcher::class, 'truncateTrace');
+        $truncate = new ReflectionMethod(\Quiote\Execution\SlotDispatcher::class, 'truncateTrace');
 
         $this->assertSame($trace, $truncate->invoke($this->dispatcher(), $trace, 8000));
     }
@@ -151,7 +150,7 @@ final class SlotDispatcherCachePayloadTest extends UnitTestCase
      */
     public function testAnOversizedTraceIsCappedAndSaysSo(): void
     {
-        $truncate = new ReflectionMethod(SlotDispatcher::class, 'truncateTrace');
+        $truncate = new ReflectionMethod(\Quiote\Execution\SlotDispatcher::class, 'truncateTrace');
 
         $result = $truncate->invoke($this->dispatcher(), str_repeat('a', 200), 50);
 
@@ -171,7 +170,7 @@ final class SlotDispatcherCachePayloadTest extends UnitTestCase
         ini_set('error_log', $log);
 
         try {
-            (new ReflectionMethod(SlotDispatcher::class, 'logSlotException'))->invoke(
+            (new ReflectionMethod(\Quiote\Execution\SlotDispatcher::class, 'logSlotException'))->invoke(
                 $this->dispatcher(),
                 new RuntimeException('slot exploded'),
                 'Blog',

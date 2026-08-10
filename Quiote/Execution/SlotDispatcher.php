@@ -18,6 +18,8 @@ use Quiote\Action\Action;
 use Quiote\Execution\SlotContent;
 use Quiote\Cache\CacheManager;
 use Quiote\Config\Config;
+use Quiote\Execution\Slot\SlotCache;
+use Quiote\Execution\Slot\SlotParameterOverlay;
 use Quiote\Request\WebRequest;
 
 /**
@@ -32,17 +34,6 @@ class SlotDispatcher
 {
     public const RECURSION_LIMIT = 10; // mirrors previous static guard
 
-    /**
-     * Marker prefixed to slot cache payloads that carry an explicit TTL (via
-     * slotCacheTtlSeconds()). The backend (Symfony's FilesystemAdapter/ApcuAdapter)
-     * computes its own expiry from two independent wall-clock time() reads
-     * (write time + lifetime, compared against read time) — non-monotonic, so a
-     * backward wall-clock step (observed on this host under load) can make an
-     * actually-expired entry still read back as "fresh". For entries with an
-     * explicit TTL we additionally stamp a monotonic (hrtime) expiry and honor
-     * that instead, so slot cache freshness never depends on the wall clock.
-     */
-    private const MONO_TTL_MARKER = "\x00SCTTL1\x00";
 
     private ?ActionExecutionContext $lastContext = null;
 
@@ -138,6 +129,11 @@ class SlotDispatcher
                 . '; relying on the hard limit: ' . $e->getMessage()
             );
         }
+        // Built before the try: the finally block restores through the overlay, so it has to
+        // exist even if the body throws on its first statement.
+        $overlay = new SlotParameterOverlay($this->controller->getContext(), $logger, $key);
+        $slotCache = new SlotCache($logger, $key);
+
         $this->executionGuard->enter($stack, $key);
         try {
             $start = microtime(true);
@@ -150,43 +146,10 @@ class SlotDispatcher
             $cacheEnabled = Config::getBool('core.use_cache', false) && (bool)getenv('QUIOTE_SLOT_CACHE');
             $cacheKey = null;
             $cacheHit = false;
-            // Build request data holder: apply slot parameters via overlay (save originals, restore after dispatch).
+            // Slot parameters go onto the shared request for the length of this dispatch only.
             $rdh = null;
-            $overlayApplied = false;
-            $originals = [];
             if ($parameters) {
-                try {
-                    $rdh = $this->controller->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class);
-                } catch (\Throwable) {
-                    $rdh = null;
-                }
-                if (!($rdh instanceof WebRequest)) {
-                    throw new \RuntimeException('Canonical WebRequest missing when applying slot parameters');
-                }
-                foreach ($parameters as $k => $v) {
-                    if (!array_key_exists($k, $originals)) {
-                        // Snapshot what the parent request exposes for this name right now, so the
-                        // overlay can be undone exactly. This reads the validated request, not the
-                        // one the client sent: a parameter that validation pruned must stay pruned,
-                        // because restoring the submitted value here would publish unvalidated
-                        // input to everything rendered after this slot.
-                        $present = $rdh->hasParameter($k);
-                        $originals[$k] = [
-                            'present' => $present,
-                            'value' => $present ? $rdh->getParameter($k, null) : null,
-                        ];
-                    }
-                    $rdh = $rdh->setParameter($k, $v);
-                }
-                $this->controller->getContext()->getContainer()->get(\Quiote\Request\RequestState::class)->publish($rdh);
-                // (former temporary GuidanceSection instrumentation removed)
-                $overlayApplied = true;
-                if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
-                    $logger->debugWith(
-                        fn(): string => '[SlotDisp] overlay_applied key=' . $key
-                            . ' params=' . json_encode($parameters, JSON_UNESCAPED_SLASHES)
-                    );
-                }
+                $rdh = $overlay->apply($parameters);
             }
             // Normalize output type to lowercase as configuration keys are lowercase
             $normalizedOutputType = $outputType !== null ? strtolower($outputType) : null;
@@ -214,43 +177,11 @@ class SlotDispatcher
                         $tags = [];
                     }
                 }
-                // Cache keys are composed through CacheManager::key() rather than
-                // concatenated with ':' — PSR-16 reserves that character.
-                $keyParts = ['slot', strtolower($module), strtolower($action), $normalizedOutputType];
-                if ($tags) {
-                    $versions = [];
-                    foreach ($tags as $t) {
-                        try {
-                            $versions[] = (string)CacheManager::getNamespaceVersion(CacheManager::slotTagNamespace((string)$t));
-                        } catch (\Throwable) {
-                            $versions[] = '0';
-                        }
-                    }
-                    $keyParts[] = implode('-', $versions);
-                }
-                $encodedParameters = json_encode($parameters);
-                // json_encode() can fail (e.g. malformed UTF-8, resources) and return false;
-                // hashing that verbatim would silently collapse every failing-encode call into
-                // the same cache key. Fall back to a per-call unique key instead so we never
-                // serve unrelated cached content when encoding fails.
-                $parametersDigest = $encodedParameters !== false ? md5($encodedParameters) : ('uncacheable-' . bin2hex(random_bytes(8)));
-                $keyParts[] = $parametersDigest;
-                $cacheKey = CacheManager::key(...$keyParts);
-                try {
-                    $cached = CacheManager::getCache()->get($cacheKey);
-                    $decoded = $this->decodeSlotCachePayload($cached);
-                    if ($decoded !== null) {
-                        $cacheHit = true;
-                        return $decoded;
-                    }
-                } catch (\Throwable $e) {
-                    // Treated as a miss: the slot renders below, so the page is correct and
-                    // only slower. Reported because a cache that cannot be read at all is a
-                    // silent performance cliff.
-                    $logger->warning(
-                        '[SlotDisp] slot cache read failed for key=' . $key . '; rendering uncached: '
-                        . $e->getMessage()
-                    );
+                $cacheKey = $slotCache->keyFor($module, $action, (string)$normalizedOutputType, $parameters, $tags);
+                $decoded = $slotCache->read($cacheKey);
+                if ($decoded !== null) {
+                    $cacheHit = true;
+                    return $decoded;
                 }
             }
             if ($actionInstance->isSimple()) {
@@ -350,7 +281,7 @@ class SlotDispatcher
                         }
                     }
                     try {
-                        CacheManager::getCache()->set($cacheKey, $this->encodeSlotCachePayload($result, $ttl), $ttl ?: null);
+                        $slotCache->write($cacheKey, $result, $ttl);
                     } catch (\Throwable $e) {
                         // The rendered output is already correct; only the caching of it failed.
                         $logger->warning(
@@ -606,7 +537,7 @@ class SlotDispatcher
                         }
                     }
                     try {
-                        CacheManager::getCache()->set($cacheKey, $this->encodeSlotCachePayload($result, $ttl), $ttl ?: null);
+                        $slotCache->write($cacheKey, $result, $ttl);
                     } catch (\Throwable $e) {
                         // The rendered output is already correct; only the caching of it failed.
                         $logger->warning(
@@ -620,98 +551,9 @@ class SlotDispatcher
                 return $ctx->content;
             }
         } finally {
-            // Restore original parameters if overlay applied
-            if (isset($overlayApplied) && $overlayApplied && isset($rdh) && isset($originals)) {
-                foreach ($originals as $k => $original) {
-                    if (!$original['present']) {
-                        // The parent request did not expose this name before the overlay, so
-                        // neither the slot's value nor the whitelist entry setParameter() added
-                        // for it may survive: leaving the name declared would turn a later
-                        // getParameter() from a refusal into a silent null.
-                        try {
-                            $rdh = $rdh->revokeParameter((string)$k);
-                        } catch (\Throwable $e) {
-                            // A parameter the overlay introduced is still on the request, so the
-                            // rest of the page can read a value that belonged to this slot alone.
-                            $logger->error(
-                                '[SlotDisp] could not remove overlay parameter "' . $k . '" after slot '
-                                . $key . '; it remains visible to the parent request: ' . $e->getMessage()
-                            );
-                        }
-                    } else {
-                        try {
-                            $rdh = $rdh->setParameter((string)$k, $original['value']);
-                        } catch (\Throwable $e) {
-                            // The parent's original value could not be put back, so the slot's
-                            // value stands in for it for the rest of the render.
-                            $logger->error(
-                                '[SlotDisp] could not restore parameter "' . $k . '" after slot ' . $key
-                                . '; the parent request keeps the slot value: ' . $e->getMessage()
-                            );
-                        }
-                    }
-                }
-                try {
-                    $this->controller->getContext()->getContainer()->get(\Quiote\Request\RequestState::class)->publish($rdh);
-                } catch (\Throwable $e) {
-                    // The restored request never reached the context, so everything after this
-                    // slot reads the overlaid one.
-                    $logger->error(
-                        '[SlotDisp] could not publish the restored request after slot ' . $key
-                        . '; the parent request keeps the slot overlay: ' . $e->getMessage()
-                    );
-                }
-            }
+            $overlay->restore($rdh ?? null);
             $this->executionGuard->leave($stack);
         }
-    }
-
-    /**
-     * Encode a slot cache payload. When an explicit positive TTL is given, the
-     * content is wrapped with a monotonic (hrtime) expiry stamp so freshness
-     * can be verified independently of the cache backend's wall-clock-based
-     * expiry (see MONO_TTL_MARKER doc comment). Without an explicit TTL, the
-     * raw content is stored as before and the backend's own default expiry
-     * applies untouched.
-     */
-    private function encodeSlotCachePayload(string $result, ?int $ttl): string
-    {
-        if ($ttl === null || $ttl <= 0) {
-            return $result;
-        }
-        $encoded = json_encode(['c' => $result, 'e' => hrtime(true) + ($ttl * 1_000_000_000)]);
-        if ($encoded === false) {
-            // Content isn't representable as JSON (e.g. invalid UTF-8); fall back
-            // to storing it raw rather than dropping the cache entry entirely.
-            return $result;
-        }
-        return self::MONO_TTL_MARKER . $encoded;
-    }
-
-    /**
-     * Decode a slot cache payload previously written by encodeSlotCachePayload().
-     * Returns the cached content on a genuine hit, or null on a miss/expiry so
-     * the caller re-executes the action. Plain (unwrapped) strings are always
-     * treated as hits, matching pre-existing behavior for TTL-less entries.
-     */
-    private function decodeSlotCachePayload(mixed $cached): ?string
-    {
-        if (!is_string($cached)) {
-            return null;
-        }
-        if (!str_starts_with($cached, self::MONO_TTL_MARKER)) {
-            return $cached;
-        }
-        $decoded = json_decode(substr($cached, strlen(self::MONO_TTL_MARKER)), true);
-        if (!is_array($decoded) || !isset($decoded['c'], $decoded['e']) || !is_string($decoded['c']) || !is_int($decoded['e'])) {
-            return null;
-        }
-        if (hrtime(true) > $decoded['e']) {
-            // Monotonically expired, even if the backend's own wall-clock check
-            // would have still called it fresh.
-            return null;
-        }
-        return $decoded['c'];
     }
 
     /**
