@@ -67,7 +67,7 @@ class ValidationServiceTest extends UnitTestCase
     $svc = new ValidationService();
     $action = $this->newAction(true, false); // manual registers none (manager created internally)
         $req = $this->newWebRequest();
-        $res = $svc->xmlOnlyValidate($action, $req, 'app', 'dummy', 'write');
+        $res = $svc->validateDeclaredOnly($action, $req, 'app', 'dummy', 'write');
         $this->assertInstanceOf(ValidationResult::class, $res);
     $this->assertTrue($res->ok);
     $trace = $res->getTrace();
@@ -77,7 +77,7 @@ class ValidationServiceTest extends UnitTestCase
 
     public function testXmlOnlyValidateInvokesManualRegistrationAndWhitelistsArgument(): void
     {
-        // Regression test: xmlOnlyValidate() used to skip register{Method}Validators()
+        // Regression test: validateDeclaredOnly() used to skip register{Method}Validators()
         // entirely, so actions defining validators purely in PHP (no validators.xml)
         // never had them executed -> the argument stayed unwhitelisted and
         // getParameter() threw UnvalidatedParameterAccessException even on success.
@@ -89,7 +89,7 @@ class ValidationServiceTest extends UnitTestCase
         $req = $req->withQueryParams(['alpha' => 'A']);
         $ctx->getContainer()->get(\Quiote\Request\RequestState::class)->publish($req);
 
-        $res = $svc->xmlOnlyValidate($action, $req, 'app', 'dummy', 'write');
+        $res = $svc->validateDeclaredOnly($action, $req, 'app', 'dummy', 'write');
 
         $this->assertTrue($res->ok);
         $trace = $res->getTrace();
@@ -116,7 +116,7 @@ class ValidationServiceTest extends UnitTestCase
             $req,
             $ctx->getContainer()->get(\Quiote\Controller\Controller::class)->getGlobalResponse()
         );
-        // register{Method}Validators() runs inside xmlOnlyValidate() itself (after the
+        // register{Method}Validators() runs inside validateDeclaredOnly() itself (after the
         // manager is cleared), so the failing validator must be created from within it
         // rather than pre-seeded on $manager beforehand. It reads the manager via
         // getInitContext()->getValidationManager(), mirroring ValidatorBuilder::on() usage.
@@ -137,7 +137,7 @@ class ValidationServiceTest extends UnitTestCase
             }
         };
 
-        $res = $svc->xmlOnlyValidate($action, $req, 'app', 'dummy', 'write');
+        $res = $svc->validateDeclaredOnly($action, $req, 'app', 'dummy', 'write');
 
         $this->assertFalse($res->ok);
         $this->assertNotEmpty($res->getErrors());
@@ -199,7 +199,7 @@ class ValidationServiceTest extends UnitTestCase
 
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('validator boom');
-        $svc->xmlOnlyValidate($action, $req, 'app', 'dummy', 'write');
+        $svc->validateDeclaredOnly($action, $req, 'app', 'dummy', 'write');
     }
 
     public function testRegisterValidatorsReturnsSilentlyWhenInitContextHasNoContext(): void
@@ -298,7 +298,7 @@ class ValidationServiceTest extends UnitTestCase
     /**
      * getLogger() must memoize Log::for($this) on the instance instead of
      * re-resolving the category on every call within the same
-     * validate()/xmlOnlyValidate() invocation.
+     * validate()/validateDeclaredOnly() invocation.
      */
     public function testGetLoggerMemoizesAcrossCalls(): void
     {

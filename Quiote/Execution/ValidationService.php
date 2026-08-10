@@ -41,7 +41,7 @@ class ValidationService
 
     /**
      * The validation manager actually used by the most recent validate() /
-     * xmlOnlyValidate() call. When the service is constructed without a manager
+     * validateDeclaredOnly() call. When the service is constructed without a manager
      * (the common pipeline case — ValidationMiddleware does `new ValidationService()`),
      * the real manager is created lazily inside those methods via
      * createInstanceFor('validation_manager') and holds all the incidents/errors.
@@ -54,7 +54,7 @@ class ValidationService
     /**
      * Per-instance cache for Log::for($this) -- avoids repeating the
      * class-name normalization + category cache lookup on every call within
-     * the same validate()/xmlOnlyValidate() invocation.
+     * the same validate()/validateDeclaredOnly() invocation.
      */
     private ?\Quiote\Logging\CategoryLogger $loggerCache = null;
 
@@ -121,7 +121,7 @@ class ValidationService
     /**
      * Retrieve the Action's Context, failing loudly if it has not been set.
      * Validation always runs against an already-initialized action, so a
-     * missing context here indicates a caller invoked validate()/xmlOnlyValidate()
+     * missing context here indicates a caller invoked validate()/validateDeclaredOnly()
      * before Action::initialize() ran, rather than a legitimately optional case.
      * @throws QuioteException if the action has no Context.
      */
@@ -329,14 +329,9 @@ class ValidationService
             $logger->error('[ValidationService][validate] Validators execute() threw exception: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
             throw $e;
         }
-        if ($vd) {
-            try {
-                $childs = $validationManager->getChilds();
-                $names = [];
-                foreach ($childs as $cv) { $names[] = $cv->getName(); }
-                $logger->debug('[ValidationService][validate] executeResult=' . ($ok?'1':'0') . ' childCount=' . count($names) . ' names=' . implode(',', $names));
-            } catch(\Throwable $diagFailure) { $logger->debug('[diagnostics] debug line could not be assembled: ' . $diagFailure->getMessage()); }
-        }
+        // The same snapshot validateDeclaredOnly() emits: both paths run the same validators, so
+        // a slot or a test dispatching through here diagnoses a failure with what a request does.
+        $logger->debugWith(fn(): string => $this->reportSnapshot($validationManager, $ok));
         // 4. Manual action validation (validate[Method])
         // Use the context's request which may have been updated by pruneParametersToValidated()
         // during VM execute(). This ensures the action's validate method sees the post-prune
@@ -383,8 +378,20 @@ class ValidationService
         return new ValidationResult($final, ['errors' => $errors, 'trace' => $trace]);
     }
 
-    /** Execute only XML + registered validators (skip action validate* methods). */
-    public function xmlOnlyValidate(Action $action, WebRequest $request, string $moduleName, string $actionName, string $method = ''): ValidationResult
+    /**
+     * Runs the declared validators only, leaving the action's own validate*
+     * methods to the caller.
+     *
+     * "Declared" is everything the validation configuration and the action's
+     * `register{Method}Validators()` put on the manager, whatever the
+     * declaration was written in. What this skips is the *other* kind of
+     * validation: the `validate()` / `validate{Method}()` methods an action
+     * implements in PHP. {@see validate()} runs both and reports one combined
+     * outcome; this exists for a caller that needs the two apart --
+     * {@see \Quiote\Middleware\ValidationMiddleware} runs the manual methods
+     * itself so it can tell a client which of the two rejected the request.
+     */
+    public function validateDeclaredOnly(Action $action, WebRequest $request, string $moduleName, string $actionName, string $method = ''): ValidationResult
     {
         $logger = $this->getLogger();
         // A compiled validator declaration buckets its validators by a lowercase method token, so
@@ -396,7 +403,7 @@ class ValidationService
 
         $vd = $logger->isEnabled(\Quiote\Logging\Level::Debug);
         if ($vd) {
-            $logger->debug("[ValidationService] xmlOnlyValidate for " . ($moduleName ?: 'no_module') . "/" . ($actionName ?: 'no_action') . " method=" . $method);
+            $logger->debug("[ValidationService] validateDeclaredOnly for " . ($moduleName ?: 'no_module') . "/" . ($actionName ?: 'no_action') . " method=" . $method);
         }
         $validationManager = $this->manager;
         if (!$validationManager) {
@@ -465,7 +472,7 @@ class ValidationService
             // framework/app bug, not invalid user input. Log it and let it
             // propagate to ErrorHandlingMiddleware for a 500 instead of
             // masquerading as a graceful validation failure.
-            $logger->error('[ValidationService] xmlOnlyValidate execute() threw: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
+            $logger->error('[ValidationService] validateDeclaredOnly execute() threw: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
             throw $e;
         }
         $logger->debugWith(fn(): string => $this->reportSnapshot($validationManager, $ok));

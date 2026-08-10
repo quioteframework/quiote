@@ -349,7 +349,7 @@ class ValidationMiddleware implements MiddlewareInterface
         ActionDescriptor $actionDesc,
         string $configMethodToken,
     ): array {
-        $xmlResult = $this->validationService->xmlOnlyValidate(
+        $declaredResult = $this->validationService->validateDeclaredOnly(
             $action,
             $webRequest,
             $actionDesc->module,
@@ -357,15 +357,15 @@ class ValidationMiddleware implements MiddlewareInterface
             $configMethodToken
         );
 
-        $trace = $xmlResult->getTrace();
+        $trace = $declaredResult->getTrace();
         $hasValidators = $trace instanceof \Quiote\Execution\ValidationTrace && (
             ($trace->configFile !== null && $trace->configFile !== '')
             || !empty($trace->validatorsLoaded)
         );
 
-        if (!$xmlResult->ok) {
+        if (!$declaredResult->ok) {
             /** @var list<string> $errors */
-            $errors = $xmlResult->getErrors() ?: ['validation_failed'];
+            $errors = $declaredResult->getErrors() ?: ['validation_failed'];
 
             return ['ok' => false, 'hasValidators' => $hasValidators, 'errors' => $errors];
         }

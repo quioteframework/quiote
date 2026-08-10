@@ -49,7 +49,7 @@ class ValidationMiddlewareTest extends TestCase
      * Gives a test-fixture Action a real ActionInitContext, mirroring what
      * ValidationMiddleware itself does for pre-instantiated actions in
      * production. Without this, $action->getContext() is null and
-     * ValidationService::xmlOnlyValidate() has nothing to build a
+     * ValidationService::validateDeclaredOnly() has nothing to build a
      * ValidationManager from.
      */
     private function initializeAction(\Quiote\Action\Action $action, string $module, string $actionName, string $method, \Psr\Http\Message\ServerRequestInterface $request): void
@@ -336,7 +336,7 @@ class ValidationMiddlewareTest extends TestCase
         // Regression test for the v1.0.0 release bug: an action that registers
         // validators purely via ValidatorBuilder::on($this->getInitContext()->getValidationManager(), ...)
         // in registerWriteValidators() (no validators.xml file) used to have those
-        // validators silently skipped by xmlOnlyValidate(), so the submitted "name"
+        // validators silently skipped by validateDeclaredOnly(), so the submitted "name"
         // parameter stayed unwhitelisted and getParameter('name') in executeWrite()
         // threw UnvalidatedParameterAccessException even though validation passed.
         \Quiote\Config\Config::fromArray([
