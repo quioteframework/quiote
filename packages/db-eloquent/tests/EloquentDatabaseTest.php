@@ -92,4 +92,139 @@ class EloquentDatabaseTest extends TestCase
         $this->expectExceptionMessageMatches('/requires a "driver" parameter/');
         $db->getCapsule();
     }
+
+    public function testInlineConnectionArrayRejectsNonStringKeys(): void
+    {
+        $db = new EloquentDatabase();
+        $db->initialize(new DatabaseManager(), [
+            'connection' => ['driver' => 'sqlite', 5 => 'unexpected'],
+        ]);
+
+        $this->expectException(DatabaseException::class);
+        $this->expectExceptionMessageMatches('/inline "connection" array keys must be strings/');
+        $db->getCapsule();
+    }
+
+    /**
+     * The Capsule keys its connections by name, so a database configured
+     * under a non-default name has to be reachable under exactly that name.
+     */
+    public function testAConfiguredConnectionNameIsUsedThroughout(): void
+    {
+        $db = new EloquentDatabase();
+        $db->initialize(new DatabaseManager(), [
+            'driver' => 'sqlite',
+            'database' => ':memory:',
+            'connection_name' => 'reporting',
+        ]);
+
+        $this->assertSame($db->getCapsule()->getConnection('reporting'), $db->getEloquentConnection());
+    }
+
+    public function testGlobalAlsoBootsEloquentSoModelsResolve(): void
+    {
+        $db = new EloquentDatabase();
+        $db->initialize(new DatabaseManager(), [
+            'driver' => 'sqlite',
+            'database' => ':memory:',
+            'global' => true,
+        ]);
+
+        $capsule = $db->getCapsule();
+
+        $this->assertSame($capsule->getConnection(), Capsule::connection());
+        $this->assertInstanceOf(
+            \Illuminate\Database\ConnectionResolverInterface::class,
+            \Illuminate\Database\Eloquent\Model::getConnectionResolver(),
+            'bootEloquent() defaults to the value of "global"',
+        );
+    }
+
+    public function testGetCapsuleRejectsAConnectionThatIsNotACapsule(): void
+    {
+        $db = new class extends EloquentDatabase {
+            #[\Override]
+            protected function connect()
+            {
+                $this->connection = $this->resource = new stdClass();
+            }
+        };
+
+        $this->expectException(DatabaseException::class);
+        $this->expectExceptionMessage('is not an Illuminate\Database\Capsule\Manager (got stdClass)');
+        $db->getCapsule();
+    }
+
+    // --- worker lifecycle --------------------------------------------------
+
+    public function testPingIsTrueBeforeAnythingHasConnected(): void
+    {
+        $db = new EloquentDatabase();
+        $db->initialize(new DatabaseManager(), ['driver' => 'sqlite', 'database' => ':memory:']);
+
+        $this->assertTrue($db->ping(), 'lazy connect handles the first use');
+    }
+
+    /**
+     * A worker holds its connection across requests, so a handle that has
+     * gone away has to be reported as unusable and cleared -- otherwise every
+     * later request reuses the dead one.
+     */
+    public function testPingIsFalseAndClearsAConnectionWhoseHandleHasGoneAway(): void
+    {
+        $db = new EloquentDatabase();
+        $db->initialize(new DatabaseManager(), ['driver' => 'sqlite', 'database' => ':memory:']);
+        $db->getEloquentConnection()->setPdo(new class ('sqlite::memory:') extends PDO {
+            #[\Override]
+            public function query(string $query, ?int $fetchMode = null, mixed ...$args): PDOStatement|false
+            {
+                throw new PDOException('server has gone away');
+            }
+        });
+
+        $this->assertFalse($db->ping());
+        $this->assertNull((new ReflectionProperty(\Quiote\Database\Database::class, 'connection'))->getValue($db));
+    }
+
+    public function testShutdownRollsBackAnOpenTransaction(): void
+    {
+        $db = new EloquentDatabase();
+        $db->initialize(new DatabaseManager(), ['driver' => 'sqlite', 'database' => ':memory:']);
+
+        $conn = $db->getEloquentConnection();
+        $conn->statement('CREATE TABLE t (id INTEGER PRIMARY KEY, name TEXT)');
+        $pdo = $conn->getPdo();
+        $conn->beginTransaction();
+        $conn->table('t')->insert(['name' => 'uncommitted']);
+        $this->assertSame(1, $conn->transactionLevel());
+
+        $db->shutdown();
+
+        $this->assertFalse($pdo->inTransaction(), 'an open transaction would hold locks past shutdown');
+
+        $count = $pdo->query('SELECT COUNT(*) FROM t');
+        $this->assertNotFalse($count);
+        $this->assertSame(0, (int) $count->fetchColumn(), 'the uncommitted row was rolled back');
+    }
+
+    public function testShutdownDropsTheCapsuleSoTheNextUseRebuildsIt(): void
+    {
+        $db = new EloquentDatabase();
+        $db->initialize(new DatabaseManager(), ['driver' => 'sqlite', 'database' => ':memory:']);
+        $capsule = $db->getCapsule();
+
+        $db->shutdown();
+
+        $this->assertNotSame($capsule, $db->getCapsule());
+    }
+
+    public function testShutdownBeforeConnectingIsANoOp(): void
+    {
+        $db = new EloquentDatabase();
+        $db->initialize(new DatabaseManager(), ['driver' => 'sqlite', 'database' => ':memory:']);
+
+        $db->shutdown();
+
+        $this->assertInstanceOf(Capsule::class, $db->getCapsule());
+    }
 }
