@@ -1,3 +1,78 @@
+## [4.0.0-RC6] - 2026-08-10
+
+### 🐛 Bug Fixes
+
+- *(logging)* Re-resolve category loggers when the configuration changes
+- *(util)* Return the matching method from Toolkit::overloadHelper()
+- *(db)* Make reset() honour the Database teardown contract
+- *(testing)* Make ViewTestCase's assertions compare what they document
+- *(db-propulsion)* Stop discarding live connections on every initialize()
+
+### 🚜 Refactor
+
+- *(validation)* [**breaking**] Rename xmlOnlyValidate() to validateDeclaredOnly()
+- *(exception)* [**breaking**] Drop QuioteException's exception-page helpers
+- *(i18n)* Drop DateTimeFacade's unreachable non-intl fallbacks
+- *(execution)* [**breaking**] Remove ViewResolver and ActionExecutionSession
+- *(validator)* [**breaking**] Remove four uncalled deprecated methods
+- *(util)* Decompose FormPopulationEngine into its responsibilities
+- *(execution)* Extract slot parameter overlay and caching
+
+### 📚 Documentation
+
+- *(renderer)* Describe what PhpRenderer actually gives a template
+- *(migrating)* Record the 4.0 removals and the validation rename
+
+### 🧪 Testing
+
+- *(session,queue)* Cover the Redis and object-store backends without Docker
+- *(db)* Cover the adapter parameter mapping and worker lifecycle
+- *(runtime)* Cover Kernel's runtime selection and the error backstop
+- *(execution)* Cover slot dispatch, deferred slots and validation diagnostics
+- *(testing,renderer)* Cover the test-support toolkit and the PHP renderer
+- *(user)* Cover what SecurityUser does when the session backend fails
+- *(util,validator)* Cover the worker manager, silencer and validators
+- *(util)* Pin form population's behaviour at the document level
+- *(util)* Cover the XHTML repairs and form matching directly
+## [4.0.0-RC5] - 2026-08-09
+
+### 🚀 Features
+
+- *(middleware)* Add core.stealth_mode to hide framework-identifying headers
+- *(docs)* Add the API reference generator package with source discovery
+- *(docs)* Generate the API reference from reflection and docblocks
+- *(middleware)* Clear resettable middleware state at the request boundary
+
+### 🐛 Bug Fixes
+
+- *(config)* A factory being switched off is not the same as being optional
+- *(session)* Read a Postgres bytea session blob as a stream, not a string
+- *(routing)* Stop RoutingValue::reset() unsetting a shared static property
+- *(execution)* Restore slot parameters from the validated request
+- *(analysis)* Clear the last 60 PHPStan level 9 errors project-wide
+- *(middleware)* Drop the _original_psr_request attribute
+- *(docs)* Stop the root namespace listing itself as a section
+- *(auth)* Scope the token-derived marker to the request that presented the token
+- *(user)* Rotate the session id when a token identity becomes a session login
+
+### 📚 Documentation
+
+- *(api)* Document every public method and class across the framework
+- *(session)* Drop the token-derived marker from the exists() rationale
+## [4.0.0-RC4] - 2026-08-07
+
+### 🚀 Features
+
+- *(translation)* QuioteLocale answers its own text direction again
+- *(translation)* QuioteLocale names a currency in its own locale
+
+### 🐛 Bug Fixes
+
+- *(rector)* [**breaking**] Close the residue reporter's two blind spots
+- *(di)* [**breaking**] An omitted scope means what the binding declares, not process lifetime
+- *(validator)* Build declared validators through the container, propagate exports
+- *(validator)* Carry a validator's synthetic name into its own parameters
+- *(auth)* Carry a stateless passport's validated claims onto SecurityUser
 ## [4.0.0-RC3] - 2026-08-05
 
 ### 🐛 Bug Fixes
@@ -10,6 +85,9 @@
 
 - *(migrating)* Note that output_types assigns resolve through the container
 
+### ⚙️ Miscellaneous Tasks
+
+- *(release)* Prepare 4.0.0-RC3
 ## [4.0.0-RC2] - 2026-08-05
 
 ### 🐛 Bug Fixes
@@ -19,7 +97,7 @@
 ### ⚙️ Miscellaneous Tasks
 
 - *(release)* Regenerate the 4.0.0-RC1 changelog section
-
+- *(release)* Prepare 4.0.0-RC2
 ## [4.0.0-RC1] - 2026-08-05
 
 ### 🚀 Features
