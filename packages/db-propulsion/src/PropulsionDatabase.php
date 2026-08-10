@@ -46,6 +46,12 @@ class PropulsionDatabase extends Database
      *                           configuration object cannot be resolved, or no
      *                           datasource can be determined.
      */
+    /**
+     * Digest of the configuration currently installed in Propulsion, which is process-global
+     * state and so tracked per process rather than per instance.
+     */
+    private static ?string $appliedConfiguration = null;
+
     #[\Override]
     public function initialize(DatabaseManager $databaseManager, array $parameters = [])
     {
@@ -79,9 +85,28 @@ class PropulsionDatabase extends Database
             ));
         }
 
+        // The datasource is per-instance state, so it is resolved whether or not Propulsion's
+        // process-global configuration needs touching below.
+        $this->datasource = $this->resolveDatasource($rawConfig);
+
+        $desiredState = $this->configurationDigest($configPath, $rawConfig);
+        if (Propulsion::isInit() && $desiredState === self::$appliedConfiguration) {
+            // Propulsion already carries exactly this configuration. Re-applying it would mean
+            // calling Propulsion::initialize(), whose entire body is a reset of the connection
+            // map -- and that does not close anything. PDO has no close(); a handle is released
+            // when its last reference goes, and this adapter holds one in $this->connection.
+            // So the map would be emptied while the old connection stayed open, keeping its
+            // transaction and any table locks, and the next getConnection() would open a second
+            // backend beside it. Under PHP-FPM the process death hid that; a worker or a test
+            // run accumulates one connection per initialize().
+            return;
+        }
+
         if (!Propulsion::isInit()) {
             Propulsion::init($configPath);
         } else {
+            // A genuine reconfiguration: the connection map is dropped on purpose, because the
+            // connections it holds were opened against parameters that no longer apply.
             Propulsion::setConfiguration($rawConfig);
             Propulsion::initialize();
         }
@@ -94,11 +119,14 @@ class PropulsionDatabase extends Database
             ));
         }
 
-        $this->datasource = $this->resolveDatasource($rawConfig);
         foreach ((array) $this->getParameter('overrides', []) as $key => $value) {
             $config->setParameter((string) $key, $value);
         }
 
+        // Applied only on the path that has just (re)set the configuration from the raw file:
+        // setConfiguration() replaces the configuration object outright, so the queries read
+        // back here are the file's own. Re-running this against an already-augmented
+        // configuration would append init_queries to themselves on every call.
         $queryPath = sprintf('datasources.%s.connection.settings.queries.query', $this->datasource);
         $queries = array_merge(
             $this->configuredQueries($config, $queryPath),
@@ -112,6 +140,36 @@ class PropulsionDatabase extends Database
         } elseif ($enablePooling === false) {
             Propulsion::disableInstancePooling();
         }
+
+        self::$appliedConfiguration = $desiredState;
+    }
+
+    /**
+     * Identifies the Propulsion configuration this initialize() call would install.
+     *
+     * Everything that ends up mutating Propulsion's process-global state goes in: the config
+     * file and its contents, plus the per-database parameters applied on top of it. Two calls
+     * agreeing on all of that would install byte-identical configuration, so the second has
+     * nothing to do.
+     *
+     * @param array<mixed, mixed> $rawConfig
+     */
+    private function configurationDigest(string $configPath, array $rawConfig): string
+    {
+        $state = [
+            'path' => $configPath,
+            'config' => $rawConfig,
+            'datasource' => $this->datasource,
+            'overrides' => $this->getParameter('overrides', []),
+            'init_queries' => $this->getParameter('init_queries', []),
+            'pooling' => $this->getParameter('enable_instance_pooling'),
+        ];
+
+        $encoded = json_encode($state);
+
+        // Unencodable state cannot be compared, so it is treated as always-different rather
+        // than as always-equal: reconfiguring needlessly is wasteful, skipping wrongly is a bug.
+        return $encoded !== false ? md5($encoded) : uniqid('unencodable-', true);
     }
 
     protected function connect()

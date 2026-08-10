@@ -27,6 +27,7 @@ class PropulsionDatabaseTest extends TestCase
 
         DatabaseDriverRegistry::reset();
         Propulsion::close();
+        (new ReflectionProperty(PropulsionDatabase::class, 'appliedConfiguration'))->setValue(null, null);
     }
 
     protected function tearDown(): void
@@ -433,6 +434,76 @@ class PropulsionDatabaseTest extends TestCase
 
         $this->assertNull((new ReflectionProperty(\Quiote\Database\Database::class, 'connection'))->getValue($db));
         $this->assertNotSame($first, $db->getPropulsionConnection());
+    }
+
+    /**
+     * Re-initializing with the configuration Propulsion already carries must not touch its
+     * connection map.
+     *
+     * Propulsion::initialize() is nothing but a reset of that map, and the reset does not close
+     * anything: PHP releases a PDO when its last reference goes, and this adapter holds one in
+     * $this->connection. So clearing the map leaves the old connection open -- with whatever
+     * transaction and table locks it holds -- while the next getConnection() opens a second
+     * backend beside it. One per initialize(), for the life of the process.
+     */
+    public function testReInitializingWithTheSameConfigurationKeepsTheLiveConnection(): void
+    {
+        $runtimeConfig = $this->writeRuntimeConfigFile();
+        $parameters = ['config' => $runtimeConfig, 'datasource' => 'runtime'];
+
+        $db = new PropulsionDatabase();
+        $manager = new DatabaseManager();
+        (new ReflectionProperty($manager, 'databases'))->setValue($manager, ['propulsion' => $db]);
+        $db->initialize($manager, $parameters);
+
+        $connection = Propulsion::getConnection('runtime');
+
+        $second = new PropulsionDatabase();
+        $second->initialize($manager, $parameters);
+
+        $this->assertSame(
+            $connection,
+            Propulsion::getConnection('runtime'),
+            'the connection map was cleared, so a second backend would be opened',
+        );
+    }
+
+    /** An identical re-initialize must also not re-apply init_queries onto themselves. */
+    public function testReInitializingDoesNotAccumulateInitQueries(): void
+    {
+        $parameters = [
+            'config' => $this->writeRuntimeConfigFile(),
+            'datasource' => 'runtime',
+            'init_queries' => ['PRAGMA foreign_keys = ON'],
+        ];
+
+        $db = new PropulsionDatabase();
+        $db->initialize(new DatabaseManager(), $parameters);
+        $db->initialize(new DatabaseManager(), $parameters);
+
+        $this->assertSame(['PRAGMA foreign_keys = ON'], $this->configuredQueries('runtime'));
+    }
+
+    /**
+     * A configuration that genuinely differs still reconfigures, dropping the map on purpose:
+     * the connections it holds were opened against parameters that no longer apply.
+     */
+    public function testAChangedConfigurationStillReconfigures(): void
+    {
+        $manager = new DatabaseManager();
+
+        $first = new PropulsionDatabase();
+        $first->initialize($manager, ['config' => $this->writeRuntimeConfigFile(), 'datasource' => 'runtime']);
+        $connection = Propulsion::getConnection('runtime');
+
+        $second = new PropulsionDatabase();
+        $second->initialize($manager, [
+            'config' => $this->writeRuntimeConfigFile(),
+            'datasource' => 'runtime',
+            'init_queries' => ['PRAGMA foreign_keys = ON'],
+        ]);
+
+        $this->assertNotSame($connection, Propulsion::getConnection('runtime'));
     }
 
     public function testPluginRegistersPropulsionAlias(): void
