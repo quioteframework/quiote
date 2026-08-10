@@ -100,8 +100,10 @@ class PropulsionDatabase extends Database
         }
 
         $queryPath = sprintf('datasources.%s.connection.settings.queries.query', $this->datasource);
-        $queries = (array) $config->getParameter($queryPath, []);
-        $queries = array_merge($queries, (array) $this->getParameter('init_queries', []));
+        $queries = array_merge(
+            $this->configuredQueries($config, $queryPath),
+            array_values((array) $this->getParameter('init_queries', []))
+        );
         $config->setParameter($queryPath, $queries);
 
         $enablePooling = $this->getParameter('enable_instance_pooling');
@@ -234,8 +236,16 @@ class PropulsionDatabase extends Database
     }
 
     /**
-     * Reset request-scoped Propulsion state while preserving process-scoped
-     * resources (connection pool, maps, adapters).
+     * Returns this database to its pre-initialize() state, dropping
+     * Propulsion's request-scoped session first.
+     *
+     * That session (instance pool, unit-of-work state) lives on Propulsion
+     * itself rather than on this object, so the base teardown -- which
+     * shuts the connection down and clears the parameters, the manager
+     * reference and the name -- would leave it behind. Re-initialize() this
+     * instance before using it again.
+     *
+     * @throws DatabaseException If shutting the connection down fails.
      */
     #[\Override]
     public function reset(): void
@@ -243,6 +253,8 @@ class PropulsionDatabase extends Database
         if (Propulsion::isInit()) {
             Propulsion::getSession()->reset();
         }
+
+        parent::reset();
     }
 
     /**
@@ -259,6 +271,34 @@ class PropulsionDatabase extends Database
             Propulsion::close();
         }
         $this->connection = $this->resource = null;
+    }
+
+    /**
+     * The connection queries the runtime config already declares for the
+     * resolved datasource, so `init_queries` adds to them instead of
+     * replacing them.
+     *
+     * Read from the nested parameters rather than through
+     * {@see PropulsionConfiguration::getParameter()}: that resolves against
+     * the flattened parameter map, where a list of queries exists only as
+     * `<path>.0`, `<path>.1` and so on, so asking for the list itself always
+     * answers the default. A single query may also be declared as a bare
+     * string, which becomes a one-element list here.
+     *
+     * @return list<mixed>
+     */
+    private function configuredQueries(PropulsionConfiguration $config, string $queryPath): array
+    {
+        $node = $config->getParameters(PropulsionConfiguration::TYPE_ARRAY);
+
+        foreach (explode('.', $queryPath) as $segment) {
+            if (!is_array($node) || !array_key_exists($segment, $node)) {
+                return [];
+            }
+            $node = $node[$segment];
+        }
+
+        return is_array($node) ? array_values($node) : [$node];
     }
 
     /**

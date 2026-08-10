@@ -205,7 +205,7 @@ class EloquentDatabase extends AbstractOrmDatabase
                 // and, under a persistent worker, be inherited by the next request on this
                 // connection.
                 \Quiote\Logging\Log::for($this)->warning(
-                    '[EloquentDatabase] could not roll back the open transaction on shutdown: '
+                    'Could not roll back the open transaction on shutdown: '
                     . $e->getMessage()
                 );
             }
@@ -215,7 +215,7 @@ class EloquentDatabase extends AbstractOrmDatabase
                 // The connection stays in the manager, so the next request may reuse one whose
                 // state was never cleaned.
                 \Quiote\Logging\Log::for($this)->warning(
-                    '[EloquentDatabase] could not purge the connection on shutdown: ' . $e->getMessage()
+                    'Could not purge the connection on shutdown: ' . $e->getMessage()
                 );
             }
         }

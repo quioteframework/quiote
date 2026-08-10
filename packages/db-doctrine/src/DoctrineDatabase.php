@@ -272,8 +272,20 @@ class DoctrineDatabase extends AbstractOrmDatabase
     }
 
     /**
-     * Per-request boundary: detach all managed entities (clear the identity map)
-     * so nothing bleeds into the next request; keep the connection + metadata.
+     * Returns this database to its pre-initialize() state, detaching every
+     * managed entity first.
+     *
+     * The identity map is cleared up front so entities are detached even for
+     * a caller still holding the entity manager; the base teardown then shuts
+     * the connection down and clears the parameters, the manager reference
+     * and the name. Re-initialize() this instance before using it again.
+     *
+     * To recycle a worker's connection between requests without discarding
+     * the configuration, use {@see ping()} -- which is what
+     * {@see \Quiote\Database\DatabaseManager::recycleConnections()} calls at
+     * the request boundary.
+     *
+     * @throws DatabaseException If shutting the connection down fails.
      */
     #[\Override]
     public function reset(): void
@@ -282,11 +294,11 @@ class DoctrineDatabase extends AbstractOrmDatabase
             try {
                 $this->connection->clear();
             } catch (\Throwable $e) {
-                // The identity map keeps this request's entities, so the next request served by
-                // this worker can read stale managed objects.
+                // The teardown below drops this database's own reference either way, but a caller
+                // still holding the entity manager keeps a live identity map of stale entities.
                 \Quiote\Logging\Log::for($this)->warning(
-                    '[DoctrineDatabase] could not clear the entity manager at the request boundary; '
-                    . 'entities from this request may leak into the next: ' . $e->getMessage()
+                    'Could not clear the entity manager while resetting; '
+                    . 'entities managed through it stay attached: ' . $e->getMessage()
                 );
             }
         }
@@ -314,7 +326,7 @@ class DoctrineDatabase extends AbstractOrmDatabase
                 // Shutdown continues either way, but an un-rolled-back transaction can hold locks
                 // and an unclosed connection leaks for the worker's lifetime.
                 \Quiote\Logging\Log::for($this)->warning(
-                    '[DoctrineDatabase] could not roll back and close the connection on shutdown: '
+                    'Could not roll back and close the connection on shutdown: '
                     . $e->getMessage()
                 );
             }

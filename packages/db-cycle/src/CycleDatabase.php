@@ -207,8 +207,22 @@ class CycleDatabase extends AbstractOrmDatabase
     }
 
     /**
-     * Per-request boundary: clean the ORM heap (identity map) so hydrated entities
-     * don't bleed into the next request; keep the compiled schema + connections.
+     * Returns this database to its pre-initialize() state, cleaning the ORM
+     * heap first.
+     *
+     * The heap (identity map) is cleaned up front so hydrated entities are
+     * detached even for a caller still holding the ORM; the base teardown
+     * then shuts the connection down and clears the parameters, the manager
+     * reference and the name -- including the compiled schema, which is
+     * rebuilt from the parameters on the next initialize(). Re-initialize()
+     * this instance before using it again.
+     *
+     * To recycle a worker's connection between requests without discarding
+     * the configuration, use {@see ping()} -- which is what
+     * {@see \Quiote\Database\DatabaseManager::recycleConnections()} calls at
+     * the request boundary.
+     *
+     * @throws DatabaseException If shutting the connection down fails.
      */
     #[\Override]
     public function reset(): void
@@ -217,11 +231,11 @@ class CycleDatabase extends AbstractOrmDatabase
             try {
                 $this->connection->getHeap()->clean();
             } catch (\Throwable $e) {
-                // The heap keeps this request's hydrated entities, so the next request served by
-                // this worker can read stale ones -- which is the whole reason this runs.
+                // The teardown below drops this database's own reference either way, but a caller
+                // still holding the ORM keeps a live heap of stale hydrated entities.
                 \Quiote\Logging\Log::for($this)->warning(
-                    '[CycleDatabase] could not clean the ORM heap at the request boundary; entities '
-                    . 'from this request may leak into the next: ' . $e->getMessage()
+                    'Could not clean the ORM heap while resetting; entities '
+                    . 'hydrated through it stay attached: ' . $e->getMessage()
                 );
             }
         }
@@ -243,7 +257,7 @@ class CycleDatabase extends AbstractOrmDatabase
             } catch (\Throwable $e) {
                 // Shutdown continues either way; the heap is dropped with the connection below.
                 \Quiote\Logging\Log::for($this)->debug(
-                    '[CycleDatabase] could not clean the ORM heap on shutdown: ' . $e->getMessage()
+                    'Could not clean the ORM heap on shutdown: ' . $e->getMessage()
                 );
             }
         }
