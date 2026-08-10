@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 use Nyholm\Psr7\Factory\Psr17Factory;
 use PHPUnit\Framework\TestCase;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Quiote\Config\Config;
+use Quiote\Exception\Rendering\ExceptionRenderer;
+use Quiote\Exception\Rendering\ExceptionRendererRegistry;
 use Quiote\Runtime\ErrorResponseFactory;
 
 /**
@@ -60,5 +65,59 @@ final class ErrorResponseFactoryTest extends TestCase
         $response = $factory->fromThrowable(new Error('fatal-ish'));
 
         $this->assertGreaterThanOrEqual(500, $response->getStatusCode());
+    }
+
+    /**
+     * The renderer is a registered seam, so an application's own developer
+     * renderer can throw. This is the backstop for a request that already
+     * escaped the pipeline -- if it threw again here the client would get
+     * nothing at all, which is exactly what returning a response prevents.
+     */
+    public function testARendererThatThrowsFallsBackToAPlainInternalServerError(): void
+    {
+        Config::set('core.developer_exceptions', true);
+        ExceptionRendererRegistry::setDeveloperRenderer(static fn(): ExceptionRenderer => new ThrowingExceptionRenderer());
+
+        try {
+            $response = (new ErrorResponseFactory())->fromThrowable(new RuntimeException('exploded'));
+
+            $this->assertSame(500, $response->getStatusCode());
+            $this->assertSame('text/plain; charset=utf-8', $response->getHeaderLine('Content-Type'));
+            $this->assertSame('Internal Server Error', (string) $response->getBody());
+        } finally {
+            ExceptionRendererRegistry::reset();
+            Config::remove('core.developer_exceptions');
+        }
+    }
+
+    /**
+     * The last-resort body is deliberately free of the exception's own detail:
+     * the renderer that would have decided what is safe to disclose is the
+     * thing that just failed.
+     */
+    public function testTheLastResortResponseLeaksNothingAboutEitherFailure(): void
+    {
+        Config::set('core.developer_exceptions', true);
+        ExceptionRendererRegistry::setDeveloperRenderer(static fn(): ExceptionRenderer => new ThrowingExceptionRenderer());
+
+        try {
+            $response = (new ErrorResponseFactory())->fromThrowable(new RuntimeException('database password is hunter2'));
+            $body = (string) $response->getBody();
+
+            $this->assertStringNotContainsString('hunter2', $body);
+            $this->assertStringNotContainsString('renderer exploded', $body);
+        } finally {
+            ExceptionRendererRegistry::reset();
+            Config::remove('core.developer_exceptions');
+        }
+    }
+}
+
+/** An application renderer that fails, to reach the factory's last-resort path. */
+final class ThrowingExceptionRenderer implements ExceptionRenderer
+{
+    public function render(Throwable $e, ServerRequestInterface $request, int $status, ?string $correlationId): ResponseInterface
+    {
+        throw new RuntimeException('renderer exploded');
     }
 }
