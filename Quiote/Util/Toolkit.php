@@ -188,9 +188,11 @@ final class Toolkit
 			throw new QuioteException('overloadhelper couldn\'t find a matching method with the parameter count ' . $paramCount);
 		}
 		if(count($countedDefs[$paramCount]) > 1) {
-			$matchCount = 0;
-			$matchIndex = null;
-			foreach($countedDefs[$paramCount] as $key => $paramDef) {
+			// Collect the names that match rather than counting and remembering an index: the
+			// name comes from the definition that matched, so it cannot drift to whichever one
+			// the loop happened to examine last.
+			$matches = [];
+			foreach($countedDefs[$paramCount] as $paramDef) {
 				$success = true;
 				for($i = 0; $i < $paramCount; ++$i) {
 					if(!str_starts_with(gettype($parameters[$i]), (string) $paramDef['parameters'][$i])) {
@@ -199,16 +201,15 @@ final class Toolkit
 					}
 				}
 				if($success) {
-					++$matchCount;
-					$matchIndex = $key;
+					$matches[] = $paramDef['name'];
 				}
 			}
-			if($matchCount == 0) {
+			if($matches === []) {
 				throw new QuioteException('overloadhelper couldn\'t find a matching method');
-			} elseif($matchCount > 1) {
-				throw new QuioteException('overloadhelper found ' . $matchCount . ' matching methods');
+			} elseif(count($matches) > 1) {
+				throw new QuioteException('overloadhelper found ' . count($matches) . ' matching methods');
 			}
-			return $countedDefs[$paramCount][$key]['name'];
+			return $matches[0];
 		} else {
 			return $countedDefs[$paramCount][0]['name'];
 		}
