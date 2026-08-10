@@ -12,7 +12,6 @@ use Quiote\Execution\ActionDescriptor;
 use Quiote\Execution\ExecutionState;
 use Quiote\Execution\SecurityDecision;
 use Quiote\Execution\ActionExecutor; // new container-less executor
-use Quiote\Execution\ActionExecutionSession; // transitional session abstraction
 use Quiote\Execution\LightweightActionInitContext; // lightweight init context for action/view
 use Quiote\View\View;
 use Quiote\Util\Toolkit;

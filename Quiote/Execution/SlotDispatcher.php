@@ -11,7 +11,6 @@ use Quiote\Execution\SecurityService;
 use Quiote\Execution\SecurityDecision;
 use Quiote\Execution\ValidationService;
 use Quiote\Execution\ForwardService;
-// ViewResolver removed; SlotDispatcher uses ViewNameResolver directly
 use Quiote\Execution\ViewNameResolver;
 use Quiote\Execution\LightweightActionInitContext;
 use Quiote\Execution\ActionResolver;

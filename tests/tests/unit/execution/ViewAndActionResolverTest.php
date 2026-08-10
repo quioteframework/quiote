@@ -1,6 +1,5 @@
 <?php
 use Quiote\Testing\UnitTestCase;
-use Quiote\Execution\ViewResolver; // deprecated stub
 use Quiote\Execution\ViewNameResolver;
 use Quiote\Execution\ActionResolver;
 use Nyholm\Psr7\ServerRequest;
@@ -17,7 +16,6 @@ class ViewAndActionResolverTest extends UnitTestCase
     protected function setUp(): void
     {
         parent::setUp();
-    // Legacy getViewResolver() removed; instantiate stub directly (delegates to ViewNameResolver)
         $this->viewResolver = new ViewNameResolver();
         $this->actionResolver = $this->getContext()->getContainer()->get(\Quiote\Execution\ActionResolver::class);
     }
