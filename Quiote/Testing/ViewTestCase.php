@@ -74,12 +74,13 @@ abstract class ViewTestCase extends FragmentTestCase
 	{
 		// Container-based execution removed; directly instantiate view and invoke execute method.
 		$view = $this->createViewInstance();
-		// Modern request no longer exposes a separate requestData holder; pass parameter array for legacy execute signatures if needed.
-		$req = $this->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class);
-		$rd = $req->getParameters('parameters');
+		// The view is handed the request itself, the way the pipeline invokes it (see
+		// {@see \Quiote\Execution\ActionExecutor}) -- a view's executeXml()/execute() is typed for
+		// a WebRequest, so anything else is a type error rather than a "legacy signature".
+		$request = $this->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class);
 		$method = 'execute' . ucfirst($otName ?? $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)->getOutputType()->getName());
 		if(!is_callable([$view,$method])) { $method = 'execute'; }
-		$this->viewResult = $view->$method($rd);
+		$this->viewResult = $view->$method($request);
 	}
 
 	/**
@@ -156,11 +157,10 @@ abstract class ViewTestCase extends FragmentTestCase
 	protected function assertViewRedirectsTo($expected, $message = 'Failed asserting that the view redirects to the given target.')
 	{
 		$response = $this->getViewResponse();
-		try {
-			$this->assertEquals($expected, $response->getRedirect(), $message);
-		} catch (\Exception) {
-			$this->fail($message);
-		}
+		// getRedirect() answers a {location, code} record; the target being asserted is the location.
+		$redirect = $response->getRedirect();
+
+		$this->assertEquals($expected, $redirect['location'] ?? null, $message);
 	}
 
 	/**
@@ -190,8 +190,12 @@ abstract class ViewTestCase extends FragmentTestCase
 	protected function assertViewSetsHeader($expected, $expectedValue = null, $message = 'Failed asserting that the view sets a header named <%1$s> with the value <%2$s>')
 	{
 		$response = $this->getViewResponse();
+		// A header is stored as its list of values; compare against the form it is sent in, so a
+		// single-valued header asserts as the plain string the caller set.
+		$values = $response->getHttpHeader($expected);
+		$actual = is_array($values) ? implode(', ', $values) : $values;
 
-		$this->assertEquals($expectedValue, $response->getHttpHeader($expected), sprintf($message, $expected, $expectedValue));
+		$this->assertEquals($expectedValue, $actual, sprintf($message, $expected, (string) $expectedValue));
 	}
 
 	/**
@@ -206,8 +210,12 @@ abstract class ViewTestCase extends FragmentTestCase
 	protected function assertViewSetsCookie($expected, $expectedValue = null, $message = 'Failed asserting that the view sets a cookie named <%1$s> with a value of <%2$s>')
 	{
 		$response = $this->getViewResponse();
+		// getCookie() answers the whole cookie record (lifetime, path, flags); the value being
+		// asserted is the one the view set.
+		$cookie = $response->getCookie($expected);
+		$actual = is_array($cookie) ? ($cookie['value'] ?? null) : $cookie;
 
-		$this->assertEquals($expectedValue, $response->getCookie($expected), sprintf($message, $expected, var_export($expectedValue, true)));
+		$this->assertEquals($expectedValue, $actual, sprintf($message, $expected, var_export($expectedValue, true)));
 	}
 
 	/**
