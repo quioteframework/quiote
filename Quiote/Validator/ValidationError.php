@@ -56,18 +56,6 @@ class ValidationError implements ResetInterface
 	}
 
 	/**
-     * Sets the message index of this error.
-     * @param      string $messageIndex The message index.
-     * @return     void
-     * @since      1.0.0
-     */
-    #[\Deprecated(message: 'Superseded by setName()')]
-    public function setMessageIndex($messageIndex)
-	{
-		$this->setName($messageIndex);
-	}
-
-	/**
 	 * Retrieves the name of this error.
 	 * @return     string The error name.
 	 * @since      1.0.0
@@ -75,17 +63,6 @@ class ValidationError implements ResetInterface
 	public function getName()
 	{
 		return $this->name;
-	}
-
-	/**
-     * Retrieves the message index of this error.
-     * @return     string The message index.
-     * @since      1.0.0
-     */
-    #[\Deprecated(message: 'Superseded by getName()')]
-    public function getMessageIndex()
-	{
-		return $this->getName();
 	}
 
 	/**

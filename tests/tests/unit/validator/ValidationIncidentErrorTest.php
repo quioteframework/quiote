@@ -11,6 +11,52 @@ use Quiote\Validator\Validator;
  */
 class ValidationIncidentErrorTest extends UnitTestCase
 {
+    public function testTheSeverityCanBeRaisedAfterConstruction(): void
+    {
+        $incident = new ValidationIncident(null, Validator::NOTICE);
+        $this->assertSame(Validator::NOTICE, $incident->getSeverity());
+
+        $incident->setSeverity(Validator::ERROR);
+
+        $this->assertSame(Validator::ERROR, $incident->getSeverity());
+    }
+
+    /**
+     * An incident can be raised before the validator that caused it is known
+     * -- the report attributes it afterwards, which is what names the culprit
+     * in a diagnostic.
+     */
+    public function testTheValidatorCanBeAttachedAfterConstruction(): void
+    {
+        $incident = new ValidationIncident(null, Validator::ERROR);
+        $this->assertNull($incident->getValidator());
+
+        $vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
+        $validator = $vm->createValidator('DummyValidator', ['alpha'], [], ['name' => 'attributed']);
+        $incident->setValidator($validator);
+
+        $this->assertSame($validator, $incident->getValidator());
+    }
+
+    /**
+     * The same span the deprecated field accessors report, reached through
+     * getArguments(): every argument of every error the incident holds, each
+     * appearing once however many errors named it.
+     */
+    public function testTheArgumentsSpanEveryErrorInTheIncident(): void
+    {
+        $incident = new ValidationIncident(null, Validator::ERROR);
+        $incident->setErrors([
+            new ValidationError('first message', 'n1', ['fieldA', 'shared']),
+            new ValidationError('second message', 'n2', ['fieldB', 'shared']),
+        ]);
+
+        $names = array_values(array_map(static fn($a) => $a->getName(), $incident->getArguments()));
+        sort($names);
+
+        $this->assertSame(['fieldA', 'fieldB', 'shared'], $names, 'each argument is reported once');
+    }
+
     public function testAddErrorLinksIncidentAndArguments(): void
     {
         $incident = new ValidationIncident(null, Validator::ERROR);

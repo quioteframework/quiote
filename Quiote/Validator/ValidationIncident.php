@@ -135,26 +135,6 @@ class ValidationIncident implements ResetInterface
 	/////////////////////////////////////////////////////////////////////////////
     ////////////////////////////// Deprecated Parts /////////////////////////////
     /////////////////////////////////////////////////////////////////////////////
-    /**
-     * Checks if any of the errors of this incident were thrown for the given
-     * field name.
-     * @param      string $fieldname The field name.
-     * @return     bool The result.
-     * @since      1.0.0
-     */
-    #[\Deprecated(message: '1.0.0')]
-    public function hasFieldError($fieldname)
-	{
-		$argument = new ValidationArgument($fieldname);
-		foreach($this->errors as $error) {
-			if($error->hasArgument($argument)) {
-				return true;
-			}
-		}
-
-		return false;
-	}
-
 	/**
      * Retrieves a list of all fields of all the containing errors.
      * @return     array<int, string> An array of field names.
@@ -169,26 +149,6 @@ class ValidationIncident implements ResetInterface
 		}
 
 		return array_unique($fields);
-	}
-
-	/**
-     * Retrieves the errors which were thrown for the given field.
-     * @param      string $fieldname The field name.
-     * @return     array<int, ValidationError> An array of ValidationError.
-     * @since      1.0.0
-     */
-    #[\Deprecated(message: '1.0.0')]
-    public function getFieldErrors($fieldname)
-	{
-		$argument = new ValidationArgument($fieldname);
-		$errors = [];
-		foreach($this->errors as $error) {
-			if($error->hasArgument($argument)) {
-				$errors[] = $error;
-			}
-		}
-
-		return $errors;
 	}
 
 	/**
