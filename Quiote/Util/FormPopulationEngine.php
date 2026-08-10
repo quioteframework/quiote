@@ -10,6 +10,14 @@ use Quiote\Response\WebResponse;
 use Quiote\Util\ParameterHolder;
 use Quiote\Util\Toolkit;
 use Quiote\Util\FormPopulationConfig;
+use Quiote\Util\FormPopulation\DocumentEncoding;
+use Quiote\Util\FormPopulation\DocumentLoader;
+use Quiote\Util\FormPopulation\DocumentSerializer;
+use Quiote\Util\FormPopulation\FieldErrorDecorator;
+use Quiote\Util\FormPopulation\FieldNameResolver;
+use Quiote\Util\FormPopulation\FieldValueApplier;
+use Quiote\Util\FormPopulation\FormFinder;
+use Quiote\Util\FormPopulation\SkipList;
 use Quiote\Validator\ValidationArgument;
 use Quiote\Validator\ValidationIncident;
 use Quiote\Validator\ValidationReport;
@@ -109,16 +117,6 @@ final class FormPopulationEngine
 	}
 
 	/**
-	 * Narrow a mixed config value to bool, falling back to the given default
-	 * when the configured value isn't actually a bool (e.g. misconfigured
-	 * 'dom_*' switches).
-	 */
-	private function cfgBool(mixed $value, bool $default): bool
-	{
-		return is_bool($value) ? $value : $default;
-	}
-
-	/**
 	 * Narrow a mixed config value to int, falling back to the given default.
 	 */
 	private function cfgInt(mixed $value, int $default): int
@@ -175,24 +173,7 @@ final class FormPopulationEngine
 			return;
 		}
 
-		$skipRaw = $cfg['skip'];
-		if($skipRaw instanceof ParameterHolder) {
-			$skipRaw = $skipRaw->getParameters();
-		} elseif($skipRaw !== null && !is_array($skipRaw)) {
-			$skipRaw = null;
-		}
-		$skip = null;
-		if(is_array($skipRaw) && count($skipRaw)) {
-			$skipList = [];
-			foreach($skipRaw as $skipValue) {
-				if(is_scalar($skipValue)) {
-					$skipList[] = (string) $skipValue;
-				}
-			}
-			if($skipList) {
-				$skip = '/(\A' . str_replace('\[\]', '\[[^\]]*\]', implode('|\A', array_map(static fn(string $s): string => preg_quote($s, '/'), $skipList))) . ')/';
-			}
-		}
+		$skip = SkipList::fromConfig($cfg['skip']);
 
 		$forceRequestUri = $cfg['force_request_uri'];
 		if($forceRequestUri !== false && is_string($forceRequestUri)) {
@@ -226,86 +207,21 @@ final class FormPopulationEngine
 			$multiFieldErrorMessageRules = $cfg['multi_field_error_messages'];
 		}
 
-		$luie = libxml_use_internal_errors(true);
-		libxml_clear_errors();
-
-		$this->doc = new \DOMDocument();
-
-		$this->doc->substituteEntities = $this->cfgBool($cfg['dom_substitute_entities'], false);
-		$this->doc->resolveExternals   = $this->cfgBool($cfg['dom_resolve_externals'], false);
-		$this->doc->validateOnParse    = $this->cfgBool($cfg['dom_validate_on_parse'], false);
-		$this->doc->preserveWhiteSpace = $this->cfgBool($cfg['dom_preserve_white_space'], true);
-		$this->doc->formatOutput       = $this->cfgBool($cfg['dom_format_output'], false);
-
-		$outputStr = $this->toScalarString($output);
-		$forceOutputMode = strtolower($this->toScalarString($cfg['force_output_mode']));
-
-		$xhtml = (preg_match('/<!DOCTYPE[^>]+XHTML[^>]+/', $outputStr) > 0 && $forceOutputMode != 'html') || $forceOutputMode == 'xhtml';
-
-		$hasXmlProlog = false;
-		if($xhtml && preg_match('/^<\?xml[^\?]*\?>/', $outputStr)) {
-			$hasXmlProlog = true;
-		} elseif($xhtml && preg_match('/;\s*charset=(")?(?P<charset>.+?(?(1)(?=(?<!\\\\)")|($|(?=[;\s]))))(?(1)")/i', $this->toScalarString($ot->getParameter('http_headers[Content-Type]')), $matches)) {
-			// media-type = type "/" subtype *( ";" parameter ), says http://www.w3.org/Protocols/rfc2616/rfc2616-sec3.html#sec3.7
-			// add an XML prolog with the char encoding, works around issues with ISO-8859-1 etc
-			$outputStr = "<?xml version='1.0' encoding='" . $this->toScalarString($matches['charset']) . "' ?>\n" . $outputStr;
+		$loaded = (new DocumentLoader(\Quiote\Logging\Log::for($this)))->load(
+			$this->toScalarString($output),
+			$cfg,
+			$this->toScalarString($ot->getParameter('http_headers[Content-Type]')) ?: null
+		);
+		if($loaded === null) {
+			// a fatal parse error; there is no usable tree to populate
+			return;
 		}
 
-		if($xhtml && $cfg['parse_xhtml_as_xml']) {
-			$this->doc->loadXML($outputStr);
-			$this->xpath = new \DomXPath($this->doc);
-			if($this->doc->documentElement && $this->doc->documentElement->namespaceURI) {
-				$this->xpath->registerNamespace('html', $this->doc->documentElement->namespaceURI);
-				$this->xmlnsPrefix = 'html:';
-			} else {
-				$this->xmlnsPrefix = '';
-			}
-		} else {
-			$this->doc->loadHTML($outputStr);
-			$this->xpath = new \DomXPath($this->doc);
-			$this->xmlnsPrefix = '';
-		}
-
-		if(libxml_get_last_error() !== false) {
-			$errors = [];
-			$maxError = LIBXML_ERR_NONE;
-			foreach(libxml_get_errors() as $error) {
-				$errors[] = sprintf('[%s #%d] Line %d: %s', $error->level == LIBXML_ERR_WARNING ? 'Warning' : ($error->level == LIBXML_ERR_ERROR ? 'Error' : 'Fatal'), $error->code, $error->line, $error->message);
-				$maxError = max($maxError, $error->level);
-			}
-			libxml_clear_errors();
-			libxml_use_internal_errors($luie);
-			$emsg = sprintf(
-				"Form Population Filter encountered the following error%s while parsing the document:\n\n"
-				. "%s\n\n"
-				. "Non-fatal errors are typically recoverable; you may set the 'ignore_parse_errors' configuration parameter to LIBXML_ERR_WARNING or LIBXML_ERR_ERROR (default) to suppress them.\n"
-				. "If you set 'ignore_parse_errors' to LIBXML_ERR_FATAL (recommended for production), Form Population Filter will silently abort execution in the event of fatal errors.\n"
-				. "Regardless of the setting, all errors encountered will be logged.",
-				count($errors) > 1 ? 's' : '',
-				implode("\n", $errors)
-			);
-			if(Config::getBool('core.use_logging', false) && $cfg['log_parse_errors'] !== false && $maxError >= $cfg['log_parse_errors']) {
-				$lmsg = $emsg . "\n\nResponse content:\n\n" . $this->toScalarString($response->getContent());
-				$logger = \Quiote\Logging\Log::for($this);
-				match ($maxError) {
-                    LIBXML_ERR_WARNING => $logger->warning($lmsg),
-                    LIBXML_ERR_ERROR => $logger->error($lmsg),
-                    LIBXML_ERR_FATAL => $logger->critical($lmsg),
-                    default => $logger->info($lmsg),
-                };
-			}
-			
-			// should we throw an exception, or carry on?
-			if($maxError > $cfg['ignore_parse_errors']) {
-				throw new ParseException($emsg);
-			} elseif($maxError == LIBXML_ERR_FATAL) {
-				// for fatal errors, we cannot continue populating, so we must silently abort
-				return;
-			}
-		}
-
-		libxml_clear_errors();
-		libxml_use_internal_errors($luie);
+		$this->doc = $loaded->document;
+		$this->xpath = $loaded->xpath;
+		$this->xmlnsPrefix = $loaded->xmlnsPrefix;
+		$xhtml = $loaded->isXhtml;
+		$hasXmlProlog = $loaded->hadXmlProlog;
 
 		$properXhtml = false;
 		foreach($this->queryElements(sprintf('//%1$shead/%1$smeta', $this->xmlnsPrefix)) as $meta) {
@@ -337,11 +253,9 @@ final class FormPopulationEngine
 			$encoding = $this->toScalarString($forceEncoding, self::ENCODING_UTF_8);
 			$this->doc->encoding = $encoding;
 		}
-		$encoding = strtolower($encoding);
-		$utf8 = $encoding == self::ENCODING_UTF_8;
-		if(!$utf8 && $encoding != self::ENCODING_ISO_8859_1 && !function_exists('iconv')) {
-			throw new QuioteException('No iconv module available, input encoding "' . $encoding . '" cannot be handled.');
-		}
+		$documentEncoding = DocumentEncoding::named($encoding);
+		$encoding = $documentEncoding->name;
+		$utf8 = $documentEncoding->isUtf8;
 
 		$base = $this->queryElements(sprintf('/%1$shtml/%1$shead/%1$sbase[@href]', $this->xmlnsPrefix));
 		if($base) {
@@ -351,77 +265,44 @@ final class FormPopulationEngine
 		}
 		$baseHref = substr((string) $baseHref, 0, strrpos((string) $baseHref, '/') + 1);
 
-		$forms = [];
-		if(is_array($populate)) {
-			$queries = [];
-			foreach($populate as $id => $data) {
-				if(is_string($id)) {
-					$id = sprintf('@id="%s"', $id);
-					if($data === true) {
-						// prepend to the array to give re-populates preferential treatment, see #1461
-						array_unshift($queries, $id);
-					} else {
-						$queries[] = $id;
-					}
-				}
-			}
-			if($queries) {
-				// we must assemble the array by hand as neither '//form[@id="foo"] or //form[@id="bar"]' nor '//form[@id="foo"] || //form[@id="bar"]' will order the elements as given in the query (order of element in the document is used instead and that can be a problem for error insertion, see #1461)
-				$forms = [];
-				foreach($queries as $query) {
-					$form = $this->queryElements(sprintf('//%1$sform[%2$s]', $this->xmlnsPrefix, $query));
-					if($form) {
-						$forms[] = $form[0];
-					}
-				}
-			}
-		} else {
-			$forms = $this->queryElements(Toolkit::expandVariables($this->toScalarString($cfg['forms_xpath']), ['htmlnsPrefix' => $this->xmlnsPrefix]));
-		}
+		$formFinder = new FormFinder(
+			fn(string $expression, ?\DOMElement $contextNode = null): array => $this->queryElements($expression, $contextNode),
+			$this->xmlnsPrefix
+		);
+		$forms = $formFinder->find($populate, $cfg);
+
+		$decorator = new FieldErrorDecorator(
+			fn(string $expression, ?\DOMElement $contextNode = null): array => $this->queryElements($expression, $contextNode),
+			$this->xmlnsPrefix
+		);
+
+		$applier = new FieldValueApplier(
+			$this->doc,
+			$documentEncoding,
+			$this->xmlnsPrefix,
+			$xhtml && $properXhtml,
+			(bool) $cfg['include_hidden_inputs'],
+			(bool) $cfg['include_password_inputs'],
+			fn(string $expression, ?\DOMElement $contextNode = null): array => $this->queryElements($expression, $contextNode),
+		);
 
 		// an array of all validation incidents; errors inserted for fields or multiple fields will be removed in here
 		$allIncidents = $vr->getIncidents();
 
 		foreach($forms as $form) {
-			if($form->tagName == 'form') {
-				if($populate instanceof ParameterHolder) {
-					$action = preg_replace('/#.*$/', '', trim((string) $form->getAttribute('action')));
-					if(!(
-						$action == $rurl ||
-						(str_starts_with((string) $action, '/') && preg_replace(['#/\./#', '#/\.$#', '#[^\./]+/\.\.(/|\z)#', '#/{2,}#'], ['/', '/', '', '/'], (string) $action) == $ruri) ||
-						$baseHref . preg_replace(['#/\./#', '#/\.$#', '#[^\./]+/\.\.(/|\z)#', '#/{2,}#'], ['/', '/', '', '/'], (string) $action) == $rurl
-					)) {
-						continue;
-					}
-					$p = $populate;
-				} elseif(is_array($populate)) {
-					$formId = $form->getAttribute('id');
-					if($formId !== '' && isset($populate[$formId]) && $populate[$formId] instanceof ParameterHolder) {
-						$p = $populate[$formId];
-					} else {
-						continue;
-					}
-				} else {
-					continue;
-				}
-			} else {
-				if($populate instanceof ParameterHolder) {
-					$p = $populate;
-				} elseif(is_array($populate)) {
-					$p = $this->createParameterHolderFromRequest($request);
-					if(!($p instanceof ParameterHolder)) {
-						continue;
-					}
-				} else {
-					$p = $this->createParameterHolderFromRequest($request);
-					if(!($p instanceof ParameterHolder)) {
-						continue;
-					}
-				}
+			$p = $formFinder->dataFor(
+				$form,
+				$populate,
+				$ruri,
+				$rurl,
+				$baseHref,
+				$this->createParameterHolderFromRequest($request)
+			);
+			if($p === null) {
+				continue;
 			}
 
-			// our array for remembering foo[] field's indices
-			$remember = [];
+			$fieldNames = new FieldNameResolver();
 
 			// build the XPath query
 			// we select descendants of the given form
@@ -455,57 +336,28 @@ final class FormPopulationEngine
 			
 			foreach($this->queryElements($query, $form) as $element) {
 
-				$pname = $name = $element->getAttribute('name');
+				$name = $element->getAttribute('name');
 
 				$multiple = $element->nodeName == 'select' && $element->hasAttribute('multiple');
 
-				$checkValue = false;
-				if($element->getAttribute('type') == 'checkbox' || $element->getAttribute('type') == 'radio') {
-					if(($pos = strpos((string) $pname, '[]')) && ($pos + 2 != strlen((string) $pname))) {
-						// foo[][3] checkboxes etc not possible, [] must occur only once and at the end
-						continue;
-					} elseif($pos !== false) {
-						$checkValue = true;
-						$pname = substr((string) $pname, 0, $pos);
-					}
+				$elementType = $element->getAttribute('type');
+				$resolvedName = $fieldNames->resolve(
+					$name,
+					$elementType == 'checkbox' || $elementType == 'radio',
+					$multiple
+				);
+				if($resolvedName === null) {
+					// foo[][3] checkboxes etc not possible, [] must occur only once and at the end
+					continue;
 				}
-				if(preg_match_all('/([^\[]+)?(?:\[([^\]]*)\])/', (string) $pname, $matches)) {
-					$pname = $matches[1][0];
-
-					if($multiple) {
-						$count = count($matches[2]) - 1;
-					} else {
-						$count = count($matches[2]);
-					}
-					for($i = 0; $i < $count; $i++) {
-						$val = $matches[2][$i];
-						if((string)$matches[2][$i] === (string)(int)$matches[2][$i]) {
-							$val = (int)$val;
-						}
-						if(!isset($remember[$pname])) {
-							$add = ($val !== "" ? $val : 0);
-							if(is_int($add)) {
-								$remember[$pname] = $add;
-							}
-						} else {
-							if($val !== "") {
-								$add = $val;
-								if(is_int($val) && $add > $remember[$pname]) {
-									$remember[$pname] = $add;
-								}
-							} else {
-								$add = ++$remember[$pname];
-							}
-						}
-						$pname .= '[' . $add . ']';
-					}
-				}
+				$pname = $resolvedName->path;
+				$checkValue = $resolvedName->groupsByValue;
 
 				if(!$utf8) {
 					$pname = $this->toScalarString($this->fromUtf8($pname, $encoding), $pname);
 				}
 
-				if($skip !== null && preg_match($skip, $pname . ($checkValue ? '[]' : ''))) {
+				if($skip->skips($pname . ($checkValue ? '[]' : ''))) {
 					// skip field
 					continue;
 				}
@@ -518,43 +370,11 @@ final class FormPopulationEngine
 				
 				// there's an error with the element's name in the request? good. let's give the baby a class!
 				if($vr->getAuthoritativeArgumentSeverity($argument) > Validator::SILENT) {
-					// a collection of all elements that need an error class
-					$errorClassElements = [];
-					// the element itself of course
-					$errorClassElements[] = $element;
-					// all implicit labels
-					foreach($this->queryElements(sprintf('ancestor::%1$slabel[not(@for)]', $this->xmlnsPrefix), $element) as $label) {
-						$errorClassElements[] = $label;
-					}
-					// and all explicit labels
-					if(($id = $element->getAttribute('id')) != '') {
-						// we use // and not descendant: because it doesn't have to be a child of the form element
-						foreach($this->queryElements(sprintf('//%1$slabel[@for="%2$s"]', $this->xmlnsPrefix, $id), $form) as $label) {
-							$errorClassElements[] = $label;
-						}
-					}
-
-					// now loop over all those elements and assign the class
-					$errorClassMap = is_array($cfg['error_class_map']) ? $cfg['error_class_map'] : [];
-					foreach($errorClassElements as $errorClassElement) {
-						// go over all the elements in the error class map
-						foreach($errorClassMap as $xpathExpression => $errorClassName) {
-							// evaluate each xpath expression
-							$errorClassResults = $this->queryElements(Toolkit::expandVariables($this->toScalarString($xpathExpression), ['htmlnsPrefix' => $this->xmlnsPrefix]), $errorClassElement);
-							if($errorClassResults) {
-								// we have results. the xpath expressions are used to locale the actual elements we set the error class on - doesn't necessarily have to be the erroneous element or the label!
-								$errorClassNameStr = $this->toScalarString($errorClassName);
-								foreach($errorClassResults as $errorClassDestinationElement) {
-									$existingClass = $errorClassDestinationElement->getAttribute('class');
-									$newClass = preg_replace('/\s*$/', ' ' . $errorClassNameStr, $existingClass) ?? ($existingClass . ' ' . $errorClassNameStr);
-									$errorClassDestinationElement->setAttribute('class', $newClass);
-								}
-
-								// and break the foreach, our expression matched after all - no need to look further
-								break;
-							}
-						}
-					}
+					$decorator->decorate(
+						$element,
+						$form,
+						is_array($cfg['error_class_map']) ? $cfg['error_class_map'] : []
+					);
 
 					// up next: the error messages
 					$fieldIncidents = [];
@@ -610,68 +430,7 @@ final class FormPopulationEngine
 					}
 				}
 
-				if($element->nodeName == 'input') {
-					$inputType = $element->getAttribute('type');
-
-					if($inputType == 'checkbox' || $inputType == 'radio') {
-
-						// checkboxes and radios
-						$element->removeAttribute('checked');
-
-						if($checkValue && is_array($value)) {
-							$eValue = $element->getAttribute('value');
-							if(!$utf8) {
-								$eValue = $this->fromUtf8($eValue, $encoding);
-							}
-							if(!in_array($eValue, $value)) {
-								continue;
-							} else {
-								$element->setAttribute('checked', 'checked');
-							}
-						} elseif($p->hasParameter($pname) && (($element->hasAttribute('value') && $element->getAttribute('value') == $value) || (!$element->hasAttribute('value') && $p->getParameter($pname)))) {
-							$element->setAttribute('checked', 'checked');
-						}
-
-					} elseif($inputType != 'button' && $inputType != 'submit') {
-						
-						// everything else
-						
-						// unless "include_hidden_inputs" is false and it's a hidden input...
-						if($cfg['include_hidden_inputs'] || $inputType != 'hidden') {
-							// remove original value
-							$element->removeAttribute('value');
-							
-							// and set a new one if it's there and unless it's a password field (or we actually want to refill those)
-							if($p->hasParameter($pname) && ($cfg['include_password_inputs'] || $inputType != 'password')) {
-								$element->setAttribute('value', $this->toScalarString($value));
-							}
-						}
-					}
-
-				} elseif($element->nodeName == 'select') {
-					// select elements
-					// yes, we still use XPath because there could be OPTGROUPs
-					foreach($this->queryElements(sprintf('descendant::%1$soption', $this->xmlnsPrefix), $element) as $option) {
-						$option->removeAttribute('selected');
-						if($p->hasParameter($pname) && ($option->getAttribute('value') === $value || ($multiple && is_array($value) && in_array($option->getAttribute('value'), $value)))) {
-							$option->setAttribute('selected', 'selected');
-						}
-					}
-
-				} elseif($element->nodeName == 'textarea') {
-
-					// textareas
-					foreach($element->childNodes as $cn) {
-						// remove all child nodes (= text nodes)
-						$element->removeChild($cn);
-					}
-					// append a new text node
-					if($xhtml && $properXhtml) {
-						$element->appendChild($this->doc->createCDATASection($this->toScalarString($value)));
-					} else {
-						$element->appendChild($this->doc->createTextNode($this->toScalarString($value)));
-					}
-				}
+				$applier->apply($element, $resolvedName, $value, $p);
 
 			}
 
@@ -697,107 +456,15 @@ final class FormPopulationEngine
 			}
 		}
 
-		if($xhtml) {
-			$firstError = null;
+		$serializer = new DocumentSerializer(
+			$this->doc,
+			(bool) ($xhtml && $cfg['parse_xhtml_as_xml']),
+			$properXhtml,
+			$hasXmlProlog,
+			$utf8
+		);
+		$response->setContent($serializer->serialize($xhtml, $cfg));
 
-			if(!$cfg['parse_xhtml_as_xml'] && $this->doc->documentElement !== null) {
-				$documentElement = $this->doc->documentElement;
-				// workaround for a bug in dom or something that results in two xmlns attributes being generated for the <html> element
-				// attributes must be removed and created again
-				// and don't change the DOMNodeList in the foreach!
-				$remove = [];
-				$reset = [];
-				foreach($documentElement->attributes as $attribute) {
-					// remember to remove the node
-					$remove[] = $attribute;
-					// not for the xmlns attribute itself
-					if($attribute->nodeName != 'xmlns') {
-						// can't do $attribute->prefix. we're in HTML parsing mode, remember? even if there is a prefix, the attribute node will not have a namespace
-						$attributeNameParts = explode(':', $attribute->nodeName);
-						if(isset($attributeNameParts[1])) {
-							// it's a namespaced node
-							$attributeNamespaceUri = $attribute->parentNode?->lookupNamespaceURI($attributeNameParts[0]);
-							if($attributeNamespaceUri) {
-								// it is an attribute, for which the namespace is known internally (even though we're in HTML mode), typically xml: or xmlns:.
-								// so we need to create a new node, in the right namespace
-								$attributeCopy = $this->doc->createAttributeNS($attributeNamespaceUri, $attribute->nodeName);
-							} else {
-								// it's a foo:bar node - just copy it over
-								$attributeCopy = $attribute;
-							}
-						} else {
-							// no namespace on this node, copy it
-							$attributeCopy = $attribute;
-						}
-						// don't forget the attribute value
-						$attributeCopy->nodeValue = $attribute->nodeValue;
-						// and remember to set this attribute later
-						$reset[] = $attributeCopy;
-					}
-				}
-
-				foreach($remove as $attribute) {
-					$documentElement->removeAttributeNode($attribute);
-				}
-				foreach($reset as $attribute) {
-					$documentElement->setAttributeNode($attribute);
-				}
-			}
-			$out = (string) $this->doc->saveXML(null, $this->cfgInt($cfg['savexml_options'], 0));
-			if((!$cfg['parse_xhtml_as_xml'] || !$properXhtml) && $cfg['cdata_fix']) {
-				// these are ugly fixes so inline style and script blocks still work. better don't use them with XHTML to avoid trouble
-				// http://www.456bereastreet.com/archive/200501/the_perils_of_using_xhtml_properly/
-				// http://www.hixie.ch/advocacy/xhtml
-				$out = preg_replace('/<style([^>]*)>\s*<!\[CDATA\[\s*?/iU' . ($utf8 ? 'u' : ''), '<style$1><!--/*--><![CDATA[/*><!--*/' . "\n", (string) $out);
-				// this is the first preg_* call since $firstError was reset to null above,
-				// so it always captures the error state at this point
-				$firstError = preg_last_error();
-				// we can't clean up whitespace before the closing element because a preg with a leading \s* expression would be horribly slow
-				$out = preg_replace('/\]\]>\s*<\/style>/iU' . ($utf8 ? 'u' : ''), "\n" . '/*]]>*/--></style>', (string) $out);
-				if(!$firstError) {
-					$firstError = preg_last_error();
-				}
-				$out = preg_replace('/<script([^>]*)>\s*<!\[CDATA\[\s*?/iU' . ($utf8 ? 'u' : ''), '<script$1><!--//--><![CDATA[//><!--' . "\n", (string) $out);
-				if(!$firstError) {
-					$firstError = preg_last_error();
-				}
-				// we can't clean up whitespace before the closing element because a preg with a leading \s* expression would be horribly slow
-				$out = preg_replace('/\]\]>\s*<\/script>/iU' . ($utf8 ? 'u' : ''), "\n" . '//--><!]]></script>', (string) $out);
-				if(!$firstError) {
-					$firstError = preg_last_error();
-				}
-			}
-			if($cfg['remove_auto_xml_prolog'] && !$hasXmlProlog) {
-				// there was no xml prolog in the document before, so we remove the one generated by DOM now
-				$out = preg_replace('/<\?xml.*?\?>\s+/iU' . ($utf8 ? 'u' : ''), '', (string) $out);
-				if(!$firstError) {
-					$firstError = preg_last_error();
-				}
-			} elseif(!$cfg['parse_xhtml_as_xml']) {
-				// yes, DOM sucks and inserts another XML prolog _after_ the DOCTYPE... and it has two question marks at the end, not one, don't ask me why
-				$out = preg_replace('/<\?xml.*?\?\?>\s+/iU' . ($utf8 ? 'u' : ''), '', (string) $out);
-				if(!$firstError) {
-					$firstError = preg_last_error();
-				}
-			}
-			
-			if($firstError) {
-				$error = "Form Population Filter encountered an error while performing final regular expression replaces on the output.\n";
-				// the preg_replaces failed and produced an empty string. let's find out why
-				$error .= "The error reported by preg_last_error() indicates that ";
-				match ($firstError) {
-                    PREG_BAD_UTF8_ERROR => $error .= "the input contained malformed UTF-8 data.",
-                    PREG_RECURSION_LIMIT_ERROR => $error .= "the recursion limit (defined by \"pcre.recursion_limit\") was hit. This shouldn't happen unless you changed that limit yourself in php.ini or using ini_set(). If the problem is not on your end, please file a bug report with a reproduce case on the Quiote issue tracker or drop by on the IRC support channel.",
-                    PREG_BACKTRACK_LIMIT_ERROR => $error .= "the backtrack limit (defined by \"pcre.backtrack_limit\") was hit. This shouldn't happen unless you changed that limit yourself in php.ini or using ini_set(). If the problem is not on your end, please file a bug report with a reproduce case on the Quiote issue tracker or drop by on the IRC support channel.",
-                    default => $error .= "an internal PCRE error occurred. As a quick countermeasure, try to upgrade PHP (and the bundled PCRE) as well as libxml (yes!) to the latest versions to see if the problem goes away. If the issue persists, file a bug report with a reproduce case on the Quiote issue tracker or drop by on the IRC support channel.",
-                };
-				throw new QuioteException($error);
-			}
-
-			$response->setContent($out);
-		} else {
-			$response->setContent($this->doc->saveHTML());
-		}
 		unset($this->xpath);
 		unset($this->doc);
 	}
@@ -1039,25 +706,7 @@ final class FormPopulationEngine
 	 */
 	protected function toUtf8($value, $encoding = self::ENCODING_ISO_8859_1)
 	{
-		if($encoding == self::ENCODING_ISO_8859_1) {
-			if(is_array($value)) {
-				foreach($value as &$val) {
-					$val = $this->toUtf8($val, $encoding);
-				}
-			} else {
-				$value = mb_convert_encoding($this->toScalarString($value), 'UTF-8', 'ISO-8859-1');
-			}
-		} else {
-			if(is_array($value)) {
-				foreach($value as &$val) {
-					$val = $this->toUtf8($val, $encoding);
-				}
-			} else {
-				$value = iconv((string) $encoding, self::ENCODING_UTF_8, $this->toScalarString($value));
-			}
-		}
-
-		return $value;
+		return DocumentEncoding::named($this->toScalarString($encoding, self::ENCODING_ISO_8859_1))->toUtf8($value);
 	}
 
 	/**
@@ -1069,25 +718,7 @@ final class FormPopulationEngine
 	 */
 	protected function fromUtf8($value, $encoding = self::ENCODING_ISO_8859_1)
 	{
-		if($encoding == self::ENCODING_ISO_8859_1) {
-			if(is_array($value)) {
-				foreach($value as &$val) {
-					$val = $this->fromUtf8($val, $encoding);
-				}
-			} else {
-				$value = mb_convert_encoding($this->toScalarString($value), 'ISO-8859-1');
-			}
-		} else {
-			if(is_array($value)) {
-				foreach($value as &$val) {
-					$val = $this->fromUtf8($val, $encoding);
-				}
-			} else {
-				$value = iconv(self::ENCODING_UTF_8, (string) $encoding, $this->toScalarString($value));
-			}
-		}
-
-		return $value;
+		return DocumentEncoding::named($this->toScalarString($encoding, self::ENCODING_ISO_8859_1))->fromUtf8($value);
 	}
 
 	/**
