@@ -178,6 +178,43 @@ class PropulsionDatabase extends Database
     }
 
     /**
+     * Resolves the connection from Propulsion on every call instead of
+     * trusting the base class's connect-once cache.
+     *
+     * Propulsion::initialize() can drop its pooled connections underneath
+     * this adapter (see {@see initialize()}'s reconfiguration branch), which
+     * empties Propulsion's own connection map without touching
+     * `$this->connection`. If that cached handle were returned here, this
+     * adapter and the ORM acting through Propulsion would silently operate
+     * on two different backends -- e.g. a lock taken through this handle
+     * would never be visible to a write Propulsion itself performs.
+     * Propulsion::getConnection() is a pooled map lookup, so re-resolving on
+     * every call costs nothing and can never go stale.
+     *
+     * @throws DatabaseException If a connection could not be created.
+     */
+    #[\Override]
+    public function getConnection()
+    {
+        $this->connect();
+        $this->lastUsedAt = microtime(true);
+        return $this->connection;
+    }
+
+    /**
+     * @see getConnection() for why this re-resolves on every call rather
+     *     than trusting the base class's cached resource.
+     *
+     * @throws DatabaseException If a connection could not be created.
+     */
+    #[\Override]
+    public function getResource()
+    {
+        $this->connect();
+        return $this->resource;
+    }
+
+    /**
      * Returns the `config` parameter as configured.
      *
      * This is the raw parameter value, not the directive-expanded path that

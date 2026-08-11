@@ -506,6 +506,58 @@ class PropulsionDatabaseTest extends TestCase
         $this->assertNotSame($connection, Propulsion::getConnection('runtime'));
     }
 
+    /**
+     * A reconfiguration on another PropulsionDatabase instance calls
+     * Propulsion::initialize(), which drops the connection map without
+     * notifying this instance. If getConnection() trusted its own cache
+     * here, it would keep handing out the pre-reset connection while every
+     * other consumer of Propulsion resolves the fresh one -- two different
+     * backends behind what looks like a single database.
+     */
+    public function testGetConnectionResolvesAgainAfterAnotherInstanceReconfiguresPropulsion(): void
+    {
+        $manager = new DatabaseManager();
+
+        $first = new PropulsionDatabase();
+        $first->initialize($manager, ['config' => $this->writeRuntimeConfigFile(), 'datasource' => 'runtime']);
+        $stale = $first->getConnection();
+
+        $second = new PropulsionDatabase();
+        $second->initialize($manager, [
+            'config' => $this->writeRuntimeConfigFile(),
+            'datasource' => 'runtime',
+            'init_queries' => ['PRAGMA foreign_keys = ON'],
+        ]);
+
+        $this->assertNotSame($stale, $first->getConnection());
+        $this->assertSame(Propulsion::getConnection('runtime'), $first->getConnection());
+    }
+
+    /**
+     * getResource() is the other public entry point onto the cached
+     * connection field, so it needs the same re-resolution guarantee as
+     * getConnection() -- otherwise a caller reaching through it would still
+     * see the stale backend.
+     */
+    public function testGetResourceResolvesAgainAfterAnotherInstanceReconfiguresPropulsion(): void
+    {
+        $manager = new DatabaseManager();
+
+        $first = new PropulsionDatabase();
+        $first->initialize($manager, ['config' => $this->writeRuntimeConfigFile(), 'datasource' => 'runtime']);
+        $stale = $first->getResource();
+
+        $second = new PropulsionDatabase();
+        $second->initialize($manager, [
+            'config' => $this->writeRuntimeConfigFile(),
+            'datasource' => 'runtime',
+            'init_queries' => ['PRAGMA foreign_keys = ON'],
+        ]);
+
+        $this->assertNotSame($stale, $first->getResource());
+        $this->assertSame(Propulsion::getConnection('runtime'), $first->getResource());
+    }
+
     public function testPluginRegistersPropulsionAlias(): void
     {
         $plugin = new PropulsionPlugin();
