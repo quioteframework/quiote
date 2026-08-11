@@ -27,6 +27,13 @@ use Illuminate\Database\Connection as IlluminateConnection;
  */
 class EloquentDatabase extends AbstractOrmDatabase
 {
+    /**
+     * The PDO handle currently bound into the Capsule connection in layer
+     * mode, so {@see getConnection()} can tell whether the borrowed source
+     * has rotated to a different handle since the last check.
+     */
+    private ?\PDO $layeredPdo = null;
+
     protected function connect()
     {
         $this->requireLibrary(Capsule::class, 'illuminate/database');
@@ -37,8 +44,9 @@ class EloquentDatabase extends AbstractOrmDatabase
         $capsule->addConnection($this->buildConnectionConfig(), $name);
 
         // Layer mode: borrow an already-open PDO from another configured database.
-        if (is_string($this->getParameter('connection'))) {
-            $capsule->getConnection($name)->setPdo($this->resolveUnderlyingPdo());
+        if ($this->isLayered()) {
+            $this->layeredPdo = $this->resolveUnderlyingPdo();
+            $capsule->getConnection($name)->setPdo($this->layeredPdo);
         }
 
         if ($this->getParameter('global', false)) {
@@ -50,6 +58,16 @@ class EloquentDatabase extends AbstractOrmDatabase
 
         $this->connection = $capsule;
         $this->resource = $capsule->getConnection($name);
+    }
+
+    /**
+     * True when the `connection` parameter names another configured
+     * database to borrow a live PDO from, rather than an inline config
+     * array Eloquent builds its own connection from.
+     */
+    private function isLayered(): bool
+    {
+        return is_string($this->getParameter('connection'));
     }
 
     /**
@@ -121,27 +139,58 @@ class EloquentDatabase extends AbstractOrmDatabase
     /**
      * Returns the Capsule manager, connecting on first use.
      *
+     * In layer mode, re-checks the borrowed database's current PDO on every
+     * call and rebinds it into the Illuminate connection if it has changed.
+     * The source can rotate its own live handle independently of this
+     * adapter -- a PropulsionDatabase resolving fresh from Propulsion's pool
+     * on every call, or a PdoDatabase reconnecting after ping() found its
+     * old handle dead -- and a rotated-away handle often keeps answering
+     * queries just fine on its own, so nothing here would notice the
+     * divergence without asking the source again.
+     *
      * @throws DatabaseException If the capsule could not be built, or the
      *                           connection is not a Capsule.
      */
     public function getCapsule(): Capsule
     {
         $connection = $this->getConnection();
-        if ($connection instanceof Capsule) {
-            return $connection;
+        if (!$connection instanceof Capsule) {
+            throw new DatabaseException(sprintf(
+                'EloquentDatabase "%s" connection is not an Illuminate\Database\Capsule\Manager (got %s).',
+                $this->getName(),
+                get_debug_type($connection)
+            ));
         }
 
-        throw new DatabaseException(sprintf(
-            'EloquentDatabase "%s" connection is not an Illuminate\Database\Capsule\Manager (got %s).',
-            $this->getName(),
-            get_debug_type($connection)
-        ));
+        if ($this->isLayered()) {
+            $fresh = $this->resolveUnderlyingPdo();
+            if ($fresh !== $this->layeredPdo) {
+                $connection->getConnection($this->connectionName())->setPdo($fresh);
+                $this->layeredPdo = $fresh;
+            }
+        }
+
+        return $connection;
     }
 
     /** The underlying Illuminate connection (query builder, PDO, transactions). */
     public function getEloquentConnection(): IlluminateConnection
     {
         return $this->getCapsule()->getConnection($this->connectionName());
+    }
+
+    /**
+     * Returns the Illuminate connection, routed through {@see getCapsule()}
+     * so a layer-mode rebind happens before the caller sees it -- the base
+     * class's getResource() would otherwise hand back `$this->resource`
+     * directly and skip that check.
+     *
+     * @throws DatabaseException If the capsule could not be built.
+     */
+    #[\Override]
+    public function getResource()
+    {
+        return $this->getEloquentConnection();
     }
 
     /**
@@ -178,7 +227,7 @@ class EloquentDatabase extends AbstractOrmDatabase
             $this->getEloquentConnection()->getPdo()->query('SELECT 1');
             return true;
         } catch (\Throwable) {
-            $this->connection = $this->resource = null;
+            $this->connection = $this->resource = $this->layeredPdo = null;
             return false;
         }
     }
@@ -219,6 +268,6 @@ class EloquentDatabase extends AbstractOrmDatabase
                 );
             }
         }
-        $this->connection = $this->resource = null;
+        $this->connection = $this->resource = $this->layeredPdo = null;
     }
 }

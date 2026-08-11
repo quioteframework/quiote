@@ -56,6 +56,38 @@ class EloquentDatabaseTest extends TestCase
         $this->assertSame($under->getConnection(), $orm->getEloquentConnection()->getPdo());
     }
 
+    /**
+     * The borrowed source can rotate its own live handle independently of
+     * this adapter -- here a PdoDatabase reconnecting after ping() found its
+     * old handle dead. If the Eloquent layer kept the PDO it captured at
+     * connect() time, its queries would silently run against an orphaned
+     * handle instead of the one the rest of the application now uses.
+     */
+    public function testLayerModeFollowsTheReferencedDatabaseAfterItRotatesItsHandle(): void
+    {
+        $under = new PdoDatabase();
+        $orm = new EloquentDatabase();
+        $mgr = new DatabaseManager();
+        $ref = new ReflectionProperty($mgr, 'databases');
+        $ref->setValue($mgr, ['under' => $under, 'orm' => $orm]);
+
+        $under->initialize($mgr, ['dsn' => 'sqlite::memory:']);
+        $orm->initialize($mgr, ['connection' => 'under', 'driver' => 'sqlite']);
+
+        $original = $orm->getEloquentConnection()->getPdo();
+        $this->assertSame($under->getConnection(), $original);
+
+        // Force PdoDatabase to reconnect with a fresh PDO, the way ping() does
+        // when the old handle has gone away.
+        (new ReflectionProperty(\Quiote\Database\Database::class, 'connection'))->setValue($under, null);
+        (new ReflectionProperty(\Quiote\Database\Database::class, 'resource'))->setValue($under, null);
+        $rotated = $under->getConnection();
+
+        $this->assertNotSame($original, $rotated, 'the fixture must actually rotate the handle');
+        $this->assertSame($rotated, $orm->getEloquentConnection()->getPdo());
+        $this->assertSame($rotated, $orm->getPdo());
+    }
+
     public function testInlineConnectionArrayIsAcceptedAsIs(): void
     {
         $mgr = new DatabaseManager();
