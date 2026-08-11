@@ -1,3 +1,9 @@
+## [4.0.0-RC7] - 2026-08-11
+
+### 🐛 Bug Fixes
+
+- *(db-propulsion)* Resolve the connection fresh on every getConnection()/getResource() call
+- *(db-eloquent)* Follow the referenced database when its handle rotates in layer mode
 ## [4.0.0-RC6] - 2026-08-10
 
 ### 🐛 Bug Fixes
@@ -22,6 +28,7 @@
 
 - *(renderer)* Describe what PhpRenderer actually gives a template
 - *(migrating)* Record the 4.0 removals and the validation rename
+- Prep v4.0.0-RC6
 
 ### 🧪 Testing
 
