@@ -9,7 +9,6 @@ use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * A template layer wraps information necessary to render a template.
- * @method string getName() Magic accessor (via __call()) for the 'name' parameter.
  * @since      1.0.0
  * @version    1.0.0
  */
@@ -53,37 +52,111 @@ abstract class TemplateLayer extends ParameterHolder implements ResetInterface
 	}
 	
 	/**
-	 * Convenience overload for accessing parameters using a method.
-	 * @param      string $name The method name.
-	 * @param      array<int, mixed> $args The method arguments.
-	 * @return     mixed
+	 * Get the name of this layer.
+	 * @return     ?string The layer name, or null if not set.
+	 * @throws     QuioteException If the "name" parameter is set but is not a string.
 	 * @since      1.0.0
 	 */
-	public function __call($name, array $args)
+	public function getName(): ?string
 	{
-		// The method name -> (target method, parameter name) decomposition is a
-		// deterministic function of $name, so memoize it for the process lifetime
-		// instead of running two regexes on every magic accessor call.
-		/** @var array<string, array{method: 'hasParameter'|'getParameter'|'setParameter'|'removeParameter', parameter: string}|null> $decomposed */
-		static $decomposed = [];
-		$key = (string) $name;
-		if(!array_key_exists($key, $decomposed)) {
-			$decomposed[$key] = null;
-			$matches = [];
-			if(preg_match('/^(has|get|set|remove)(.+)$/', $key, $matches)) {
-				$decomposed[$key] = [
-					'method' => $matches[1] . 'Parameter',
-					// transform "FooBarBaz" (from "setTemplateDir" etc) to "foo_bar_baz"
-					'parameter' => strtolower((string) preg_replace('/((?<!\A)[A-Z])/u', '_$1', $matches[2])),
-				];
-			}
-		}
-		$parts = $decomposed[$key];
-		if($parts !== null) {
-			return call_user_func_array([$this, $parts['method']], array_merge([$parts['parameter']], $args));
-		}
+		return $this->requireStringParameter('name');
 	}
-	
+
+	/**
+	 * Set the name of this layer.
+	 * @param      ?string $name The layer name.
+	 * @return     void
+	 * @since      1.0.0
+	 */
+	public function setName(?string $name): void
+	{
+		$this->setParameter('name', $name);
+	}
+
+	/**
+	 * Get the name of the module this layer's template belongs to.
+	 * @return     ?string The module name, or null if not set.
+	 * @throws     QuioteException If the "module" parameter is set but is not a string.
+	 * @since      1.0.0
+	 */
+	public function getModule(): ?string
+	{
+		return $this->requireStringParameter('module');
+	}
+
+	/**
+	 * Set the name of the module this layer's template belongs to.
+	 * @param      ?string $module The module name.
+	 * @return     void
+	 * @since      1.0.0
+	 */
+	public function setModule(?string $module): void
+	{
+		$this->setParameter('module', $module);
+	}
+
+	/**
+	 * Get the name of the template to render.
+	 * @return     ?string The template name, or null if not set.
+	 * @throws     QuioteException If the "template" parameter is set but is not a string.
+	 * @since      1.0.0
+	 */
+	public function getTemplate(): ?string
+	{
+		return $this->requireStringParameter('template');
+	}
+
+	/**
+	 * Set the name of the template to render.
+	 * @param      ?string $template The template name.
+	 * @return     void
+	 * @since      1.0.0
+	 */
+	public function setTemplate(?string $template): void
+	{
+		$this->setParameter('template', $template);
+	}
+
+	/**
+	 * Check whether a template has been set.
+	 * @return     bool True if a template is set, false otherwise.
+	 * @since      1.0.0
+	 */
+	public function hasTemplate(): bool
+	{
+		return $this->getParameter('template') !== null;
+	}
+
+	/**
+	 * Remove the configured template.
+	 * @return     void
+	 * @since      1.0.0
+	 */
+	public function removeTemplate(): void
+	{
+		$this->removeParameter('template');
+	}
+
+	/**
+	 * Read a parameter that is expected to hold either a string or null.
+	 * @param      string $name The parameter name.
+	 * @return     ?string
+	 * @throws     QuioteException If the parameter is set but is not a string.
+	 * @since      1.0.0
+	 */
+	private function requireStringParameter(string $name): ?string
+	{
+		$value = $this->getParameter($name);
+		if($value === null) {
+			return null;
+		}
+		if(!is_string($value)) {
+			throw new QuioteException('The "' . $name . '" parameter must be a string.');
+		}
+		return $value;
+	}
+
+
 	/**
 	 * Pre-serialization callback.
 	 * Will set the name of the context and exclude the instance from serializing.
