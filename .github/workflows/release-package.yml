@@ -1,0 +1,100 @@
+name: Release package
+
+# Tag-triggered: push a `packages/<name>/vX.Y.Z` tag (e.g.
+# `packages/db-propulsion/v4.0.1`) to release that ONE package
+# independently of the framework's own version. Since v4.0.0, package
+# versions no longer move in lockstep with the framework's own tags.
+#
+# Runs the full test suite (the tag may point at a commit older than
+# main's current tip, so this re-verifies at that exact SHA), generates a
+# changelog scoped to just that package's commits, tags the package's
+# already-synced split repo (quioteframework/<name>, kept current by
+# split.yml's content-only push) with a plain vX.Y.Z, and publishes a
+# GitHub Release there -- not on this monorepo.
+
+on:
+  push:
+    tags:
+      - 'packages/*/v*.*.*'
+
+permissions:
+  contents: read
+
+jobs:
+  release-package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          # git-cliff needs the full commit/tag history to scope the
+          # changelog to "everything since the previous tag" for this
+          # package.
+          fetch-depth: 0
+
+      - name: Parse package name and version from the tag
+        id: package
+        run: |
+          # github.ref_name is "packages/<name>/v<version>".
+          REF="${{ github.ref_name }}"
+          NAME="${REF#packages/}"
+          NAME="${NAME%/v*}"
+          VERSION="${REF##*/}"
+          echo "name=${NAME}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify the package directory exists
+        run: test -d "packages/${{ steps.package.outputs.name }}"
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: dom, intl, xsl, tokenizer, session, pdo, pdo_sqlite, iconv, mbstring
+          coverage: none
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress
+
+      - name: Run tests
+        run: vendor/bin/phpunit --no-coverage
+
+      - name: Generate changelog
+        env:
+          PKG_NAME: ${{ steps.package.outputs.name }}
+        run: |
+          GIT_CLIFF_VERSION="2.13.1"
+          curl -sSL -o /tmp/git-cliff.tar.gz \
+            "https://github.com/orhun/git-cliff/releases/download/v${GIT_CLIFF_VERSION}/git-cliff-${GIT_CLIFF_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
+          tar -xzf /tmp/git-cliff.tar.gz -C /tmp
+          "/tmp/git-cliff-${GIT_CLIFF_VERSION}/git-cliff" \
+            --include-path "packages/${PKG_NAME}/**" \
+            --tag-pattern "^packages/${PKG_NAME}/v" \
+            --current --strip header -o /tmp/release-notes.md
+
+      - name: Configure git to authenticate with SPLIT_TOKEN
+        env:
+          SPLIT_TOKEN: ${{ secrets.SPLIT_TOKEN }}
+        run: |
+          git config --global url."https://x-access-token:${SPLIT_TOKEN}@github.com/".insteadOf "git@github.com:"
+
+      - name: Tag the split repo and create its release
+        env:
+          GH_TOKEN: ${{ secrets.SPLIT_TOKEN }}
+          PKG_NAME: ${{ steps.package.outputs.name }}
+          PKG_VERSION: ${{ steps.package.outputs.version }}
+        run: |
+          TARGET="git@github.com:quioteframework/${PKG_NAME}.git"
+          WORKDIR="$(mktemp -d)"
+          git clone --depth 1 "$TARGET" "$WORKDIR"
+          cd "$WORKDIR"
+          git tag "$PKG_VERSION"
+          git push origin "$PKG_VERSION"
+          PRERELEASE_FLAG=""
+          case "$PKG_VERSION" in
+            *-*) PRERELEASE_FLAG="--prerelease" ;;
+          esac
+          gh release create "$PKG_VERSION" \
+            --repo "quioteframework/${PKG_NAME}" \
+            --notes-file /tmp/release-notes.md \
+            $PRERELEASE_FLAG

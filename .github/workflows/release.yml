@@ -46,6 +46,10 @@ jobs:
         # --current scopes the output to just the commits belonging to the
         # tag that triggered this run (not the entire project history, which
         # `--tag` alone would include on every release).
+        # --tag-pattern restricts git-cliff to plain framework tags -- since
+        # v4.0.0, individual packages mint their own `packages/<name>/vX.Y.Z`
+        # tags (see release-package.yml), which must never be treated as a
+        # framework version boundary here.
         #
         # Skipped for v1.0.0: the commit history before that tag predates
         # this repo's conventional-commit convention, so git-cliff has
@@ -57,7 +61,7 @@ jobs:
           curl -sSL -o /tmp/git-cliff.tar.gz \
             "https://github.com/orhun/git-cliff/releases/download/v${GIT_CLIFF_VERSION}/git-cliff-${GIT_CLIFF_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
           tar -xzf /tmp/git-cliff.tar.gz -C /tmp
-          "/tmp/git-cliff-${GIT_CLIFF_VERSION}/git-cliff" --current --strip header -o /tmp/release-notes.md
+          "/tmp/git-cliff-${GIT_CLIFF_VERSION}/git-cliff" --tag-pattern '^v[0-9]' --current --strip header -o /tmp/release-notes.md
 
       - name: Use hand-written notes for v1.2.0
         if: github.ref_name == 'v1.0.0'

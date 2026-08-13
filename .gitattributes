@@ -1,0 +1,21 @@
+# Excluded from the dist archive Composer/Packagist build from a tag (git
+# archive honours export-ignore) -- development-only trees that a consumer
+# of quioteframework/quiote never needs. Individually split packages
+# (packages/*) ship as their own, much smaller archives; keeping them out
+# of the kernel's own archive avoids shipping every package's source twice
+# once a consumer requires both the kernel and a handful of packages.
+/packages export-ignore
+/tests export-ignore
+/samples export-ignore
+/benchmarks export-ignore
+/archeology export-ignore
+/pub export-ignore
+/.github export-ignore
+/.gitattributes export-ignore
+
+# etc/phpstan and etc/routing/test-case-generator are this repo's own dev
+# tooling. etc/opcache/preload.php and etc/database/doctrine2/cli-config.php
+# are deployment/config templates meant for a consuming application to copy
+# or reference, so the rest of etc/ stays in the shipped archive.
+/etc/phpstan export-ignore
+/etc/routing/test-case-generator export-ignore

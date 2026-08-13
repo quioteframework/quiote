@@ -14,21 +14,21 @@ name: Split packages
 #      permission "Contents: Read and write", stored as the repo secret
 #      SPLIT_TOKEN on this (the monorepo's) repo.
 #
-# Rollout: only `mcp` is listed in .github/subtree-splitter-config.json.
-# Verify its split repo looks right (a real composer.json at its root,
-# correct history) before adding the other 8 packages
-# (csrf, whoops, ratelimit, db-eloquent, db-doctrine, db-cycle,
-# telemetry-otel, telemetry-dashboard) to that config's "subtree-splits" list.
+# Content-only mirror: this job only ever pushes the current state of
+# packages/<name>/ to each split repo's default branch. It intentionally
+# does NOT react to tag create/delete events -- through v4.0.0 it did, and
+# every monorepo tag got copied verbatim onto every split repo (lockstep
+# versioning). Since v4.0.0, each package instead mints its own
+# packages/<name>/vX.Y.Z tag independently, handled by
+# .github/workflows/release-package.yml, which tags the split repo's HEAD
+# with a plain vX.Y.Z (Composer/Packagist can't resolve a tag with a "/" in
+# it as a version) rather than relying on this job to copy a tag verbatim.
 
 on:
   push:
     branches: [main]
     paths: ['packages/**']
     tags-ignore: ['*']
-  create:
-    tags: ['*']
-  delete:
-    tags: ['*']
 
 jobs:
   split:
