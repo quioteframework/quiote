@@ -90,6 +90,30 @@ class StringValidatorTest extends BaseValidatorTest
 		$this->doTestExecute(StringValidator::class, 12345, Validator::SUCCESS, null, [], ['min' => 3]);
 		$this->doTestExecute(StringValidator::class, true, Validator::ERROR, 'too short', ['min' => 'too short'], ['min' => 3]);
 	}
+
+	/**
+	 * Without an explicit 'export' parameter, the string-cast value must still
+	 * replace the raw input under the validator's own argument name -- a
+	 * caller reading the argument back afterwards should never see the
+	 * original non-string scalar.
+	 */
+	public function testExportsSanitizedValueByDefaultUnderOwnArgumentName(): void
+	{
+		$res = $this->executeValidator(StringValidator::class, 123, [], []);
+		$this->assertSame(Validator::SUCCESS, $res['result']);
+		$this->assertSame('123', $res['rd']->getParameter('value'));
+	}
+
+	/**
+	 * An explicit 'export' parameter still wins over the default own-name
+	 * target.
+	 */
+	public function testExplicitExportTargetOverridesDefault(): void
+	{
+		$res = $this->executeValidator(StringValidator::class, 123, [], ['export' => 'other']);
+		$this->assertSame(Validator::SUCCESS, $res['result']);
+		$this->assertSame('123', $res['rd']->getParameter('other'));
+	}
 }
 
 ?>

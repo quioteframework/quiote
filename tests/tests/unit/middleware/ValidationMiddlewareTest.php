@@ -41,6 +41,16 @@ class ValidationMiddlewareTest extends TestCase
 
         // Strict validation: seed whitelist with potential parameter names used across tests
         $req = $this->context->getContainer()->get(\Quiote\Request\WebRequest::class);
+        // A validator that writes its (sanitized/cast) value back under its own argument
+        // name -- e.g. StringValidator/NumberValidator/BooleanValidator/JsonValidator with
+        // no explicit 'export' configured -- leaves that value in the runtime parameter
+        // store, which getParameter() prefers over the intrinsic request body. That store
+        // is a separate WebRequest property from the whitelist above and survives the
+        // rebuild the same way: reset() is the explicit, documented way to clear it (the
+        // same call a persistent worker makes at a real request boundary), so a value one
+        // test wrote back for "name" cannot masquerade as fresh input in the next test that
+        // reuses the same argument name.
+        $req->reset();
         $req = $req->enforceValidatedParameters(['foo','existing','slug','_internal','keep']);
         $this->context->getContainer()->get(\Quiote\Request\RequestState::class)->publish($req);
     }

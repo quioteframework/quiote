@@ -52,6 +52,21 @@ class JsonValidatorTest extends BaseValidatorTest
 		]);
 		$this->assertEquals($res['rd']->getParameter('test'), (object)$value);
 	}
+
+	/**
+	 * Without an explicit 'export' parameter, the decoded value must still
+	 * replace the raw JSON string under the validator's own argument name --
+	 * a caller reading the argument back afterwards should never see the
+	 * undecoded string.
+	 */
+	public function testExportsDecodedValueByDefaultUnderOwnArgumentName(): void
+	{
+		$value = ['foo' => 'bar'];
+
+		$res = $this->executeValidator(JsonValidator::class, json_encode($value), [], []);
+		$this->assertSame(Validator::SUCCESS, $res['result']);
+		$this->assertEquals($value, $res['rd']->getParameter('value'));
+	}
 }
 
 ?>

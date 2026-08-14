@@ -1,17 +1,16 @@
 <?php
 namespace Quiote\Validator;
 
-use Quiote\Exception\ValidatorException;
 use Quiote\Util\Toolkit;
 
 /**
  * BooleanValidator verifies a parameter is a valid boolean
  * Accepted values are string 0/1, int 0/1, bool true/false, string yes/no,
- * string true/false, string on/off - basically all values that 
+ * string true/false, string on/off - basically all values that
  * {@see Toolkit::literalize()} will accept.
- * The value will be casted to the respective boolean unless it's exported. If
- * the export parameter is given, the value will be retained in its original
- * form.
+ * On success the value is cast to a native bool and written back into the
+ * request under the 'export' parameter's name, or under the validator's own
+ * argument name when 'export' is not configured.
  * @since      1.0.0
  * @version    1.0.0
  */
@@ -38,29 +37,7 @@ class BooleanValidator extends Validator
 		}
 		
 		if(is_bool($castValue)) {
-			if($this->hasParameter('export')) {
-				$this->export($castValue);
-			} else {
-				// Persist casted value back into request runtime parameters so subsequent validators/actions see normalized boolean.
-				try {
-					$validationParameters = $this->validationParameters;
-					if($validationParameters === null) {
-						throw new ValidatorException('Validator "' . ($this->getName() ?? '?') . '" has no request; validate() ran before execute() supplied one.');
-					}
-					$argumentName = $this->getArgument();
-					if($argumentName !== null) {
-						$this->validationParameters = $validationParameters->setParameter($argumentName, $castValue);
-					}
-				} catch(\Throwable $e) {
-					// Validation still succeeded; what is lost is the cast boolean replacing the
-					// submitted string, so the action reads the raw input instead.
-					\Quiote\Logging\Log::for($this)->error(
-						'[BooleanValidator] could not write back the cast value for "'
-						. ($this->getArgument() ?? '?') . '"; the action will read the uncast input: '
-						. $e->getMessage()
-					);
-				}
-			}
+			$this->exportOwnArgumentByDefault($castValue);
 			return true;
 		}
 		

@@ -145,30 +145,8 @@ class NumberValidator extends Validator
 				break;
 		}
 
-		if($this->hasParameter('export')) {
-			$this->export($parsedValue);
-		} else {
-			// Persist casted numeric value back into request runtime parameters so subsequent validators/actions see normalized type.
-			try {
-				$validationParameters = $this->validationParameters;
-				if($validationParameters === null) {
-					throw new ValidatorException('Validator "' . ($this->getName() ?? '?') . '" has no request; validate() ran before execute() supplied one.');
-				}
-				$argumentName = $this->getArgument();
-				if($argumentName !== null) {
-					$this->validationParameters = $validationParameters->setParameter($argumentName, $parsedValue);
-				}
-			} catch(\Throwable $e) {
-				// Validation still succeeded; what is lost is the normalized numeric value
-				// replacing the submitted string, so the action reads the raw input instead.
-				\Quiote\Logging\Log::for($this)->error(
-					'[NumberValidator] could not write back the parsed value for "'
-					. ($this->getArgument() ?? '?') . '"; the action will read the unparsed input: '
-					. $e->getMessage()
-				);
-			}
-		}
-		
+		$this->exportOwnArgumentByDefault($parsedValue);
+
 		return true;
 	}
 }

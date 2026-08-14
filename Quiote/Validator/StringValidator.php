@@ -9,6 +9,11 @@ namespace Quiote\Validator;
  *   'max'  string should be at most this long
  *   'trim' trim whitespace before length checks
  *   'utf8' whether or not to treat input as UTF-8 (defaults to true)
+ * On success the (string-cast, optionally trimmed) value is written back into
+ * the request under the 'export' parameter's name, or under the validator's
+ * own argument name when 'export' is not configured -- so a caller reading
+ * the argument back afterwards always gets a native string, never the raw
+ * submitted scalar.
  * @since      1.0.0
  * @version    1.0.0
  */
@@ -77,7 +82,7 @@ class StringValidator extends Validator
 			return false;
 		}
 
-		$this->export($originalValue);
+		$this->exportOwnArgumentByDefault($originalValue);
 
 		return true;
 	}

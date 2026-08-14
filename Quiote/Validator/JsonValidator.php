@@ -3,7 +3,10 @@ namespace Quiote\Validator;
 
 /**
  * JsonValidator verifies if a parameter contains a value that is valid
- * JSON and optionally exports the decoded value.
+ * JSON. On success the decoded value is written back into the request under
+ * the 'export' parameter's name, or under the validator's own argument name
+ * when 'export' is not configured -- so a caller reading the argument back
+ * afterwards gets the decoded array/object/scalar, never the raw JSON string.
  * @since      1.0.0
  * @version    1.0.0
  */
@@ -75,7 +78,7 @@ class JsonValidator extends Validator
 			$this->throwError();
 			return false;
 		} else {
-			$this->export($ret);
+			$this->exportOwnArgumentByDefault($ret);
 			return true;
 		}
 	}

@@ -965,6 +965,57 @@ abstract class Validator extends ParameterHolder implements ResetInterface, Vali
 	}
 
 	/**
+	 * Exports a type-coerced value, defaulting the target to this validator's
+	 * own argument name.
+	 * Meant for a validator whose whole job is turning the raw input into a
+	 * native type (string/number/boolean/decoded JSON): {@see export()} when an
+	 * explicit 'export' parameter is configured, otherwise a direct write-back
+	 * of $value under this validator's own single argument name, so validating
+	 * a field is enough to get its coerced value back without also having to
+	 * configure 'export'. Bypasses export()'s bracket-path/array handling and
+	 * succeeded-argument bookkeeping, which a same-name scalar write-back does
+	 * not need. Does nothing when the validator has more than one argument or
+	 * a base-array argument (whose name is empty), since neither has a single
+	 * obvious target -- those stay opt-in via an explicit 'export'.
+	 * @param      mixed $value The coerced value to write back.
+	 * @return     void
+	 * @since      4.1.0
+	 */
+	protected function exportOwnArgumentByDefault($value): void
+	{
+		if($this->hasParameter('export')) {
+			$this->export($value);
+			return;
+		}
+
+		if($this->hasMultipleArguments()) {
+			return;
+		}
+
+		$argumentName = $this->getArgument();
+		if($argumentName === null || $argumentName === '') {
+			return;
+		}
+
+		$validationParameters = $this->validationParameters;
+		if($validationParameters === null) {
+			throw new ValidatorException('Validator "' . ($this->getName() ?? '?') . '" has no request; validate() ran before execute() supplied one.');
+		}
+
+		try {
+			$this->validationParameters = $validationParameters->setParameter($argumentName, $value);
+		} catch(\Throwable $e) {
+			// Validation still succeeded; what is lost is the coerced value replacing the
+			// submitted input, so the action reads the raw input instead.
+			\Quiote\Logging\Log::for($this)->error(
+				'[' . static::class . '] could not write back the coerced value for "'
+				. $argumentName . '"; the action will read the uncoerced input: '
+				. $e->getMessage()
+			);
+		}
+	}
+
+	/**
 	 * Validates this validator in the given base.
 	 * @param      \Quiote\Util\VirtualArrayPath $base The base in which the input should be 
 	 *                                   validated.
