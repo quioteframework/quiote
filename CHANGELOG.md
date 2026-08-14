@@ -1,9 +1,25 @@
-## [4.0.0-RC7] - 2026-08-11
+## [4.1.0] - 2026-08-14
+
+### 🚀 Features
+
+- *(release)* Version packages independently of the framework from v4.0.0
+- *(exception)* Add pluggable safe/production exception renderer slot
+
+### 🐛 Bug Fixes
+
+- *(db-propulsion)* Allow Propulsion 3.x alongside 2.x
+- *(validator)* Default-export sanitized/decoded value under own argument name
+
+### 🚜 Refactor
+
+- *(view)* Replace TemplateLayer's magic accessors with typed methods
+## [4.0.0] - 2026-08-11
 
 ### 🐛 Bug Fixes
 
 - *(db-propulsion)* Resolve the connection fresh on every getConnection()/getResource() call
 - *(db-eloquent)* Follow the referenced database when its handle rotates in layer mode
+- Bump quiote version to 4.0.0
 ## [4.0.0-RC6] - 2026-08-10
 
 ### 🐛 Bug Fixes
