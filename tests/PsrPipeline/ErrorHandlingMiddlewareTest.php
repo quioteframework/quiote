@@ -1,6 +1,9 @@
 <?php
 use PHPUnit\Framework\TestCase;
+use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest;
+use Quiote\Exception\Rendering\ExceptionRenderer;
+use Quiote\Exception\Rendering\ExceptionRendererRegistry;
 use Quiote\Middleware\ErrorHandlingMiddleware;
 use Psr\Http\Server\RequestHandlerInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -48,5 +51,42 @@ final class ErrorHandlingMiddlewareTest extends TestCase
         } finally {
             \Quiote\Logging\Log::reset();
         }
+    }
+
+    public function testRegisteredSafeRendererOverridesTheDefaultSafeRenderer(): void
+    {
+        \Quiote\Config\Config::set('core.developer_exceptions', false);
+        ExceptionRendererRegistry::setSafeRenderer(
+            static fn(): ExceptionRenderer => new class implements ExceptionRenderer {
+                public function render(Throwable $e, ServerRequestInterface $request, int $status, ?string $correlationId): ResponseInterface
+                {
+                    return new Response($status, [], 'Custom error page');
+                }
+            }
+        );
+
+        try {
+            $mw = new ErrorHandlingMiddleware();
+            $handler = new class implements RequestHandlerInterface { public function handle(ServerRequestInterface $r): ResponseInterface { throw new RuntimeException('bad'); } };
+            $req = new ServerRequest('GET', 'http://localhost/');
+            $resp = $mw->process($req, $handler);
+
+            $this->assertSame(500, $resp->getStatusCode());
+            $this->assertSame('Custom error page', (string) $resp->getBody());
+        } finally {
+            ExceptionRendererRegistry::reset();
+        }
+    }
+
+    public function testNoRegisteredSafeRendererFallsBackToDefaultSafeRenderer(): void
+    {
+        \Quiote\Config\Config::set('core.developer_exceptions', false);
+        $mw = new ErrorHandlingMiddleware();
+        $handler = new class implements RequestHandlerInterface { public function handle(ServerRequestInterface $r): ResponseInterface { throw new RuntimeException('bad'); } };
+        $req = new ServerRequest('GET', 'http://localhost/');
+        $resp = $mw->process($req, $handler);
+
+        $this->assertSame(500, $resp->getStatusCode());
+        $this->assertStringContainsString('Internal Server Error', (string) $resp->getBody());
     }
 }

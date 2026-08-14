@@ -152,15 +152,15 @@ class ErrorHandlingMiddleware implements MiddlewareInterface
     /**
      * The sole signal is core.developer_exceptions -- no environment-name
      * sniffing, no QUIOTE_DEBUG. Default false: every client gets the safe
-     * generic response unless a developer has explicitly opted in. The
-     * developer renderer itself is resolved through {@see ExceptionRendererRegistry}
-     * rather than a hardcoded class -- this middleware never names a concrete
-     * developer renderer.
+     * generic response unless a developer has explicitly opted in. Neither
+     * renderer is hardcoded -- both are resolved through
+     * {@see ExceptionRendererRegistry}, falling back to {@see SafeRenderer}
+     * when nothing is registered for the relevant slot.
      */
     private function resolveRenderer(): ExceptionRenderer
     {
         if (!Config::getBool('core.developer_exceptions', false)) {
-            return new SafeRenderer();
+            return ExceptionRendererRegistry::safeRenderer() ?? new SafeRenderer();
         }
         return ExceptionRendererRegistry::developerRenderer() ?? new SafeRenderer();
     }

@@ -152,4 +152,21 @@ final class PluginRegistrar
         \Quiote\Exception\Rendering\ExceptionRendererRegistry::setDeveloperRenderer($factory);
         return $this;
     }
+
+    /**
+     * Register the "safe" exception renderer used by
+     * {@see \Quiote\Middleware\ErrorHandlingMiddleware} when
+     * `core.developer_exceptions` is false (the default, i.e. production).
+     * Routes to the static {@see \Quiote\Exception\Rendering\ExceptionRendererRegistry}
+     * (applied immediately, like {@see databaseDriver()}). Set-if-absent: first
+     * registration wins. Falls back to {@see \Quiote\Exception\Rendering\SafeRenderer}
+     * when nothing is registered.
+     *
+     * @param callable(): \Quiote\Exception\Rendering\ExceptionRenderer $factory
+     */
+    public function safeExceptionRenderer(callable $factory): self
+    {
+        \Quiote\Exception\Rendering\ExceptionRendererRegistry::setSafeRenderer($factory);
+        return $this;
+    }
 }

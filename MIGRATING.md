@@ -1290,19 +1290,35 @@ Audit for direct writes to those three properties before upgrading.
 
 ## Session fixation
 
-`SessionManager::regenerate()` migrates the old id rather than deleting it
-outright, so a request already in flight with the pre-rotation cookie is not
-silently logged out. That window is much tighter than a plain grace period:
+> Updated for 3.1.0 (`fix(session): delete the old id outright on a privilege
+> transition`) — the paragraph below originally said the migration window was
+> skipped whenever the pre-login session was empty. That was wrong in
+> practice: a real login session always holds something (the CSRF token, at
+> minimum), so it always took the tombstone path and the zero-window branch
+> was unreachable exactly when it mattered. `regenerate()` now takes an
+> explicit `$privilegeTransition` flag instead of inferring it from
+> emptiness; see below.
 
-- the redirect tombstone is consumed on first use, so it rescues one request
-  rather than every request in the window;
-- it is bound to the requesting client;
-- it is skipped entirely when the pre-login session was empty — the ordinary
-  anonymous-to-authenticated login — which therefore has no window at all;
-- the default grace is 5 seconds (`session_migration_grace_seconds`).
+`SessionManager::regenerate()` takes a `$privilegeTransition` flag that
+decides what happens to the old id:
+
+- `true` — a privilege transition (login, or any anonymous → authenticated
+  step): the old id is **deleted outright**, the same zero-length window
+  `session_regenerate_id(true)` gives. This is the anti-fixation guarantee:
+  an id an attacker planted in the victim's browser stops resolving to
+  anything the instant the victim authenticates.
+- `false` — a routine rotation: the old id is migrated rather than deleted,
+  via a redirect tombstone, so a request already in flight with the
+  pre-rotation cookie is not silently logged out. That window is much
+  tighter than a plain grace period:
+  - the tombstone is consumed on first use, so it rescues one request rather
+    than every request in the window;
+  - it is bound to the requesting client;
+  - the default grace is 5 seconds (`session_migration_grace_seconds`).
 
 `SessionManager::regenerate()` and `migrateOld()` take an additional optional
-request argument. This breaks subclasses overriding them.
+request argument, and `regenerate()` takes the `$privilegeTransition` flag
+described above. This breaks subclasses overriding them.
 
 ---
 
