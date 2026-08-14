@@ -1,9 +1,15 @@
-## [4.0.0] - 2026-08-11
+## [4.0.1] - 2026-08-13
+
+### 🐛 Bug Fixes
+
+- *(db-propulsion)* Allow Propulsion 3.x alongside 2.x
+## [4.0.0] - 2026-08-13
 
 ### 🚀 Features
 
 - Declarative plugins.xml/middleware.xml config with attribute-gated plugin activation
 - Add getPdo() to all database adapters for raw SQL access
+- *(release)* Version packages independently of the framework from v4.0.0
 
 ### 🐛 Bug Fixes
 
