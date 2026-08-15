@@ -3,6 +3,7 @@ namespace Quiote\Execution;
 
 use Quiote\Context;
 use Quiote\Response\WebResponse;
+use Quiote\Validator\ValidationManager;
 use Psr\Http\Message\ResponseInterface;
 
 /**
@@ -15,6 +16,12 @@ interface ViewInitContext
     public function getContext(): Context;
     /** Returns the canonical name of the module hosting the view. */
     public function getViewModuleName(): string; // canonical module hosting the view
+    /**
+     * Returns the module name for legacy code written against the action-container
+     * convention (`getModuleName()`), which predates the view/action module split.
+     * Implementations fall back to the view module when there is no originating action.
+     */
+    public function getModuleName(): string;
     /** Returns the canonical name of the view being rendered. */
     public function getViewName(): string;       // canonical view name
     /** Returns the lowercase name of the output type the view renders for. */
@@ -40,4 +47,9 @@ interface ViewInitContext
      * @return ResponseInterface|null
      */
     public function getPsrResponse(): ?ResponseInterface;
+    /**
+     * Returns the validation manager carrying this dispatch's error state, or null
+     * when none is available.
+     */
+    public function getValidationManager(): ?ValidationManager;
 }

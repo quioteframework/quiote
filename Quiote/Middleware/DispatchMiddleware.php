@@ -71,20 +71,17 @@ class DispatchMiddleware implements MiddlewareInterface
      * per user costs a duplicate entry for a user with two sessions, which is the
      * harmless direction.
      *
-     * @param      object|null $actionInstance The action whose output would be cached.
+     * @param      ?\Quiote\Action\Action $actionInstance The action whose output would be cached.
      * @param      ?string $outputType The output type being rendered, or null.
      * @return     string|false|null The partition key, false to skip caching, or null for a shared entry.
      */
-    private function computeUserFingerprint($actionInstance, ?string $outputType = null): string|false|null
+    private function computeUserFingerprint(?\Quiote\Action\Action $actionInstance, ?string $outputType = null): string|false|null
     {
         try {
-            if (!$actionInstance || !method_exists($actionInstance, 'isSecure') || !$actionInstance->isSecure()) {
+            if (!$actionInstance || !$actionInstance->isSecure()) {
                 return null;
             }
-            if (
-                method_exists($actionInstance, 'cacheVaryByUser')
-                && !$actionInstance->cacheVaryByUser($outputType)
-            ) {
+            if (!$actionInstance->cacheVaryByUser($outputType)) {
                 // The action asserts its output does not depend on which user is
                 // looking at it. See Action::cacheVaryByUser().
                 return null;

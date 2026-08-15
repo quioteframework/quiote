@@ -20,14 +20,18 @@ class NoValHttpAction extends Action
     public function validatePost(WebRequest $rd): bool
     {
         $present = $rd->hasParameter('fail');
-        $val = $present ? $rd->getParameter('fail') : null;
-        if ($present && !is_scalar($val) && !$val instanceof \Stringable) {
+        if (!$present) {
+            self::$last = 'validatePost:missing';
+            // Should always return true if parameter list was stripped.
+            return true;
+        }
+        $val = $rd->getParameter('fail');
+        if (!is_scalar($val) && !$val instanceof \Stringable) {
             throw new \InvalidArgumentException('NoValHttpAction expects a stringable "fail" parameter.');
         }
-        self::$last = 'validatePost:' . ($present ? (string) $val : 'missing');
-        // Should always return true if parameter list was stripped (present=false)
-        // If present (unexpected under strict mode with zero validators), return false to highlight leak.
-        return !$present;
+        self::$last = 'validatePost:' . (string) $val;
+        // Unexpected under strict mode with zero validators; return false to highlight the leak.
+        return false;
     }
     #[\Override]
     public function validate(WebRequest $rd): bool

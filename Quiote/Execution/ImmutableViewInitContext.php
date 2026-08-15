@@ -8,6 +8,7 @@ use Quiote\Response\WebResponse;
 use Psr\Http\Message\ResponseInterface;
 use Quiote\Http\PsrResponseAdapter;
 use Quiote\Util\AttributeHolder; // to expose action attributes via standard view API
+use Quiote\Validator\ValidationManager;
 
 /**
  * The {@see ViewInitContext} a view is initialized with: a fixed snapshot of the dispatch
@@ -42,7 +43,7 @@ final class ImmutableViewInitContext extends AttributeHolder implements ViewInit
         private readonly array $actionAttributes,
     private readonly WebResponse $response,
         private ?ResponseInterface $psrResponse = null,
-        private readonly ?object $validationManager = null
+        private readonly ?ValidationManager $validationManager = null
     ) {
         // Populate attribute holder with snapshot so View::getAttribute()/getAttributes() work.
         // Immutable semantics: later setAttribute() calls are ignored by View because initContext instanceof ViewInitContext.
@@ -188,15 +189,14 @@ final class ImmutableViewInitContext extends AttributeHolder implements ViewInit
      * carries the live error state from the current request). Falls back to creating a fresh
      * instance only when none was supplied — callers that need error messages (e.g. JSON error
      * views) must pass the validation manager explicitly via the constructor.
-     * @return ?object
      */
-    public function getValidationManager()
+    public function getValidationManager(): ?ValidationManager
     {
         if ($this->validationManager !== null) {
             return $this->validationManager;
         }
         try {
-            return $this->context->getContainer()->get(\Quiote\Validator\ValidationManager::class);
+            return $this->context->getContainer()->get(ValidationManager::class);
         } catch (\Throwable) {
             return null;
         }

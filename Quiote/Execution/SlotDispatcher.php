@@ -403,7 +403,7 @@ class SlotDispatcher
                     $content = '';
                     if ($vn !== View::NONE && $vm !== null) {
                         try {
-                            $viewInstance = $this->viewFactory->create($vm, $vn, $module, $action, $resolvedOutputTypeLower, $rd, self::normalizeAttributeKeys($actionInstance->getAttributes()));
+                            $viewInstance = $this->viewFactory->create($vm, $vn, $module, $action, $resolvedOutputTypeLower, $rd, self::normalizeAttributeKeys($actionInstance->getAttributes()), $validationService->getValidationManager());
                         } catch (\Throwable $e) {
                             if ($logExceptions) {
                                 $this->logSlotException($e, $module, $action, $parameters, 'nonsimple_error_view_factory_create');
@@ -420,18 +420,18 @@ class SlotDispatcher
                                     . ' for slot ' . $key . ': ' . $e->getMessage()
                                 );
                             }
-                        }
-                        if ($viewInstance) {
-                            try {
-                                $vic = new \Quiote\Execution\ImmutableViewInitContext($this->controller->getContext(), $vm, $vn, $resolvedOutputTypeLower, $module, $action, self::normalizeAttributeKeys($actionInstance->getAttributes()), $this->controller->getGlobalResponse());
-                                $viewInstance->initialize($vic);
-                            } catch (\Throwable $e) {
-                                // An uninitialized view renders without its init context rather
-                                // than aborting the whole page.
-                                $logger->warning(
-                                    '[SlotDisp] could not initialize the view for slot ' . $key . ': '
-                                    . $e->getMessage()
-                                );
+                            if ($viewInstance) {
+                                try {
+                                    $vic = new \Quiote\Execution\ImmutableViewInitContext($this->controller->getContext(), $vm, $vn, $resolvedOutputTypeLower, $module, $action, self::normalizeAttributeKeys($actionInstance->getAttributes()), $this->controller->getGlobalResponse(), validationManager: $validationService->getValidationManager());
+                                    $viewInstance->initialize($vic);
+                                } catch (\Throwable $e) {
+                                    // An uninitialized view renders without its init context rather
+                                    // than aborting the whole page.
+                                    $logger->warning(
+                                        '[SlotDisp] could not initialize the view for slot ' . $key . ': '
+                                        . $e->getMessage()
+                                    );
+                                }
                             }
                         }
                         $methodExec = 'execute' . ($resolvedOutputType);
@@ -475,7 +475,7 @@ class SlotDispatcher
                 if ($vn !== View::NONE && $vm !== null) {
                     $attrs = self::normalizeAttributeKeys($actionInstance->getAttributes());
                     try {
-                        $viewInstance = $this->viewFactory->create($vm, $vn, $module, $action, $resolvedOutputTypeLower, $rd, $attrs);
+                        $viewInstance = $this->viewFactory->create($vm, $vn, $module, $action, $resolvedOutputTypeLower, $rd, $attrs, $validationService->getValidationManager());
                     } catch (\Throwable $e) {
                         if ($logExceptions) {
                             $this->logSlotException($e, $module, $action, $parameters, 'nonsimple_view_factory_create');
@@ -492,18 +492,18 @@ class SlotDispatcher
                                 . ' for slot ' . $key . ': ' . $e->getMessage()
                             );
                         }
-                    }
-                    if ($viewInstance) {
-                        try {
-                            $vic = new \Quiote\Execution\ImmutableViewInitContext($this->controller->getContext(), $vm, $vn, $resolvedOutputTypeLower, $module, $action, $attrs, $this->controller->getGlobalResponse());
-                            $viewInstance->initialize($vic);
-                        } catch (\Throwable $e) {
-                            // An uninitialized view renders without its init context rather
-                            // than aborting the whole page.
-                            $logger->warning(
-                                '[SlotDisp] could not initialize the view for slot ' . $key . ': '
-                                . $e->getMessage()
-                            );
+                        if ($viewInstance) {
+                            try {
+                                $vic = new \Quiote\Execution\ImmutableViewInitContext($this->controller->getContext(), $vm, $vn, $resolvedOutputTypeLower, $module, $action, $attrs, $this->controller->getGlobalResponse(), validationManager: $validationService->getValidationManager());
+                                $viewInstance->initialize($vic);
+                            } catch (\Throwable $e) {
+                                // An uninitialized view renders without its init context rather
+                                // than aborting the whole page.
+                                $logger->warning(
+                                    '[SlotDisp] could not initialize the view for slot ' . $key . ': '
+                                    . $e->getMessage()
+                                );
+                            }
                         }
                     }
                     $methodExec = 'execute' . ($resolvedOutputType);

@@ -15,14 +15,15 @@ class MethodHttpAction extends Action
     public function validatePost(WebRequest $rd): bool
     {
         $present = $rd->hasParameter('fail');
-        $val = $present ? $rd->getParameter('fail') : null;
-        if ($present && !is_scalar($val) && !$val instanceof \Stringable) {
-            throw new \InvalidArgumentException('MethodHttpAction expects a stringable "fail" parameter.');
-        }
-        self::$last = 'validatePost:' . ($present ? (string) $val : 'missing');
         if (!$present) {
+            self::$last = 'validatePost:missing';
             return true;
         }
+        $val = $rd->getParameter('fail');
+        if (!is_scalar($val) && !$val instanceof \Stringable) {
+            throw new \InvalidArgumentException('MethodHttpAction expects a stringable "fail" parameter.');
+        }
+        self::$last = 'validatePost:' . (string) $val;
         return !((string) $val === '1');
     }
     #[\Override]

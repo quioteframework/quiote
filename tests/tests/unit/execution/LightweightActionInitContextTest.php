@@ -65,9 +65,10 @@ class LightweightActionInitContextTest extends TestCase
     $response = new TestLightweightResponse();
     $response->initialize($context, []);
         $aic = new LightweightActionInitContext($context,'M','A','PUT','xml',null,$response);
+        // The first successful lookup is cached on the instance, so repeated calls return
+        // the same manager rather than re-resolving a fresh transient one each time.
         $vm = $aic->getValidationManager();
-        if ($vm !== null) {
-            $this->assertTrue(method_exists($vm, 'initialize'), 'Validation manager must implement initialize()');
-        }
+        $this->assertNotNull($vm);
+        $this->assertSame($vm, $aic->getValidationManager(), 'Resolved manager must be cached on the instance');
     }
 }

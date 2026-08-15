@@ -67,11 +67,10 @@ class ImmutableViewInitContextTest extends TestCase
         $this->assertSame($default, $param, 'Legacy getParameter should return provided default');
         $params = $ivc->getParameters();
         $this->assertSame([], $params);
+        // No manager was passed to the constructor, so each call falls back to a fresh
+        // transient resolution from the container rather than caching one instance.
         $vm = $ivc->getValidationManager();
-        // Either null (if factory absent) or an instance implementing initialize(). Accept both,
-        // but verify the contract actually holds for the non-null case.
-        if ($vm !== null) {
-            $this->assertTrue(method_exists($vm, 'initialize'), 'Validation manager must implement initialize()');
-        }
+        $this->assertNotNull($vm);
+        $this->assertNotSame($vm, $ivc->getValidationManager(), 'Uninjected manager must resolve fresh (transient) on every call');
     }
 }

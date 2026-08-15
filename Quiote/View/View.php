@@ -214,7 +214,7 @@ abstract class View implements ResetInterface
 		array $extensions = []
 	): string {
 		$ic = $this->getInitContext();
-		$vm = ($ic !== null && method_exists($ic, 'getValidationManager')) ? $ic->getValidationManager() : null;
+		$vm = $ic?->getValidationManager();
 
 		$instance = null;
 		try {

@@ -4,6 +4,7 @@ namespace Quiote\Execution;
 use Quiote\Controller\Controller;
 use Quiote\View\View;
 use Quiote\Request\WebRequest;
+use Quiote\Validator\ValidationManager;
 
 /**
  * ViewFactory: creates and initializes a view using ImmutableViewInitContext.
@@ -23,7 +24,7 @@ class ViewFactory
      * @param ?WebRequest $request Request data snapshot
      * @param array<string, mixed> $actionAttributeSnapshot Attributes snapshot from action exec
      */
-    public function create(string $viewModule, string $viewName, string $actionModule, string $actionName, string $outputType, ?WebRequest $request, array $actionAttributeSnapshot, ?object $validationManager = null): ?View
+    public function create(string $viewModule, string $viewName, string $actionModule, string $actionName, string $outputType, ?WebRequest $request, array $actionAttributeSnapshot, ?ValidationManager $validationManager = null): ?View
     {
         try {
             $view = $this->controller->createViewInstance($viewModule, $viewName);

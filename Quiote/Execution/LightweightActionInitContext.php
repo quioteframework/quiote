@@ -5,6 +5,7 @@ namespace Quiote\Execution;
 use Quiote\Context;
 use Quiote\Response\WebResponse;
 use Quiote\Util\AttributeHolder;
+use Quiote\Validator\ValidationManager;
 use Psr\Http\Message\ServerRequestInterface;
 
 /**
@@ -24,7 +25,7 @@ class LightweightActionInitContext extends AttributeHolder implements ActionInit
 {
     private ?string $viewModuleName = null;
     private ?string $viewName = null;
-    private ?object $validationManager = null;
+    private ?ValidationManager $validationManager = null;
 
     public function __construct(
         private readonly Context $context,
@@ -104,13 +105,13 @@ class LightweightActionInitContext extends AttributeHolder implements ActionInit
      * throws while trying — yields null rather than propagating, and the lookup is retried on the
      * next call.
      */
-    public function getValidationManager(): ?object
+    public function getValidationManager(): ?ValidationManager
     {
         if ($this->validationManager !== null) {
             return $this->validationManager;
         }
         try {
-            $this->validationManager = $this->context->getContainer()->tryGet(\Quiote\Validator\ValidationManager::class);
+            $this->validationManager = $this->context->getContainer()->tryGet(ValidationManager::class);
             return $this->validationManager;
         } catch (\Throwable) {
             return null;
@@ -123,7 +124,7 @@ class LightweightActionInitContext extends AttributeHolder implements ActionInit
      * XML validators were executed against, so that the action's manual
      * validate*() methods see the same errors and exports.
      */
-    public function setValidationManager(?object $vm): void
+    public function setValidationManager(?ValidationManager $vm): void
     {
         $this->validationManager = $vm;
     }

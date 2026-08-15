@@ -64,8 +64,9 @@ interface ActionInitContext
     public function getViewName(): ?string;
 
     /**
-     * @return mixed
+     * Returns the validation manager carrying this dispatch's error state, or null when none
+     * is available.
      */
-    public function getValidationManager();
+    public function getValidationManager(): ?ValidationManager;
 
 }

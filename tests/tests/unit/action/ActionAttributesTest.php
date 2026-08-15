@@ -43,7 +43,7 @@ class HolderlessInitContext implements ActionInitContext
 	public function setViewName(?string $name): void {}
 	public function getViewModuleName(): ?string { return null; }
 	public function getViewName(): ?string { return null; }
-	public function getValidationManager() { return null; }
+	public function getValidationManager(): ?\Quiote\Validator\ValidationManager { return null; }
 }
 
 class ActionAttributesTest extends UnitTestCase
