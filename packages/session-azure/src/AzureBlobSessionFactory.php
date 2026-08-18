@@ -7,6 +7,7 @@ namespace Quiote\Storage\Azure;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Psr\Http\Client\ClientInterface;
 use Quiote\Context;
+use Quiote\Logging\Log;
 use Quiote\Session\SessionFactoryInterface;
 use Quiote\Session\SessionPersistenceInterface;
 use RuntimeException;
@@ -60,7 +61,7 @@ final class AzureBlobSessionFactory implements SessionFactoryInterface
                 AzureCredentialFactory::fromConfig([
                     'auth' => AzureSessionParameters::str($parameters, 'auth', 'shared_key'),
                     'account_key' => AzureSessionParameters::str($parameters, 'account_key'),
-                ], $httpClient),
+                ], $httpClient, logger: Log::for(self::class)),
                 $endpoint !== '' ? $endpoint : null,
                 new Psr17Factory(),
             ),

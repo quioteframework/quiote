@@ -1,6 +1,6 @@
 {
 	"name": "quioteframework/cloud-azure",
-	"description": "Minimal Azure Blob and Table Storage clients for Quiote, Shared Key or Azure AD (workload identity / az login) authenticated REST access with no azure-sdk dependency, plus a signed-request method for operations they do not model themselves. Shared by the Azure session and filesystem backends.",
+	"description": "Minimal Azure Blob and Table Storage clients, Shared Key or Azure AD (workload identity / az login) authenticated REST access with no azure-sdk dependency, plus a signed-request method for operations they do not model themselves. Framework-agnostic (built on quioteframework/storage, not the Quiote framework itself) and usable outside a Quiote application; also shared by Quiote's own Azure session and filesystem backends.",
 	"keywords": [
 		"quiote",
 		"azure",
@@ -22,9 +22,10 @@
 	},
 	"require": {
 		"php": ">=8.5.0",
-		"quioteframework/quiote": "^4.0",
+		"quioteframework/storage": "^4.0",
 		"psr/http-client": "^1.0",
 		"psr/http-message": "^2.0",
+		"psr/log": "^3.0",
 		"nyholm/psr7": "^1.8"
 	},
 	"autoload": {

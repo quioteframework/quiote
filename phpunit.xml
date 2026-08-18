@@ -53,6 +53,7 @@
             <directory>packages/cloud-s3/tests</directory>
             <directory>packages/cloud-gcs/tests</directory>
             <directory>packages/cloud-azure/tests</directory>
+            <directory>packages/storage/tests</directory>
             <directory>packages/session-gcs/tests</directory>
             <directory>packages/queue/tests</directory>
             <directory>packages/queue-db/tests</directory>

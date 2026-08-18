@@ -6,7 +6,8 @@ namespace Quiote\Storage\Azure;
 
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Psr\Http\Client\ClientInterface;
-use Quiote\Logging\Log;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 
 /**
  * Builds the {@see AzureCredential} a config `auth` value asks for, so
@@ -20,8 +21,13 @@ use Quiote\Logging\Log;
  */
 final class AzureCredentialFactory
 {
-    /** @param array<string, string> $config Keys: `auth` (default `shared_key`), `account_key`. */
-    public static function fromConfig(array $config, ClientInterface $httpClient, Psr17Factory $psr17 = new Psr17Factory()): AzureCredential
+    /**
+     * @param array<string, string> $config Keys: `auth` (default `shared_key`), `account_key`.
+     * @param LoggerInterface $logger PSR-3, so a Quiote application can pass its own
+     *        `Quiote\Logging\Log::for(...)` (it already implements the interface) without this
+     *        package needing the framework as a dependency. Defaults to discarding everything.
+     */
+    public static function fromConfig(array $config, ClientInterface $httpClient, Psr17Factory $psr17 = new Psr17Factory(), LoggerInterface $logger = new NullLogger()): AzureCredential
     {
         $auth = $config['auth'] ?? 'shared_key';
 
@@ -29,7 +35,7 @@ final class AzureCredentialFactory
             'shared_key' => new SharedKeyCredential($config['account_key'] ?? ''),
             'workload_identity' => new BearerCredential(WorkloadIdentityTokenProvider::fromEnvironment($httpClient, $psr17)),
             'cli' => new BearerCredential(new AzureCliTokenProvider()),
-            'chain' => new BearerCredential(new ChainedTokenProvider(self::chainProviders($httpClient, $psr17))),
+            'chain' => new BearerCredential(new ChainedTokenProvider(self::chainProviders($httpClient, $psr17, $logger), $logger)),
             default => throw new AzureStorageException("Unknown Azure auth strategy \"{$auth}\", expected shared_key, workload_identity, cli or chain."),
         };
     }
@@ -43,13 +49,13 @@ final class AzureCredentialFactory
      *
      * @return non-empty-list<AzureTokenProvider>
      */
-    private static function chainProviders(ClientInterface $httpClient, Psr17Factory $psr17): array
+    private static function chainProviders(ClientInterface $httpClient, Psr17Factory $psr17, LoggerInterface $logger): array
     {
         $providers = [];
         try {
             $providers[] = WorkloadIdentityTokenProvider::fromEnvironment($httpClient, $psr17);
         } catch (AzureStorageException $e) {
-            Log::create(self::class)->debug("Workload identity is not available, the chain will rely on the CLI provider: {$e->getMessage()}");
+            $logger->debug("Workload identity is not available, the chain will rely on the CLI provider: {$e->getMessage()}");
         }
         $providers[] = new AzureCliTokenProvider();
 

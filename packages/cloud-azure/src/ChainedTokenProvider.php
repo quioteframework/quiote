@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Quiote\Storage\Azure;
 
-use Quiote\Logging\Log;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 
 /**
  * Tries each provider in order and answers the first token obtained, the way the official Azure
@@ -14,8 +15,13 @@ use Quiote\Logging\Log;
  */
 final class ChainedTokenProvider implements AzureTokenProvider
 {
-    /** @param non-empty-list<AzureTokenProvider> $providers */
-    public function __construct(private readonly array $providers)
+    /**
+     * @param non-empty-list<AzureTokenProvider> $providers
+     * @param LoggerInterface $logger PSR-3, so a Quiote application can pass its own
+     *        `Quiote\Logging\Log::for(...)` (it already implements the interface) without this
+     *        package needing the framework as a dependency. Defaults to discarding everything.
+     */
+    public function __construct(private readonly array $providers, private readonly LoggerInterface $logger = new NullLogger())
     {
     }
 
@@ -23,7 +29,6 @@ final class ChainedTokenProvider implements AzureTokenProvider
     #[\Override]
     public function getToken(): string
     {
-        $logger = Log::for($this);
         $failures = [];
 
         foreach ($this->providers as $provider) {
@@ -32,7 +37,7 @@ final class ChainedTokenProvider implements AzureTokenProvider
                 return $provider->getToken();
             } catch (AzureStorageException $e) {
                 $failures[] = sprintf('%s: %s', $providerClass, $e->getMessage());
-                $logger->debug("{$providerClass} declined, trying the next credential in the chain: {$e->getMessage()}");
+                $this->logger->debug("{$providerClass} declined, trying the next credential in the chain: {$e->getMessage()}");
             }
         }
 

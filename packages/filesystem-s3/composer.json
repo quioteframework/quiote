@@ -1,6 +1,6 @@
 {
 	"name": "quioteframework/filesystem-s3",
-	"description": "AWS S3 filesystem adapter for Quiote \u2014 a Quiote\\Filesystem\\FilesystemAdapterInterface implementation for FilesystemManager, built on the S3Client from quioteframework/cloud-s3.",
+	"description": "AWS S3 filesystem adapter built on the S3Client from quioteframework/cloud-s3. Framework-agnostic: depends only on cloud-s3, so it is usable outside a Quiote application too. Quiote\\Filesystem\\S3\\S3FilesystemAdapter/S3FilesystemPlugin additionally implement Quiote's FilesystemAdapterInterface for FilesystemManager when quioteframework/quiote happens to be installed.",
 	"keywords": [
 		"quiote",
 		"filesystem",
@@ -22,8 +22,10 @@
 	},
 	"require": {
 		"php": ">=8.5.0",
-		"quioteframework/quiote": "^4.0",
 		"quioteframework/cloud-s3": "^4.0"
+	},
+	"suggest": {
+		"quioteframework/quiote": "Needed to use S3FilesystemAdapter/S3FilesystemPlugin as a Quiote\\Filesystem\\FilesystemManager disk; not needed to use S3Client from quioteframework/cloud-s3 directly"
 	},
 	"autoload": {
 		"psr-4": {

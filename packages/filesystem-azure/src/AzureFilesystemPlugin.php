@@ -9,6 +9,7 @@ use Psr\Http\Client\ClientInterface;
 use Quiote\Config\Config;
 use Quiote\DI\Container;
 use Quiote\Filesystem\FilesystemDriverRegistry;
+use Quiote\Logging\Log;
 use Quiote\Plugin\Attribute\Plugin as PluginAttribute;
 use Quiote\Plugin\PluginInterface;
 use Quiote\Plugin\PluginRegistrar;
@@ -63,7 +64,7 @@ final class AzureFilesystemPlugin implements PluginInterface
                         AzureCredentialFactory::fromConfig([
                             'auth' => Config::getString('filesystem.disks.azure.auth', 'shared_key'),
                             'account_key' => Config::getString('filesystem.disks.azure.account_key', ''),
-                        ], $httpClient),
+                        ], $httpClient, logger: Log::for(self::class)),
                         Config::getNullableString('filesystem.disks.azure.endpoint', null) ?: null,
                         new Psr17Factory(),
                     ),

@@ -151,6 +151,11 @@
 			"target": "git@github.com:quioteframework/cloud-gcs.git"
 		},
 		{
+			"name": "storage",
+			"directory": "packages/storage",
+			"target": "git@github.com:quioteframework/storage.git"
+		},
+		{
 			"name": "auth",
 			"directory": "packages/auth",
 			"target": "git@github.com:quioteframework/auth.git"
