@@ -48,6 +48,7 @@ final class QueueDbPlugin implements PluginInterface
         $registrar->configDefault('queue.db.failed_table', 'quiote_queue_failed_jobs');
 
         QueueDriverRegistry::register('db', DbQueueDriver::class);
+        $registrar->stateReset('queue-driver-registry', static fn() => QueueDriverRegistry::reset());
 
         $registrar->service(
             DbQueueDriver::class,

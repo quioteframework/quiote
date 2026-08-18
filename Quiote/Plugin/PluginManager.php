@@ -305,11 +305,11 @@ final class PluginManager
         self::$httpClientConfigs = [];
         self::$requestEndClears = [];
         self::$stateResets = [];
+        \Quiote\Event\Events::reset();
         \Quiote\Middleware\MiddlewareCatalog::reset();
         \Quiote\Middleware\Config\MiddlewareConfigRegistry::reset();
         \Quiote\Database\DatabaseDriverRegistry::reset();
         \Quiote\Exception\Rendering\ExceptionRendererRegistry::reset();
-        \Quiote\Runtime\Worker\WorkerRuntimeRegistry::reset();
         \Quiote\Runtime\Worker\WorkerRuntimeInfo::reset();
     }
 

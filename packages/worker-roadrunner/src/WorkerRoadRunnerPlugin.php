@@ -34,5 +34,6 @@ final class WorkerRoadRunnerPlugin implements PluginInterface
         $registrar->configDefault('worker.roadrunner.chunk_size', RoadRunnerResponseEmitter::DEFAULT_CHUNK_SIZE);
 
         WorkerRuntimeRegistry::register('roadrunner', RoadRunnerRuntime::class);
+        $registrar->stateReset('worker-runtime-registry', static fn() => WorkerRuntimeRegistry::reset());
     }
 }

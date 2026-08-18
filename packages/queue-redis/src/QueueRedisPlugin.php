@@ -35,6 +35,7 @@ final class QueueRedisPlugin implements PluginInterface
         $registrar->configDefault('queue.redis.prefix', 'quiote_queue');
 
         QueueDriverRegistry::register('redis', RedisQueueDriver::class);
+        $registrar->stateReset('queue-driver-registry', static fn() => QueueDriverRegistry::reset());
 
         $registrar->service(
             RedisQueueDriver::class,

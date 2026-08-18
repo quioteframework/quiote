@@ -41,6 +41,7 @@ final class WorkerSwoolePlugin implements PluginInterface
         $registrar->configDefault('worker.swoole.ssl', false);
 
         WorkerRuntimeRegistry::register('swoole', SwooleRuntime::class);
+        $registrar->stateReset('worker-runtime-registry', static fn() => WorkerRuntimeRegistry::reset());
 
         $registrar->command(SwooleServeCommand::class);
     }
