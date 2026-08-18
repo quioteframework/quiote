@@ -20,10 +20,12 @@
 		"psr/log": "^3.0"
 	},
 	"require-dev": {
-		"quioteframework/propulsion": "^2.0 || ^3.0"
+		"quioteframework/propulsion": "^2.0 || ^3.0",
+		"doctrine/dbal": "^4.0"
 	},
 	"suggest": {
-		"quioteframework/propulsion": "Enables Quiote\\Replay\\Db\\PropulsionQueryRecorder, an effect-ledger recorder for Propulsion's own query observer seam."
+		"quioteframework/propulsion": "Enables Quiote\\Replay\\Db\\PropulsionQueryRecorder, an effect-ledger recorder for Propulsion's own query observer seam.",
+		"doctrine/dbal": "Enables Quiote\\Replay\\Db\\DoctrineRecordingMiddleware, an effect-ledger recorder for Doctrine DBAL's own driver middleware seam."
 	},
 	"autoload": {
 		"psr-4": {
