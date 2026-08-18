@@ -4,25 +4,33 @@ declare(strict_types=1);
 
 namespace Quiote\Storage\Azure;
 
+use DateTimeImmutable;
+use Exception;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\ResponseInterface;
+use Quiote\Storage\ObjectListing;
 use Quiote\Storage\ObjectMetadata;
+use Quiote\Storage\ObjectSummary;
+use SimpleXMLElement;
 
 /**
- * Minimal Azure Blob Storage REST client using Shared Key authentication —
- * deliberately not built on the official `microsoft/azure-storage-blob` SDK
- * (Microsoft stopped actively developing it; a hand-rolled client against
- * the documented REST + signing algorithm has proven more maintainable in
- * production). Only the operations the session and filesystem backends need:
- * ensure-container, get, put, delete and get-properties. No chunked upload,
- * snapshots, or listing.
+ * Minimal Azure Blob Storage REST client, deliberately not built on the
+ * official `microsoft/azure-storage-blob` SDK (Microsoft stopped actively
+ * developing it; a hand-rolled client against the documented REST API has
+ * proven more maintainable in production). Only the operations the session
+ * and filesystem backends need: ensure-container, get, put, delete,
+ * get-properties and list. No chunked upload or snapshots.
  *
- * Those absent operations are still reachable: {@see request()} performs the
- * Shared Key signing and hands back the raw PSR-7 response, so a caller can
- * implement List Blobs (or anything else) without reimplementing the
- * signature.
+ * Those absent operations are still reachable: {@see request()} authorizes
+ * the request the same way every other method does and hands back the raw
+ * PSR-7 response, so a caller can implement the operation it needs without
+ * reimplementing the authorization.
+ *
+ * Authorization itself, Shared Key or an Azure AD bearer token from
+ * workload identity or the Azure CLI, is delegated to an
+ * {@see AzureCredential}, not built in here.
  *
  * @see https://learn.microsoft.com/en-us/rest/api/storageservices/authorize-with-shared-key
  */
@@ -35,7 +43,7 @@ final class AzureBlobClient
     public function __construct(
         private readonly ClientInterface $httpClient,
         private readonly string $accountName,
-        private readonly string $accountKey,
+        private readonly AzureCredential $credential,
         private readonly ?string $endpoint = null,
         private readonly Psr17Factory $psr17 = new Psr17Factory(),
     ) {
@@ -137,14 +145,90 @@ final class AzureBlobClient
     }
 
     /**
-     * Send an arbitrary signed request and return the raw response, for
-     * operations this class does not model itself. The canonical use is
-     * listing:
+     * Lists blobs in $container whose name starts with $prefix, one page at a time (List Blobs).
      *
-     *     $response = $client->request('GET', '/my-container', [
-     *         'restype' => 'container', 'comp' => 'list', 'delimiter' => '/',
-     *     ]);
-     *     $xml = simplexml_load_string((string) $response->getBody());
+     * $continuationToken must be null on the first call and, for a truncated result, the previous
+     * call's {@see ObjectListing::$nextContinuationToken} verbatim on the next; it carries Azure's
+     * own `NextMarker` and is opaque to a caller.
+     *
+     * @throws     AzureStorageException On any 4xx/5xx status, a transport failure that survived
+     *             the retries, or a response body that was not the XML this expects.
+     */
+    public function listObjects(string $container, string $prefix = '', string $delimiter = '', ?string $continuationToken = null, int $maxKeys = 1000): ObjectListing
+    {
+        $query = ['restype' => 'container', 'comp' => 'list', 'maxresults' => (string) $maxKeys];
+        if ($prefix !== '') {
+            $query['prefix'] = $prefix;
+        }
+        if ($delimiter !== '') {
+            $query['delimiter'] = $delimiter;
+        }
+        if ($continuationToken !== null) {
+            $query['marker'] = $continuationToken;
+        }
+
+        $response = $this->send('GET', "/{$container}", $query);
+        if ($response->getStatusCode() >= 400) {
+            throw $this->unexpectedStatus($response);
+        }
+
+        return self::parseListing((string) $response->getBody());
+    }
+
+    private static function parseListing(string $body): ObjectListing
+    {
+        $document = @simplexml_load_string($body);
+        if (!$document instanceof SimpleXMLElement) {
+            throw new AzureStorageException('Azure returned a list response that was not valid XML.');
+        }
+
+        $objects = [];
+        $commonPrefixes = [];
+        if (isset($document->Blobs)) {
+            foreach ($document->Blobs->Blob as $blob) {
+                $properties = $blob->Properties;
+                $length = (string) $properties->{'Content-Length'};
+                $objects[] = new ObjectSummary(
+                    (string) $blob->Name,
+                    ctype_digit($length) ? (int) $length : null,
+                    self::parseHttpDate((string) $properties->{'Last-Modified'}),
+                    self::stripQuotes((string) $properties->Etag),
+                );
+            }
+
+            foreach ($document->Blobs->BlobPrefix as $entry) {
+                $commonPrefixes[] = (string) $entry->Name;
+            }
+        }
+
+        $nextMarker = (string) $document->NextMarker;
+
+        return new ObjectListing($objects, $commonPrefixes, $nextMarker !== '' ? $nextMarker : null);
+    }
+
+    private static function parseHttpDate(string $value): ?DateTimeImmutable
+    {
+        if ($value === '') {
+            return null;
+        }
+
+        try {
+            return new DateTimeImmutable($value);
+        } catch (Exception) {
+            return null;
+        }
+    }
+
+    private static function stripQuotes(string $value): ?string
+    {
+        $trimmed = trim($value, '"');
+
+        return $trimmed === '' ? null : $trimmed;
+    }
+
+    /**
+     * Send an arbitrary signed request and return the raw response, for
+     * operations this class does not model itself.
      *
      * $path is the full account-relative path, so `/{container}` addresses a
      * container and `/{container}/{blob}` a blob. Unlike {@see get()} and
@@ -188,7 +272,7 @@ final class AzureBlobClient
                 'x-ms-version' => self::API_VERSION,
                 'Content-Length' => (string) ($body !== null ? strlen($body) : 0),
             ], $headers);
-            $requestHeaders['Authorization'] = $this->sign($method, $path, $query, $requestHeaders);
+            $requestHeaders['Authorization'] = $this->credential->authorizationHeader($this->accountName, $method, $path, $query, $requestHeaders);
 
             $request = $this->psr17->createRequest($method, $uri);
             foreach ($requestHeaders as $name => $value) {
@@ -225,93 +309,9 @@ final class AzureBlobClient
         return $lastResponse;
     }
 
-    /**
-     * The storage account key is base64 in every Azure surface that hands it
-     * out, but it arrives here as untrusted configuration; hash_hmac() needs a
-     * string, not base64_decode()'s false.
-     */
-    private static function decodedAccountKey(string $accountKey): string
-    {
-        $decoded = base64_decode($accountKey, true);
-        if ($decoded === false) {
-            throw new AzureStorageException('The Azure storage account key is not valid base64.');
-        }
-
-        return $decoded;
-    }
-
     private function isTransient(int $status): bool
     {
         return $status === 408 || $status === 429 || $status >= 500;
-    }
-
-    /**
-     * @param array<string, string> $query
-     * @param array<string, string> $headers
-     */
-    private function sign(string $method, string $path, array $query, array $headers): string
-    {
-        $contentLength = $headers['Content-Length'] ?? '';
-        if ($contentLength === '0') {
-            $contentLength = '';
-        }
-
-        $stringToSign = implode("\n", [
-            $method,
-            $headers['Content-Encoding'] ?? '',
-            $headers['Content-Language'] ?? '',
-            $contentLength,
-            $headers['Content-MD5'] ?? '',
-            $headers['Content-Type'] ?? '',
-            '',
-            $headers['If-Modified-Since'] ?? '',
-            $headers['If-Match'] ?? '',
-            $headers['If-None-Match'] ?? '',
-            $headers['If-Unmodified-Since'] ?? '',
-            $headers['Range'] ?? '',
-            $this->canonicalizedHeaders($headers) . $this->canonicalizedResource($path, $query),
-        ]);
-
-        $signature = base64_encode(hash_hmac('sha256', $stringToSign, self::decodedAccountKey($this->accountKey), true));
-
-        return "SharedKey {$this->accountName}:{$signature}";
-    }
-
-    /** @param array<string, string> $headers */
-    private function canonicalizedHeaders(array $headers): string
-    {
-        $msHeaders = [];
-        foreach ($headers as $name => $value) {
-            $lower = strtolower($name);
-            if (str_starts_with($lower, 'x-ms-')) {
-                $msHeaders[$lower] = preg_replace('/\s+/', ' ', trim($value));
-            }
-        }
-        ksort($msHeaders);
-
-        $canonical = '';
-        foreach ($msHeaders as $name => $value) {
-            $canonical .= "{$name}:{$value}\n";
-        }
-
-        return $canonical;
-    }
-
-    /** @param array<string, string> $query */
-    private function canonicalizedResource(string $path, array $query): string
-    {
-        $canonical = "/{$this->accountName}{$path}";
-
-        $lowerQuery = [];
-        foreach ($query as $name => $value) {
-            $lowerQuery[strtolower($name)] = $value;
-        }
-        ksort($lowerQuery);
-        foreach ($lowerQuery as $name => $value) {
-            $canonical .= "\n{$name}:{$value}";
-        }
-
-        return $canonical;
     }
 
     private function unexpectedStatus(ResponseInterface $response): AzureStorageException

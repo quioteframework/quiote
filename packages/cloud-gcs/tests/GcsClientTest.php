@@ -101,6 +101,89 @@ final class GcsClientTest extends TestCase
 
         $this->assertSame(403, $response->getStatusCode());
     }
+
+    public function testListObjectsSendsPrefixDelimiterMaxKeysAndTheMarker(): void
+    {
+        $client = $this->client(200, '<ListBucketResult></ListBucketResult>');
+
+        $client->listObjects('files/', '/', 'previous-key', 50);
+
+        $request = $this->http->sent[0];
+        $this->assertSame('GET', $request->getMethod());
+        $this->assertSame('/my-bucket', $request->getUri()->getPath());
+        parse_str($request->getUri()->getQuery(), $query);
+        $this->assertSame([
+            'max-keys' => '50',
+            'prefix' => 'files/',
+            'delimiter' => '/',
+            'marker' => 'previous-key',
+        ], $query);
+    }
+
+    public function testListObjectsOmitsTheMarkerOnTheFirstPage(): void
+    {
+        $client = $this->client(200, '<ListBucketResult></ListBucketResult>');
+
+        $client->listObjects();
+
+        parse_str($this->http->sent[0]->getUri()->getQuery(), $query);
+        $this->assertArrayNotHasKey('marker', $query);
+    }
+
+    public function testListObjectsParsesContentsCommonPrefixesAndTheNextMarker(): void
+    {
+        $xml = '<ListBucketResult>'
+            . '<Contents><Key>files/a.csv</Key><LastModified>2015-10-21T07:28:00.000Z</LastModified><ETag>"abc123"</ETag><Size>42</Size></Contents>'
+            . '<CommonPrefixes><Prefix>files/sub/</Prefix></CommonPrefixes>'
+            . '<IsTruncated>true</IsTruncated>'
+            . '<NextMarker>files/b.csv</NextMarker>'
+            . '</ListBucketResult>';
+
+        $listing = $this->client(200, $xml)->listObjects('files/', '/');
+
+        $this->assertCount(1, $listing->objects);
+        $this->assertSame('files/a.csv', $listing->objects[0]->key);
+        $this->assertSame(42, $listing->objects[0]->size);
+        $this->assertSame('2015-10-21T07:28:00+00:00', $listing->objects[0]->lastModified?->format(DATE_ATOM));
+        $this->assertSame('abc123', $listing->objects[0]->etag);
+        $this->assertSame(['files/sub/'], $listing->commonPrefixes);
+        $this->assertSame('files/b.csv', $listing->nextContinuationToken);
+        $this->assertTrue($listing->isTruncated());
+    }
+
+    public function testListObjectsFallsBackToTheLastKeyWhenTruncatedWithoutANextMarker(): void
+    {
+        $xml = '<ListBucketResult>'
+            . '<Contents><Key>files/a.csv</Key><Size>1</Size></Contents>'
+            . '<Contents><Key>files/b.csv</Key><Size>2</Size></Contents>'
+            . '<IsTruncated>true</IsTruncated>'
+            . '</ListBucketResult>';
+
+        $listing = $this->client(200, $xml)->listObjects();
+
+        $this->assertSame('files/b.csv', $listing->nextContinuationToken);
+    }
+
+    public function testListObjectsWithoutTruncationIsNotTruncated(): void
+    {
+        $listing = $this->client(200, '<ListBucketResult></ListBucketResult>')->listObjects();
+
+        $this->assertSame([], $listing->objects);
+        $this->assertNull($listing->nextContinuationToken);
+        $this->assertFalse($listing->isTruncated());
+    }
+
+    public function testListObjectsThrowsOnAServerError(): void
+    {
+        $this->expectException(GcsStorageException::class);
+        $this->client(500, 'boom')->listObjects();
+    }
+
+    public function testListObjectsThrowsOnMalformedXml(): void
+    {
+        $this->expectException(GcsStorageException::class);
+        $this->client(200, 'not xml')->listObjects();
+    }
 }
 
 /**

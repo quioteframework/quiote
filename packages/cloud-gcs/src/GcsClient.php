@@ -4,22 +4,27 @@ declare(strict_types=1);
 
 namespace Quiote\Storage\Gcs;
 
+use DateTimeImmutable;
+use Exception;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\ResponseInterface;
+use Quiote\Storage\ListableObjectStoreClientInterface;
+use Quiote\Storage\ObjectListing;
 use Quiote\Storage\ObjectMetadata;
-use Quiote\Storage\ObjectStoreClientInterface;
+use Quiote\Storage\ObjectSummary;
+use SimpleXMLElement;
 
 /**
  * Minimal Google Cloud Storage REST client authenticating with an HMAC key
  * pair (GCS's "interoperability" auth mode, meant for exactly this kind of
- * S3-like tool) rather than a service-account OAuth2/JWT flow — no
+ * S3-like tool) rather than a service-account OAuth2/JWT flow, no
  * `google/cloud-storage` dependency, no token exchange round-trip, just the
  * operations a session or filesystem backend needs against the XML API: get,
- * put, delete and head a single object.
+ * put, delete, head and list a bucket.
  *
- * Anything beyond those — listing a bucket, resumable upload, ACLs — is
+ * Anything beyond those, resumable upload, ACLs, object versioning, is
  * deliberately absent, but reachable: {@see request()} performs the HMAC
  * signing and hands back the raw PSR-7 response, so a caller can implement
  * the operation it needs without reimplementing the signature.
@@ -27,7 +32,7 @@ use Quiote\Storage\ObjectStoreClientInterface;
  * @see https://cloud.google.com/storage/docs/authentication/hmackeys
  * @see https://cloud.google.com/storage/docs/migrating#migration-simple
  */
-final class GcsClient implements ObjectStoreClientInterface
+final class GcsClient implements ListableObjectStoreClientInterface
 {
     public function __construct(
         private readonly ClientInterface $httpClient,
@@ -105,12 +110,92 @@ final class GcsClient implements ObjectStoreClientInterface
     }
 
     /**
-     * Send an arbitrary signed request to this client's bucket and return the
-     * raw response, for operations this class does not model itself. The
-     * canonical use is listing:
+     * {@inheritDoc}
      *
-     *     $response = $client->request('GET', '', ['prefix' => 'files/', 'delimiter' => '/']);
-     *     $xml = simplexml_load_string((string) $response->getBody());
+     * The XML interoperability API paginates with a marker rather than an opaque continuation
+     * token: $continuationToken is sent as `marker` and, on a truncated result, this returns
+     * `NextMarker` as {@see ObjectListing::$nextContinuationToken} (falling back to the last
+     * listed key if GCS reports truncation without one).
+     *
+     * @throws     \Quiote\Storage\ObjectStoreException If GCS answers 4xx/5xx, or its response
+     *             body was not the XML this expects.
+     */
+    public function listObjects(string $prefix = '', string $delimiter = '', ?string $continuationToken = null, int $maxKeys = 1000): ObjectListing
+    {
+        $query = ['max-keys' => (string) $maxKeys];
+        if ($prefix !== '') {
+            $query['prefix'] = $prefix;
+        }
+        if ($delimiter !== '') {
+            $query['delimiter'] = $delimiter;
+        }
+        if ($continuationToken !== null) {
+            $query['marker'] = $continuationToken;
+        }
+
+        $response = $this->send('GET', '', null, '', $query);
+        if ($response->getStatusCode() >= 400) {
+            throw $this->unexpectedStatus($response);
+        }
+
+        return self::parseListing((string) $response->getBody());
+    }
+
+    private static function parseListing(string $body): ObjectListing
+    {
+        $document = @simplexml_load_string($body);
+        if (!$document instanceof SimpleXMLElement) {
+            throw new GcsStorageException('GCS returned a list response that was not valid XML.');
+        }
+
+        $objects = [];
+        foreach ($document->Contents as $entry) {
+            $size = (string) $entry->Size;
+            $objects[] = new ObjectSummary(
+                (string) $entry->Key,
+                ctype_digit($size) ? (int) $size : null,
+                self::parseIso8601((string) $entry->LastModified),
+                self::stripQuotes((string) $entry->ETag),
+            );
+        }
+
+        $commonPrefixes = [];
+        foreach ($document->CommonPrefixes as $entry) {
+            $commonPrefixes[] = (string) $entry->Prefix;
+        }
+
+        $isTruncated = (string) $document->IsTruncated === 'true';
+        $nextMarker = (string) $document->NextMarker;
+        if ($nextMarker === '' && $isTruncated && $objects !== []) {
+            $nextMarker = $objects[array_key_last($objects)]->key;
+        }
+
+        return new ObjectListing($objects, $commonPrefixes, $isTruncated && $nextMarker !== '' ? $nextMarker : null);
+    }
+
+    private static function parseIso8601(string $value): ?DateTimeImmutable
+    {
+        if ($value === '') {
+            return null;
+        }
+
+        try {
+            return new DateTimeImmutable($value);
+        } catch (Exception) {
+            return null;
+        }
+    }
+
+    private static function stripQuotes(string $value): ?string
+    {
+        $trimmed = trim($value, '"');
+
+        return $trimmed === '' ? null : $trimmed;
+    }
+
+    /**
+     * Send an arbitrary signed request to this client's bucket and return the
+     * raw response, for operations this class does not model itself.
      *
      * An empty $object addresses the bucket itself. Unlike {@see get()} and
      * friends this does not interpret the status code: a 404 or a 500 comes
@@ -119,8 +204,8 @@ final class GcsClient implements ObjectStoreClientInterface
      *
      * $query is appended to the URL but not signed, which is what the v1
      * signing scheme wants for list parameters (prefix, delimiter, marker,
-     * max-keys). Sub-resources that do belong in the signature — `?acl`,
-     * `?versions` and friends — are therefore not usable through this method.
+     * max-keys). Sub-resources that do belong in the signature, `?acl`,
+     * `?versions` and friends, are therefore not usable through this method.
      *
      * @param array<string, string> $query
      */

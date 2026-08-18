@@ -16,7 +16,7 @@ Stores one JSON blob per session id in a single container.
 $client = new \Quiote\Storage\Azure\AzureBlobClient(
     httpClient: $psr18Client,
     accountName: 'mystorageaccount',
-    accountKey: getenv('AZURE_STORAGE_KEY'),
+    credential: new \Quiote\Storage\Azure\SharedKeyCredential(getenv('AZURE_STORAGE_KEY')),
 );
 
 $manager = new \Quiote\Session\SessionManager(
@@ -25,6 +25,8 @@ $manager = new \Quiote\Session\SessionManager(
 ```
 
 Pass `endpoint` to `AzureBlobClient` to target Azurite or another Blob-compatible endpoint instead of `https://<account>.blob.core.windows.net`. The container is created on first `save()` (idempotent `PUT ?restype=container`, tolerant of a concurrent creation).
+
+`AzureBlobSessionFactory`'s `auth` slot parameter (`shared_key`, `workload_identity`, `cli` or `chain`, see `quioteframework/cloud-azure`'s README) picks how requests are authorized without an account key ever entering the config for anything but `shared_key`.
 
 ## Table Storage: `AzureTableSessionPersistence`
 

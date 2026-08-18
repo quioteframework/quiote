@@ -7,9 +7,10 @@ namespace Quiote\Storage;
 /**
  * Read, write, remove and stat a single object in a flat keyed store.
  *
- * The operations S3, GCS and Azure Blob genuinely share. Deliberately narrow: no listing (see
- * {@see \Quiote\Filesystem\ListableFilesystemInterface} for why), no copy or move, no ACLs, no
- * multipart. A provider client exposes its full API on its own concrete class -- this is the part
+ * The operations every object store client supports unconditionally. Deliberately narrow beyond
+ * that: no copy or move, no ACLs, no multipart. Listing is on {@see ListableObjectStoreClientInterface}
+ * instead, since not every store built on this interface can offer it -- see that interface's
+ * docblock. A provider client exposes its full API on its own concrete class -- this is the part
  * consumers can be written against once.
  *
  * Keys are flat strings. A provider whose API takes a container or bucket per call binds it at

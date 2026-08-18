@@ -51,16 +51,67 @@ final class FakeS3FilesystemTransport implements ClientInterface
         }
 
         $path = $request->getUri()->getPath();
+        $query = $request->getUri()->getQuery();
 
         return match ($request->getMethod()) {
             'PUT' => $this->handlePut($request, $path),
-            'GET' => isset($this->objects[$path])
-                ? $this->psr17->createResponse(200)->withBody($this->psr17->createStream($this->objects[$path]))
-                : $this->psr17->createResponse(404),
+            'GET' => $path === '/my-bucket' && str_contains($query, 'list-type=2')
+                ? $this->handleList($query)
+                : (isset($this->objects[$path])
+                    ? $this->psr17->createResponse(200)->withBody($this->psr17->createStream($this->objects[$path]))
+                    : $this->psr17->createResponse(404)),
             'HEAD' => $this->handleHead($path),
             'DELETE' => $this->handleDelete($path),
             default => $this->psr17->createResponse(400),
         };
+    }
+
+    /**
+     * A single-page fake of ListObjectsV2: real pagination is exercised at the S3Client level,
+     * this only needs prefix/delimiter grouping for the filesystem adapter's listContents().
+     */
+    private function handleList(string $query): ResponseInterface
+    {
+        parse_str($query, $params);
+        $prefix = is_string($params['prefix'] ?? null) ? $params['prefix'] : '';
+        $delimiter = is_string($params['delimiter'] ?? null) ? $params['delimiter'] : '';
+
+        $keys = [];
+        foreach (array_keys($this->objects) as $path) {
+            $key = substr($path, strlen('/my-bucket/'));
+            if ($prefix !== '' && !str_starts_with($key, $prefix)) {
+                continue;
+            }
+            $keys[] = $key;
+        }
+        sort($keys);
+
+        $contentsXml = '';
+        $prefixesXml = '';
+        $seenPrefixes = [];
+        foreach ($keys as $key) {
+            $rest = substr($key, strlen($prefix));
+            $delimiterPos = $delimiter === '' ? false : strpos($rest, $delimiter);
+            if ($delimiterPos !== false) {
+                $commonPrefix = $prefix . substr($rest, 0, $delimiterPos + 1);
+                if (!isset($seenPrefixes[$commonPrefix])) {
+                    $seenPrefixes[$commonPrefix] = true;
+                    $prefixesXml .= '<CommonPrefixes><Prefix>' . htmlspecialchars($commonPrefix) . '</Prefix></CommonPrefixes>';
+                }
+                continue;
+            }
+            $body = $this->objects['/my-bucket/' . $key];
+            $contentsXml .= sprintf(
+                '<Contents><Key>%s</Key><LastModified>2015-10-21T07:28:00.000Z</LastModified><ETag>"%s"</ETag><Size>%d</Size></Contents>',
+                htmlspecialchars($key),
+                md5($body),
+                strlen($body),
+            );
+        }
+
+        $xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><ListBucketResult>{$contentsXml}{$prefixesXml}</ListBucketResult>";
+
+        return $this->psr17->createResponse(200)->withBody($this->psr17->createStream($xml));
     }
 
     private function handleHead(string $path): ResponseInterface
@@ -243,14 +294,39 @@ final class S3FilesystemAdapterTest extends TestCase
         $this->adapter->lastModified('report.csv');
     }
 
-    /**
-     * The store has no list operation, so this adapter deliberately does not claim to be
-     * listable. A consumer that needs enumeration finds that out from the type rather than from a
-     * thrown exception at the point of use.
-     */
-    public function testAdapterIsNotListable(): void
+    public function testAdapterIsListable(): void
     {
         $this->assertInstanceOf(FilesystemAdapterInterface::class, $this->adapter);
-        $this->assertNotInstanceOf(ListableFilesystemInterface::class, $this->adapter);
+        $this->assertInstanceOf(ListableFilesystemInterface::class, $this->adapter);
+    }
+
+    public function testListContentsReturnsFilesUnderThePrefix(): void
+    {
+        $this->adapter->write('reports/q1.csv', 'a');
+        $this->adapter->write('reports/q2.csv', 'b');
+        $this->adapter->write('other.csv', 'c');
+
+        $this->assertSame(['q1.csv', 'q2.csv'], $this->adapter->listContents('reports'));
+    }
+
+    public function testListContentsGroupsDeeperKeysAsASingleEntry(): void
+    {
+        $this->adapter->write('reports/2024/q1.csv', 'a');
+        $this->adapter->write('reports/summary.csv', 'b');
+
+        $this->assertSame(['2024', 'summary.csv'], $this->adapter->listContents('reports'));
+    }
+
+    public function testListContentsOfAnEmptyPrefixIsEmpty(): void
+    {
+        $this->assertSame([], $this->adapter->listContents('missing'));
+    }
+
+    public function testListContentsServerErrorThrowsFilesystemStorageException(): void
+    {
+        $this->transport->failNextWith = 500;
+
+        $this->expectException(FilesystemStorageException::class);
+        $this->adapter->listContents();
     }
 }

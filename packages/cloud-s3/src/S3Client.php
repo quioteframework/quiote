@@ -4,30 +4,36 @@ declare(strict_types=1);
 
 namespace Quiote\Storage\S3;
 
+use DateTimeImmutable;
+use Exception;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\ResponseInterface;
+use Quiote\Storage\ListableObjectStoreClientInterface;
+use Quiote\Storage\ObjectListing;
 use Quiote\Storage\ObjectMetadata;
-use Quiote\Storage\ObjectStoreClientInterface;
+use Quiote\Storage\ObjectSummary;
+use SimpleXMLElement;
 
 /**
- * Minimal S3 REST client using AWS Signature Version 4 — deliberately not
+ * Minimal S3 REST client using AWS Signature Version 4, deliberately not
  * built on `aws/aws-sdk-php` (a heavy dependency pulling in a client for
  * every AWS service) for the operations a session or filesystem backend
- * needs: get, put, delete and head a single object. Path-style requests, so
- * `endpoint` also works against any S3-compatible service (MinIO, etc). The
- * bucket is assumed to already exist — bucket lifecycle is normally managed
- * outside the app (IaC), unlike Azure's implicit per-account containers.
+ * needs: get, put, delete, head and list. Path-style requests, so `endpoint`
+ * also works against any S3-compatible service (MinIO, etc). The bucket is
+ * assumed to already exist, bucket lifecycle is normally managed outside
+ * the app (IaC), unlike Azure's implicit per-account containers.
  *
- * Anything beyond those four operations — ListObjectsV2, multipart upload,
- * tagging — is deliberately absent, but reachable: {@see request()} performs
- * the SigV4 signing and hands back the raw PSR-7 response, so a caller can
- * implement the operation it needs without reimplementing the signature.
+ * Anything beyond those five operations, multipart upload, tagging,
+ * versioning, is deliberately absent, but reachable: {@see request()}
+ * performs the SigV4 signing and hands back the raw PSR-7 response, so a
+ * caller can implement the operation it needs without reimplementing the
+ * signature.
  *
  * @see https://docs.aws.amazon.com/IAM/latest/UserGuide/create-signed-request.html
  */
-final class S3Client implements ObjectStoreClientInterface
+final class S3Client implements ListableObjectStoreClientInterface
 {
     private const string ALGORITHM = 'AWS4-HMAC-SHA256';
 
@@ -67,7 +73,7 @@ final class S3Client implements ObjectStoreClientInterface
      *
      * The whole body is sent in a single signed PUT; there is no multipart
      * upload, so the payload must fit one request. The bucket must already
-     * exist — this client never creates one.
+     * exist, this client never creates one.
      */
     public function put(string $key, string $body): void
     {
@@ -109,12 +115,87 @@ final class S3Client implements ObjectStoreClientInterface
     }
 
     /**
-     * Send an arbitrary signed request to this client's bucket and return the
-     * raw response, for operations this class does not model itself. The
-     * canonical use is listing:
+     * {@inheritDoc}
      *
-     *     $response = $client->request('GET', '', ['list-type' => '2', 'prefix' => 'files/', 'delimiter' => '/']);
-     *     $xml = simplexml_load_string((string) $response->getBody());
+     * ListObjectsV2 under the hood: $continuationToken round-trips
+     * `NextContinuationToken` verbatim, and $delimiter groups into
+     * `CommonPrefixes` the same way the AWS console's "folder" view does.
+     *
+     * @throws     \Quiote\Storage\ObjectStoreException If S3 answers 4xx/5xx, or its response
+     *             body was not the XML this expects.
+     */
+    public function listObjects(string $prefix = '', string $delimiter = '', ?string $continuationToken = null, int $maxKeys = 1000): ObjectListing
+    {
+        $query = ['list-type' => '2', 'max-keys' => (string) $maxKeys];
+        if ($prefix !== '') {
+            $query['prefix'] = $prefix;
+        }
+        if ($delimiter !== '') {
+            $query['delimiter'] = $delimiter;
+        }
+        if ($continuationToken !== null) {
+            $query['continuation-token'] = $continuationToken;
+        }
+
+        $response = $this->send('GET', '', null, $query);
+        if ($response->getStatusCode() >= 400) {
+            throw $this->unexpectedStatus($response);
+        }
+
+        return self::parseListing((string) $response->getBody());
+    }
+
+    private static function parseListing(string $body): ObjectListing
+    {
+        $document = @simplexml_load_string($body);
+        if (!$document instanceof SimpleXMLElement) {
+            throw new S3StorageException('S3 returned a list response that was not valid XML.');
+        }
+
+        $objects = [];
+        foreach ($document->Contents as $entry) {
+            $size = (string) $entry->Size;
+            $objects[] = new ObjectSummary(
+                (string) $entry->Key,
+                ctype_digit($size) ? (int) $size : null,
+                self::parseIso8601((string) $entry->LastModified),
+                self::stripQuotes((string) $entry->ETag),
+            );
+        }
+
+        $commonPrefixes = [];
+        foreach ($document->CommonPrefixes as $entry) {
+            $commonPrefixes[] = (string) $entry->Prefix;
+        }
+
+        $nextToken = (string) $document->NextContinuationToken;
+
+        return new ObjectListing($objects, $commonPrefixes, $nextToken !== '' ? $nextToken : null);
+    }
+
+    private static function parseIso8601(string $value): ?DateTimeImmutable
+    {
+        if ($value === '') {
+            return null;
+        }
+
+        try {
+            return new DateTimeImmutable($value);
+        } catch (Exception) {
+            return null;
+        }
+    }
+
+    private static function stripQuotes(string $value): ?string
+    {
+        $trimmed = trim($value, '"');
+
+        return $trimmed === '' ? null : $trimmed;
+    }
+
+    /**
+     * Send an arbitrary signed request to this client's bucket and return the
+     * raw response, for operations this class does not model itself.
      *
      * An empty $key addresses the bucket itself. Unlike {@see get()} and
      * friends this does not interpret the status code: a 404 or a 500 comes

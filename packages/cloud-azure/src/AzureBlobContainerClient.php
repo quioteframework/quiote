@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace Quiote\Storage\Azure;
 
+use Quiote\Storage\ListableObjectStoreClientInterface;
+use Quiote\Storage\ObjectListing;
 use Quiote\Storage\ObjectMetadata;
 use Quiote\Storage\ObjectStoreClientInterface;
 
 /**
  * {@see AzureBlobClient} bound to one container, so it satisfies
- * {@see ObjectStoreClientInterface} like the S3 and GCS clients do.
+ * {@see ListableObjectStoreClientInterface} like the S3 and GCS clients do.
  *
  * Azure takes the container per call, where S3 and GCS bind the bucket to the client itself.
  * That is the only shape difference between the three, and binding it here is what lets a
@@ -21,7 +23,7 @@ use Quiote\Storage\ObjectStoreClientInterface;
  *
  * @since      3.2.0
  */
-final class AzureBlobContainerClient implements ObjectStoreClientInterface
+final class AzureBlobContainerClient implements ListableObjectStoreClientInterface
 {
     private bool $containerEnsured = false;
 
@@ -77,6 +79,17 @@ final class AzureBlobContainerClient implements ObjectStoreClientInterface
     public function head(string $key): ?ObjectMetadata
     {
         return $this->client->head($this->container, $key);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * Lists blobs in the bound container.
+     */
+    #[\Override]
+    public function listObjects(string $prefix = '', string $delimiter = '', ?string $continuationToken = null, int $maxKeys = 1000): ObjectListing
+    {
+        return $this->client->listObjects($this->container, $prefix, $delimiter, $continuationToken, $maxKeys);
     }
 
     /**

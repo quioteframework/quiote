@@ -7,6 +7,7 @@ use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Quiote\Storage\Azure\AzureBlobClient;
 use Quiote\Storage\Azure\AzureBlobSessionPersistence;
+use Quiote\Storage\Azure\SharedKeyCredential;
 
 /**
  * Records requests and simulates just enough of the Blob REST surface
@@ -70,7 +71,7 @@ final class AzureBlobSessionPersistenceTest extends TestCase
     protected function setUp(): void
     {
         $this->transport = new FakeAzureBlobTransport();
-        $client = new AzureBlobClient($this->transport, 'testaccount', base64_encode('fake-key-material'));
+        $client = new AzureBlobClient($this->transport, 'testaccount', new SharedKeyCredential(base64_encode('fake-key-material')));
         $this->persistence = new AzureBlobSessionPersistence($client, 'quiote-sessions');
     }
 

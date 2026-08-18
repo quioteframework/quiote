@@ -121,6 +121,77 @@ final class S3ClientTest extends TestCase
 
         $this->assertSame('', $this->http->sent[0]->getUri()->getQuery());
     }
+
+    public function testListObjectsSendsListTypePrefixDelimiterAndContinuationToken(): void
+    {
+        $client = $this->client(200, '<ListBucketResult></ListBucketResult>');
+
+        $client->listObjects('files/', '/', 'previous-token', 50);
+
+        $request = $this->http->sent[0];
+        $this->assertSame('GET', $request->getMethod());
+        $this->assertSame('/my-bucket', $request->getUri()->getPath());
+        parse_str($request->getUri()->getQuery(), $query);
+        $this->assertSame([
+            'continuation-token' => 'previous-token',
+            'delimiter' => '/',
+            'list-type' => '2',
+            'max-keys' => '50',
+            'prefix' => 'files/',
+        ], $query);
+    }
+
+    public function testListObjectsOmitsTheContinuationTokenOnTheFirstPage(): void
+    {
+        $client = $this->client(200, '<ListBucketResult></ListBucketResult>');
+
+        $client->listObjects();
+
+        parse_str($this->http->sent[0]->getUri()->getQuery(), $query);
+        $this->assertArrayNotHasKey('continuation-token', $query);
+    }
+
+    public function testListObjectsParsesContentsCommonPrefixesAndTheContinuationToken(): void
+    {
+        $xml = '<ListBucketResult>'
+            . '<Contents><Key>files/a.csv</Key><LastModified>2015-10-21T07:28:00.000Z</LastModified><ETag>"abc123"</ETag><Size>42</Size></Contents>'
+            . '<CommonPrefixes><Prefix>files/sub/</Prefix></CommonPrefixes>'
+            . '<NextContinuationToken>next-token</NextContinuationToken>'
+            . '</ListBucketResult>';
+
+        $listing = $this->client(200, $xml)->listObjects('files/', '/');
+
+        $this->assertCount(1, $listing->objects);
+        $this->assertSame('files/a.csv', $listing->objects[0]->key);
+        $this->assertSame(42, $listing->objects[0]->size);
+        $this->assertSame('2015-10-21T07:28:00+00:00', $listing->objects[0]->lastModified?->format(DATE_ATOM));
+        $this->assertSame('abc123', $listing->objects[0]->etag);
+        $this->assertSame(['files/sub/'], $listing->commonPrefixes);
+        $this->assertSame('next-token', $listing->nextContinuationToken);
+        $this->assertTrue($listing->isTruncated());
+    }
+
+    public function testListObjectsWithNoNextContinuationTokenIsNotTruncated(): void
+    {
+        $listing = $this->client(200, '<ListBucketResult></ListBucketResult>')->listObjects();
+
+        $this->assertSame([], $listing->objects);
+        $this->assertSame([], $listing->commonPrefixes);
+        $this->assertNull($listing->nextContinuationToken);
+        $this->assertFalse($listing->isTruncated());
+    }
+
+    public function testListObjectsThrowsOnAServerError(): void
+    {
+        $this->expectException(S3StorageException::class);
+        $this->client(500, 'boom')->listObjects();
+    }
+
+    public function testListObjectsThrowsOnMalformedXml(): void
+    {
+        $this->expectException(S3StorageException::class);
+        $this->client(200, 'not xml')->listObjects();
+    }
 }
 
 /**

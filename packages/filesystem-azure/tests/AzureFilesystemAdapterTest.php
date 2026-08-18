@@ -13,6 +13,7 @@ use Quiote\Filesystem\FilesystemAdapterInterface;
 use Quiote\Filesystem\FilesystemStorageException;
 use Quiote\Filesystem\ListableFilesystemInterface;
 use Quiote\Storage\Azure\AzureBlobClient;
+use Quiote\Storage\Azure\SharedKeyCredential;
 
 /** Mirrors packages/filesystem-s3/tests/S3FilesystemAdapterTest.php's fake transport. */
 final class FakeAzureFilesystemTransport implements ClientInterface
@@ -45,16 +46,68 @@ final class FakeAzureFilesystemTransport implements ClientInterface
         }
 
         $path = $request->getUri()->getPath();
+        $query = $request->getUri()->getQuery();
 
         return match ($request->getMethod()) {
             'PUT' => $this->handlePut($request, $path),
-            'GET' => isset($this->blobs[$path])
-                ? $this->psr17->createResponse(200)->withBody($this->psr17->createStream($this->blobs[$path]))
-                : $this->psr17->createResponse(404),
+            'GET' => $path === '/my-container' && str_contains($query, 'comp=list')
+                ? $this->handleList($query)
+                : (isset($this->blobs[$path])
+                    ? $this->psr17->createResponse(200)->withBody($this->psr17->createStream($this->blobs[$path]))
+                    : $this->psr17->createResponse(404)),
             'HEAD' => $this->handleHead($path),
             'DELETE' => $this->handleDelete($path),
             default => $this->psr17->createResponse(400),
         };
+    }
+
+    /**
+     * A single-page fake of List Blobs: real pagination is exercised at the AzureBlobClient
+     * level, this only needs prefix/delimiter grouping for the filesystem adapter's
+     * listContents().
+     */
+    private function handleList(string $query): ResponseInterface
+    {
+        parse_str($query, $params);
+        $prefix = is_string($params['prefix'] ?? null) ? $params['prefix'] : '';
+        $delimiter = is_string($params['delimiter'] ?? null) ? $params['delimiter'] : '';
+
+        $names = [];
+        foreach (array_keys($this->blobs) as $path) {
+            $name = substr($path, strlen('/my-container/'));
+            if ($prefix !== '' && !str_starts_with($name, $prefix)) {
+                continue;
+            }
+            $names[] = $name;
+        }
+        sort($names);
+
+        $blobsXml = '';
+        $prefixesXml = '';
+        $seenPrefixes = [];
+        foreach ($names as $name) {
+            $rest = substr($name, strlen($prefix));
+            $delimiterPos = $delimiter === '' ? false : strpos($rest, $delimiter);
+            if ($delimiterPos !== false) {
+                $commonPrefix = $prefix . substr($rest, 0, $delimiterPos + 1);
+                if (!isset($seenPrefixes[$commonPrefix])) {
+                    $seenPrefixes[$commonPrefix] = true;
+                    $prefixesXml .= '<BlobPrefix><Name>' . htmlspecialchars($commonPrefix) . '</Name></BlobPrefix>';
+                }
+                continue;
+            }
+            $body = $this->blobs['/my-container/' . $name];
+            $blobsXml .= sprintf(
+                '<Blob><Name>%s</Name><Properties><Last-Modified>Wed, 21 Oct 2015 07:28:00 GMT</Last-Modified><Etag>"%s"</Etag><Content-Length>%d</Content-Length></Properties></Blob>',
+                htmlspecialchars($name),
+                md5($body),
+                strlen($body),
+            );
+        }
+
+        $xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><EnumerationResults><Blobs>{$blobsXml}{$prefixesXml}</Blobs><NextMarker/></EnumerationResults>";
+
+        return $this->psr17->createResponse(200)->withBody($this->psr17->createStream($xml));
     }
 
     private function handleHead(string $path): ResponseInterface
@@ -99,7 +152,7 @@ final class AzureFilesystemAdapterTest extends TestCase
     protected function setUp(): void
     {
         $this->transport = new FakeAzureFilesystemTransport();
-        $client = new AzureBlobClient($this->transport, 'myaccount', base64_encode('fake-key'));
+        $client = new AzureBlobClient($this->transport, 'myaccount', new SharedKeyCredential(base64_encode('fake-key')));
         $this->adapter = new AzureFilesystemAdapter($client, 'my-container', 'files/');
     }
 
@@ -240,14 +293,39 @@ final class AzureFilesystemAdapterTest extends TestCase
         $this->adapter->lastModified('report.csv');
     }
 
-    /**
-     * The store has no list operation, so this adapter deliberately does not claim to be
-     * listable. A consumer that needs enumeration finds that out from the type rather than from a
-     * thrown exception at the point of use.
-     */
-    public function testAdapterIsNotListable(): void
+    public function testAdapterIsListable(): void
     {
         $this->assertInstanceOf(FilesystemAdapterInterface::class, $this->adapter);
-        $this->assertNotInstanceOf(ListableFilesystemInterface::class, $this->adapter);
+        $this->assertInstanceOf(ListableFilesystemInterface::class, $this->adapter);
+    }
+
+    public function testListContentsReturnsFilesUnderThePrefix(): void
+    {
+        $this->adapter->write('reports/q1.csv', 'a');
+        $this->adapter->write('reports/q2.csv', 'b');
+        $this->adapter->write('other.csv', 'c');
+
+        $this->assertSame(['q1.csv', 'q2.csv'], $this->adapter->listContents('reports'));
+    }
+
+    public function testListContentsGroupsDeeperKeysAsASingleEntry(): void
+    {
+        $this->adapter->write('reports/2024/q1.csv', 'a');
+        $this->adapter->write('reports/summary.csv', 'b');
+
+        $this->assertSame(['2024', 'summary.csv'], $this->adapter->listContents('reports'));
+    }
+
+    public function testListContentsOfAnEmptyPrefixIsEmpty(): void
+    {
+        $this->assertSame([], $this->adapter->listContents('missing'));
+    }
+
+    public function testListContentsServerErrorThrowsFilesystemStorageException(): void
+    {
+        $this->transport->failWith = 500;
+
+        $this->expectException(FilesystemStorageException::class);
+        $this->adapter->listContents();
     }
 }

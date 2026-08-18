@@ -17,8 +17,9 @@ use Quiote\Storage\ObjectStoreException;
  * the object's metadata. That mapping is provider-independent, so it lives here once and the
  * provider packages supply only their client.
  *
- * Deliberately not a {@see ListableFilesystemInterface}: an object store reached through
- * single-object calls has no list operation. See that interface for the reasoning.
+ * Not a {@see ListableFilesystemInterface} itself: that needs a store that can enumerate its
+ * keys, which not every {@see ObjectStoreClientInterface} can. {@see ListableObjectStoreFilesystemAdapter}
+ * adds it for the ones that can, without every consumer of this class paying for the distinction.
  *
  * The provider name is carried for error messages only, so a failure says "S3 returned no
  * Content-Length" rather than something a reader has to trace back to a driver alias.

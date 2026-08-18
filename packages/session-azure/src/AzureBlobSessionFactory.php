@@ -23,6 +23,12 @@ use RuntimeException;
  *     container: quiote-sessions
  * ```
  *
+ * `auth` selects how requests are authorized: `shared_key` (default, needs
+ * `account_key`), `workload_identity` (AKS, reads the webhook's own
+ * environment variables), `cli` (a developer's `az login` session) or
+ * `chain` (workload identity, falling back to the CLI). Only `shared_key`
+ * ever reads a storage account key.
+ *
  * For small key/value-shaped session payloads
  * {@see AzureTableSessionFactory} is cheaper. Bring your own PSR-18 client,
  * bound in the container.
@@ -34,10 +40,10 @@ final class AzureBlobSessionFactory implements SessionFactoryInterface
     /**
      * Builds blob-backed session persistence from the slot's parameters.
      *
-     * Reads `account_name`, `account_key`, an optional `endpoint` (empty means
-     * the public `*.blob.core.windows.net` origin) and `container`, which
-     * defaults to `quiote-sessions`. The PSR-18 client comes from the
-     * container, not from the parameters.
+     * Reads `account_name`, `auth`, `account_key`, an optional `endpoint`
+     * (empty means the public `*.blob.core.windows.net` origin) and
+     * `container`, which defaults to `quiote-sessions`. The PSR-18 client
+     * comes from the container, not from the parameters.
      *
      * @param array<string, mixed> $parameters
      * @throws \RuntimeException If no PSR-18 client is bound in the container.
@@ -45,12 +51,16 @@ final class AzureBlobSessionFactory implements SessionFactoryInterface
     public function createPersistence(Context $context, array $parameters): SessionPersistenceInterface
     {
         $endpoint = AzureSessionParameters::str($parameters, 'endpoint');
+        $httpClient = AzureSessionParameters::httpClient($context, 'Blob');
 
         return new AzureBlobSessionPersistence(
             new AzureBlobClient(
-                AzureSessionParameters::httpClient($context, 'Blob'),
+                $httpClient,
                 AzureSessionParameters::str($parameters, 'account_name'),
-                AzureSessionParameters::str($parameters, 'account_key'),
+                AzureCredentialFactory::fromConfig([
+                    'auth' => AzureSessionParameters::str($parameters, 'auth', 'shared_key'),
+                    'account_key' => AzureSessionParameters::str($parameters, 'account_key'),
+                ], $httpClient),
                 $endpoint !== '' ? $endpoint : null,
                 new Psr17Factory(),
             ),
