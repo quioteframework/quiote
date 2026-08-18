@@ -22,12 +22,14 @@
 	"require-dev": {
 		"quioteframework/propulsion": "^2.0 || ^3.0",
 		"doctrine/dbal": "^4.0",
-		"illuminate/database": "^10.0 || ^11.0 || ^12.0 || ^13.0"
+		"illuminate/database": "^10.0 || ^11.0 || ^12.0 || ^13.0",
+		"cycle/database": "^2.0"
 	},
 	"suggest": {
 		"quioteframework/propulsion": "Enables Quiote\\Replay\\Db\\PropulsionQueryRecorder, an effect-ledger recorder for Propulsion's own query observer seam.",
 		"doctrine/dbal": "Enables Quiote\\Replay\\Db\\DoctrineRecordingMiddleware, an effect-ledger recorder for Doctrine DBAL's own driver middleware seam.",
-		"illuminate/database": "Enables Quiote\\Replay\\Db\\EloquentQueryRecorder, an effect-ledger recorder for Eloquent's QueryExecuted event."
+		"illuminate/database": "Enables Quiote\\Replay\\Db\\EloquentQueryRecorder, an effect-ledger recorder for Eloquent's QueryExecuted event.",
+		"cycle/database": "Enables Quiote\\Replay\\Db\\CycleRecordingLogger, an effect-ledger recorder for Cycle's own PSR-3 logger seam."
 	},
 	"autoload": {
 		"psr-4": {
