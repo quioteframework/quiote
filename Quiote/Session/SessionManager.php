@@ -9,6 +9,8 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Quiote\Support\Clock\ClockInterface;
 use Quiote\Support\Clock\SystemClock;
+use Quiote\Support\Random\RandomnessInterface;
+use Quiote\Support\Random\SystemRandomness;
 
 /**
  * Opinionated, PSR-7-based session handling: a cookie carrying a session id, and
@@ -81,6 +83,7 @@ class SessionManager
         SessionPersistenceInterface $persistence,
         array $parameters = [],
         private readonly ClockInterface $clock = new SystemClock(),
+        private readonly RandomnessInterface $randomness = new SystemRandomness(),
     ) {
         $this->persistence = $persistence;
         if (isset($parameters['cookie_name']) && (is_string($parameters['cookie_name']) || is_numeric($parameters['cookie_name']))) {
@@ -550,6 +553,6 @@ class SessionManager
 
     private function generateSid(): string
     {
-        return rtrim(strtr(base64_encode(random_bytes(24)), '+/', '-_'), '=');
+        return rtrim(strtr(base64_encode($this->randomness->bytes(24)), '+/', '-_'), '=');
     }
 }

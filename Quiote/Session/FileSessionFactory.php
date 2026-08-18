@@ -42,6 +42,7 @@ final class FileSessionFactory implements SessionFactoryInterface
             $dir,
             $parameters,
             clock: $context->getContainer()->get(\Quiote\Support\Clock\ClockInterface::class),
+            randomness: $context->getContainer()->get(\Quiote\Support\Random\RandomnessInterface::class),
         );
     }
 }

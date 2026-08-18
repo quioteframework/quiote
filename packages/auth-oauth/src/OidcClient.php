@@ -4,6 +4,8 @@ namespace Quiote\Security\Auth;
 use GuzzleHttp\ClientInterface;
 use League\OAuth2\Client\Provider\AbstractProvider;
 use League\OAuth2\Client\Token\AccessTokenInterface;
+use Quiote\Support\Random\RandomnessInterface;
+use Quiote\Support\Random\SystemRandomness;
 use Throwable;
 
 /**
@@ -30,6 +32,7 @@ final class OidcClient
 	 * @param      string $tokenEndpoint The authorization server's `/token` endpoint.
 	 * @param      array<int, string> $scopes The scopes to request.
 	 * @param      ?ClientInterface $httpClient A Guzzle HTTP client override (e.g. for testing); defaults to a real Guzzle client.
+	 * @param      RandomnessInterface $randomness The source of entropy for the OIDC nonce.
 	 * @since      1.0.0
 	 */
 	public function __construct(
@@ -40,6 +43,7 @@ final class OidcClient
 		string $tokenEndpoint,
 		array $scopes = ['openid'],
 		?ClientInterface $httpClient = null,
+		private readonly RandomnessInterface $randomness = new SystemRandomness(),
 	) {
 		$this->provider = new SpaceDelimitedScopeProvider([
 			'clientId' => $clientId,
@@ -66,6 +70,7 @@ final class OidcClient
 	 * @param      string $redirectUri This app's callback URL, registered with the authorization server.
 	 * @param      array<int, string> $scopes The scopes to request.
 	 * @param      ?ClientInterface $httpClient A Guzzle HTTP client override (e.g. for testing); defaults to a real Guzzle client.
+	 * @param      RandomnessInterface $randomness The source of entropy for the OIDC nonce.
 	 * @return     self A client wired to the discovered authorization and token endpoints.
 	 * @throws     AuthenticationException If the document lacks an authorization or token endpoint, or rules out PKCE S256.
 	 * @since      1.2.5
@@ -77,6 +82,7 @@ final class OidcClient
 		string $redirectUri,
 		array $scopes = ['openid'],
 		?ClientInterface $httpClient = null,
+		RandomnessInterface $randomness = new SystemRandomness(),
 	): self {
 		if(!$document->supportsPkceS256()) {
 			throw new AuthenticationException(sprintf('OIDC provider "%s" does not support the S256 PKCE method, which OAuth 2.1 requires.', $document->getIssuer()));
@@ -90,6 +96,7 @@ final class OidcClient
 			$document->getTokenEndpoint(),
 			$scopes,
 			$httpClient,
+			$randomness,
 		);
 	}
 
@@ -102,7 +109,7 @@ final class OidcClient
 	 */
 	public function buildAuthorizationRequest(): OidcAuthorizationRequest
 	{
-		$nonce = bin2hex(random_bytes(16));
+		$nonce = bin2hex($this->randomness->bytes(16));
 		$url = $this->provider->getAuthorizationUrl(['nonce' => $nonce]);
 		$state = $this->provider->getState();
 		$pkceVerifier = $this->provider->getPkceCode();

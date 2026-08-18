@@ -43,6 +43,7 @@ final class QueueRedisPlugin implements PluginInterface
                 new Client(Config::getString('queue.redis.dsn', 'redis://127.0.0.1:6379')),
                 Config::getString('queue.redis.prefix', 'quiote_queue'),
                 \Quiote\Support\Clock\Clock::instance(),
+                \Quiote\Support\Random\Randomness::instance(),
             ),
             Container::SCOPE_SINGLETON,
         );

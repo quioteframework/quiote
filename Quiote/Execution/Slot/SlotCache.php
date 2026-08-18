@@ -6,6 +6,8 @@ namespace Quiote\Execution\Slot;
 
 use Quiote\Cache\CacheManager;
 use Quiote\Logging\CategoryLogger;
+use Quiote\Support\Random\RandomnessInterface;
+use Quiote\Support\Random\SystemRandomness;
 
 /**
  * Reading and writing a slot's rendered content to the shared cache.
@@ -32,7 +34,11 @@ final readonly class SlotCache
     /** Marks a payload as carrying its own expiry stamp. */
     private const string MONO_TTL_MARKER = "\x00SCTTL1\x00";
 
-    public function __construct(private CategoryLogger $logger, private string $slotKey) {}
+    public function __construct(
+        private CategoryLogger $logger,
+        private string $slotKey,
+        private RandomnessInterface $randomness = new SystemRandomness(),
+    ) {}
 
     /**
      * Composes the cache key for one slot render.
@@ -85,7 +91,7 @@ final readonly class SlotCache
     {
         $encoded = json_encode($parameters);
 
-        return $encoded !== false ? md5($encoded) : 'uncacheable-' . bin2hex(random_bytes(8));
+        return $encoded !== false ? md5($encoded) : 'uncacheable-' . bin2hex($this->randomness->bytes(8));
     }
 
     /** The cached content, or null on a miss, an expired stamp, or an unreadable cache. */

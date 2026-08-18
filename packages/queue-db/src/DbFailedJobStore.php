@@ -9,6 +9,8 @@ use Quiote\Queue\FailedJobStoreInterface;
 use Quiote\Queue\InspectableFailedJobStoreInterface;
 use Quiote\Support\Clock\ClockInterface;
 use Quiote\Support\Clock\SystemClock;
+use Quiote\Support\Random\RandomnessInterface;
+use Quiote\Support\Random\SystemRandomness;
 
 /**
  * Persistent {@see FailedJobStoreInterface} — an inspectable dead-letter
@@ -34,6 +36,7 @@ final readonly class DbFailedJobStore implements InspectableFailedJobStoreInterf
         private PDO $pdo,
         private string $table = 'quiote_queue_failed_jobs',
         private ClockInterface $clock = new SystemClock(),
+        private RandomnessInterface $randomness = new SystemRandomness(),
     ) {
     }
 
@@ -54,7 +57,7 @@ final readonly class DbFailedJobStore implements InspectableFailedJobStoreInterf
             $this->quoteIdent($this->table),
         ));
         $stmt->execute([
-            'id' => bin2hex(random_bytes(16)),
+            'id' => bin2hex($this->randomness->bytes(16)),
             'job_class' => $failedJob->jobClass,
             'params' => json_encode($failedJob->params, JSON_THROW_ON_ERROR),
             'exception_class' => $failedJob->exceptionClass,

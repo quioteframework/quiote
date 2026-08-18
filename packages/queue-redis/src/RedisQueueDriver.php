@@ -10,6 +10,8 @@ use Quiote\Queue\PollableQueueDriverInterface;
 use Quiote\Queue\ReservedJob;
 use Quiote\Support\Clock\ClockInterface;
 use Quiote\Support\Clock\SystemClock;
+use Quiote\Support\Random\RandomnessInterface;
+use Quiote\Support\Random\SystemRandomness;
 use RuntimeException;
 
 /**
@@ -32,6 +34,7 @@ final readonly class RedisQueueDriver implements PollableQueueDriverInterface
         private ClientInterface $redis,
         private string $prefix = 'quiote_queue',
         private ClockInterface $clock = new SystemClock(),
+        private RandomnessInterface $randomness = new SystemRandomness(),
     ) {
     }
 
@@ -134,7 +137,7 @@ final readonly class RedisQueueDriver implements PollableQueueDriverInterface
 
     private function encode(JobPayload $payload, int $availableAt, ?string $reuseUid = null): string
     {
-        $uid = $reuseUid !== null ? $this->extractUid($reuseUid) : bin2hex(random_bytes(16));
+        $uid = $reuseUid !== null ? $this->extractUid($reuseUid) : bin2hex($this->randomness->bytes(16));
 
         return json_encode([
             'uid' => $uid,
@@ -149,7 +152,7 @@ final readonly class RedisQueueDriver implements PollableQueueDriverInterface
     {
         $decoded = json_decode($entry, true, flags: JSON_THROW_ON_ERROR);
         if (!is_array($decoded) || !isset($decoded['uid']) || !is_string($decoded['uid'])) {
-            return bin2hex(random_bytes(16));
+            return bin2hex($this->randomness->bytes(16));
         }
 
         return $decoded['uid'];

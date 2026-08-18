@@ -15,6 +15,8 @@ use Quiote\Execution\SecurityDecision;
 use Quiote\Action\Action;
 use Quiote\Execution\ExecutionState;
 use Quiote\Execution\ValidationDecision;
+use Quiote\Support\Random\RandomnessInterface;
+use Quiote\Support\Random\SystemRandomness;
 
 /**
  * Security middleware: evaluates action security requirements and forwards
@@ -28,8 +30,11 @@ class SecurityMiddleware implements MiddlewareInterface
     private readonly ForwardService $forwardService;
     private readonly SecurityService $securityService;
 
-    public function __construct(private readonly Controller $controller, ?SecurityService $securityService = null)
-    {
+    public function __construct(
+        private readonly Controller $controller,
+        ?SecurityService $securityService = null,
+        private readonly RandomnessInterface $randomness = new SystemRandomness(),
+    ) {
         $this->securityService = $securityService ?? new SecurityService($controller);
         $this->forwardService = new ForwardService($controller);
     }
@@ -65,7 +70,7 @@ class SecurityMiddleware implements MiddlewareInterface
         $rid = is_string($ridAttr) && $ridAttr !== '' ? $ridAttr : '';
         if ($rid === '') {
             try {
-                $rid = bin2hex(random_bytes(4));
+                $rid = bin2hex($this->randomness->bytes(4));
             } catch (\Throwable) {
                 $rid = uniqid();
             }

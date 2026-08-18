@@ -3,6 +3,7 @@
 namespace Quiote\Support;
 
 use Psr\Http\Message\ServerRequestInterface;
+use Quiote\Support\Random\Randomness;
 
 /**
  * Resolves a per-request correlation ID: adopt a sane inbound header value if
@@ -54,7 +55,7 @@ final class CorrelationId
     public static function generate(): string
     {
         try {
-            return rtrim(strtr(base64_encode(random_bytes(10)), '+/', '-_'), '=');
+            return rtrim(strtr(base64_encode(Randomness::instance()->bytes(10)), '+/', '-_'), '=');
         } catch (\Throwable) {
             return uniqid('req', true);
         }

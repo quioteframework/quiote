@@ -56,6 +56,7 @@ final class QueueDbPlugin implements PluginInterface
                 self::resolvePdo(),
                 Config::getString('queue.db.table', 'quiote_queue_jobs'),
                 self::resolveClock(),
+                self::resolveRandomness(),
             ),
             Container::SCOPE_SINGLETON,
         );
@@ -66,6 +67,7 @@ final class QueueDbPlugin implements PluginInterface
                 self::resolvePdo(),
                 Config::getString('queue.db.failed_table', 'quiote_queue_failed_jobs'),
                 self::resolveClock(),
+                self::resolveRandomness(),
             ),
             Container::SCOPE_SINGLETON,
         );
@@ -76,6 +78,13 @@ final class QueueDbPlugin implements PluginInterface
         return Context::getInstance(Config::getString('core.default_context', 'web'))
             ->getContainer()
             ->get(\Quiote\Support\Clock\ClockInterface::class);
+    }
+
+    private static function resolveRandomness(): \Quiote\Support\Random\RandomnessInterface
+    {
+        return Context::getInstance(Config::getString('core.default_context', 'web'))
+            ->getContainer()
+            ->get(\Quiote\Support\Random\RandomnessInterface::class);
     }
 
     private static function resolvePdo(): PDO

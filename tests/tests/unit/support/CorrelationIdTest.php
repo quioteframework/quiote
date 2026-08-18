@@ -3,6 +3,8 @@
 use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\TestCase;
 use Quiote\Support\CorrelationId;
+use Quiote\Support\Random\Randomness;
+use Quiote\Support\Random\SeededRandomness;
 
 /**
  * The correlation-ID resolution/sanitization used by Context::handle() for the
@@ -86,5 +88,46 @@ class CorrelationIdTest extends TestCase
         $id = CorrelationId::generate();
 
         $this->assertSame($id, CorrelationId::sanitize($id));
+    }
+
+    /**
+     * generate() goes through the Randomness facade rather than a direct
+     * random_bytes() call, per §6.2 of the record/replay determinism plan --
+     * so a replay engine installing a SeededRandomness reproduces the exact
+     * generated id.
+     */
+    public function testGenerateUsesTheInstalledRandomnessSeam(): void
+    {
+        $previous = Randomness::useRandomness(new SeededRandomness(42));
+        try {
+            $expected = rtrim(strtr(base64_encode((new SeededRandomness(42))->bytes(10)), '+/', '-_'), '=');
+
+            $this->assertSame($expected, CorrelationId::generate());
+        } finally {
+            Randomness::useRandomness($previous);
+        }
+    }
+
+    public function testGenerateFallsBackToUniqidWhenRandomnessThrows(): void
+    {
+        $throwing = new class implements \Quiote\Support\Random\RandomnessInterface {
+            public function bytes(int $length): string
+            {
+                throw new \RuntimeException('entropy source unavailable');
+            }
+            public function int(int $min, int $max): int
+            {
+                throw new \RuntimeException('entropy source unavailable');
+            }
+        };
+
+        $previous = Randomness::useRandomness($throwing);
+        try {
+            $id = CorrelationId::generate();
+
+            $this->assertStringStartsWith('req', $id);
+        } finally {
+            Randomness::useRandomness($previous);
+        }
     }
 }

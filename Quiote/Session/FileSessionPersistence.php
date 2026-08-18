@@ -8,6 +8,8 @@ use FilesystemIterator;
 use Quiote\Exception\StorageException;
 use Quiote\Support\Clock\ClockInterface;
 use Quiote\Support\Clock\SystemClock;
+use Quiote\Support\Random\RandomnessInterface;
+use Quiote\Support\Random\SystemRandomness;
 use Throwable;
 
 /**
@@ -51,6 +53,7 @@ class FileSessionPersistence implements SessionPersistenceInterface
         array $parameters = [],
         private readonly SessionCodecInterface $codec = new SessionCodec(preferBinary: true),
         private readonly ClockInterface $clock = new SystemClock(),
+        private readonly RandomnessInterface $randomness = new SystemRandomness(),
     ) {
         if (isset($parameters['idle_ttl']) && (is_int($parameters['idle_ttl']) || is_string($parameters['idle_ttl']))) {
             $this->idleTtl = max(0, (int)$parameters['idle_ttl']);
@@ -135,7 +138,7 @@ class FileSessionPersistence implements SessionPersistenceInterface
             throw new StorageException(sprintf('Failed publishing session file "%s".', $file));
         }
 
-        if ($this->gcProbability > 0 && random_int(1, $this->gcDivisor) <= $this->gcProbability) {
+        if ($this->gcProbability > 0 && $this->randomness->int(1, $this->gcDivisor) <= $this->gcProbability) {
             $this->gc();
         }
     }

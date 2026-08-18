@@ -7,6 +7,7 @@ use Quiote\Queue\JobPayload;
 use Quiote\Queue\Redis\RedisQueueDriver;
 use Quiote\Queue\ReservedJob;
 use Quiote\Support\Clock\FrozenClock;
+use Quiote\Support\Random\SeededRandomness;
 use Quiote\Test\Redis\InMemoryPredisClient;
 
 /**
@@ -413,5 +414,44 @@ final class RedisQueueDriverUnitTest extends TestCase
         $this->assertSame('App\\Job\\Hand', $again->payload->jobClass);
         $this->assertSame(1, $again->payload->attempts);
         $this->assertNotSame('', $this->decode($again->id)['uid']);
+    }
+
+    /**
+     * The entry's `uid` goes through the injected RandomnessInterface seam
+     * rather than a direct random_bytes() call, per §6.2 of the record/replay
+     * determinism plan -- so a replay engine can reproduce exactly which uid
+     * a recorded push produced.
+     */
+    public function testUidIsDerivedFromTheInjectedRandomnessSeam(): void
+    {
+        $redis = new InMemoryPredisClient();
+        $driver = new RedisQueueDriver($redis, self::PREFIX, randomness: new SeededRandomness(42));
+
+        $driver->push(new JobPayload('App\\Job\\Seeded'));
+
+        $reserved = $driver->reserve();
+        $this->assertInstanceOf(ReservedJob::class, $reserved);
+        $this->assertSame(bin2hex((new SeededRandomness(42))->bytes(16)), $this->decode($reserved->id)['uid']);
+    }
+
+    public function testSameSeedProducesTheSameUidAcrossTwoDrivers(): void
+    {
+        $redisA = new InMemoryPredisClient();
+        $redisB = new InMemoryPredisClient();
+        $driverA = new RedisQueueDriver($redisA, self::PREFIX, randomness: new SeededRandomness(7));
+        $driverB = new RedisQueueDriver($redisB, self::PREFIX, randomness: new SeededRandomness(7));
+
+        $driverA->push(new JobPayload('App\\Job\\A'));
+        $driverB->push(new JobPayload('App\\Job\\A'));
+
+        $reservedA = $driverA->reserve();
+        $reservedB = $driverB->reserve();
+        $this->assertInstanceOf(ReservedJob::class, $reservedA);
+        $this->assertInstanceOf(ReservedJob::class, $reservedB);
+
+        $uidA = $this->decode($reservedA->id)['uid'];
+        $uidB = $this->decode($reservedB->id)['uid'];
+
+        $this->assertSame($uidA, $uidB);
     }
 }

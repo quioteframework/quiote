@@ -7,6 +7,7 @@ use Quiote\Queue\Db\DbFailedJobStore;
 use Quiote\Queue\FailedJob;
 use Quiote\Queue\Job;
 use Quiote\Support\Clock\FrozenClock;
+use Quiote\Support\Random\SeededRandomness;
 
 final class DbFailedJobStoreTestJob implements Job
 {
@@ -176,5 +177,22 @@ final class DbFailedJobStoreTest extends TestCase
         $stmt = $pdo->query('SELECT failed_at FROM quiote_queue_failed_jobs');
         $this->assertNotFalse($stmt);
         $this->assertSame(1_700_000_000, (int) $stmt->fetchColumn());
+    }
+
+    /**
+     * The record's id goes through the injected RandomnessInterface seam
+     * rather than a direct random_bytes() call, per §6.2 of the record/replay
+     * determinism plan.
+     */
+    public function testIdIsDerivedFromTheInjectedRandomnessSeam(): void
+    {
+        $pdo = $this->sqlitePdo();
+        $store = new DbFailedJobStore($pdo, randomness: new SeededRandomness(42));
+
+        $store->record(new FailedJob(DbFailedJobStoreTestJob::class, [], RuntimeException::class, 'a', '', 1));
+
+        $stmt = $pdo->query('SELECT id FROM quiote_queue_failed_jobs');
+        $this->assertNotFalse($stmt);
+        $this->assertSame(bin2hex((new SeededRandomness(42))->bytes(16)), $stmt->fetchColumn());
     }
 }

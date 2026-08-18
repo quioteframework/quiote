@@ -700,4 +700,70 @@ class SessionManagerTest extends UnitTestCase
         $this->assertStringContainsString('Expires=' . gmdate('D, d-M-Y H:i:s T', 1_700_000_000 + 3600), $cookie);
         $this->assertStringContainsString('Max-Age=3600', $cookie);
     }
+
+    /**
+     * New session ids go through the injected RandomnessInterface seam rather
+     * than a direct random_bytes() call, per §6.2 of the record/replay
+     * determinism plan -- so a replay engine can reproduce the exact
+     * generated id.
+     */
+    public function testNewSessionIdIsDerivedFromTheInjectedRandomnessSeam(): void
+    {
+        $seeded = new \Quiote\Support\Random\SeededRandomness(42);
+        $manager = new SessionManager(
+            new InMemorySessionPersistence(),
+            [],
+            new \Quiote\Support\Clock\SystemClock(),
+            $seeded,
+        );
+
+        $session = $manager->startFromRequest(new ServerRequest('GET', '/'));
+
+        $expected = rtrim(strtr(base64_encode((new \Quiote\Support\Random\SeededRandomness(42))->bytes(24)), '+/', '-_'), '=');
+        $this->assertSame($expected, $session->getId());
+    }
+
+    public function testSameSeedProducesTheSameSessionIdAcrossTwoManagers(): void
+    {
+        $managerA = new SessionManager(
+            new InMemorySessionPersistence(),
+            [],
+            new \Quiote\Support\Clock\SystemClock(),
+            new \Quiote\Support\Random\SeededRandomness(7),
+        );
+        $managerB = new SessionManager(
+            new InMemorySessionPersistence(),
+            [],
+            new \Quiote\Support\Clock\SystemClock(),
+            new \Quiote\Support\Random\SeededRandomness(7),
+        );
+
+        $sessionA = $managerA->startFromRequest(new ServerRequest('GET', '/'));
+        $sessionB = $managerB->startFromRequest(new ServerRequest('GET', '/'));
+
+        $this->assertSame($sessionA->getId(), $sessionB->getId());
+    }
+
+    public function testRegenerateDerivesTheNewIdFromTheInjectedRandomnessSeam(): void
+    {
+        $persistence = new InMemorySessionPersistence();
+        $manager = new SessionManager(
+            $persistence,
+            [],
+            new \Quiote\Support\Clock\SystemClock(),
+            new \Quiote\Support\Random\SeededRandomness(99),
+        );
+
+        // startFromRequest() consumes the seeded sequence's first 24-byte
+        // read for the initial session id; regenerate()'s new id is the
+        // sequence's second read.
+        $probe = new \Quiote\Support\Random\SeededRandomness(99);
+        $probe->bytes(24);
+        $expected = rtrim(strtr(base64_encode($probe->bytes(24)), '+/', '-_'), '=');
+
+        $session = $manager->startFromRequest(new ServerRequest('GET', '/'));
+        $manager->regenerate($session, true);
+
+        $this->assertSame($expected, $session->getId());
+    }
 }

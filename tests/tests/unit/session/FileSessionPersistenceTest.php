@@ -297,4 +297,68 @@ class FileSessionPersistenceTest extends UnitTestCase
         $this->assertSame(1, $persistence->gc());
         $this->assertNull($persistence->load('old'));
     }
+
+    /**
+     * The gc_probability roll goes through the injected RandomnessInterface
+     * seam rather than a direct random_int() call, per §6.2 of the
+     * record/replay determinism plan -- so a replay engine can reproduce
+     * whether GC fired on a given save() exactly as recorded.
+     */
+    public function testGcRollUsesTheInjectedRandomnessSeam(): void
+    {
+        $seed = 123;
+        $rollFires = (new \Quiote\Support\Random\SeededRandomness($seed))->int(1, 2) === 1;
+
+        $persistence = new FileSessionPersistence(
+            $this->dir,
+            ['idle_ttl' => 60, 'gc_probability' => 1, 'gc_divisor' => 2],
+            randomness: new \Quiote\Support\Random\SeededRandomness($seed),
+        );
+        $persistence->save('old', ['a' => 1]);
+        $this->backdateAllFiles(120);
+
+        $persistence->save('fresh', ['b' => 2]);
+
+        if ($rollFires) {
+            $this->assertNull($persistence->load('old'), 'the seeded roll landed inside gc_probability; gc must have run');
+        } else {
+            $this->assertSame(['a' => 1], $persistence->load('old'), 'the seeded roll landed outside gc_probability; gc must not have run');
+        }
+    }
+
+    public function testSameSeedProducesTheSameGcDecisionAcrossTwoInstances(): void
+    {
+        $dirA = $this->dir . '-a';
+        $dirB = $this->dir . '-b';
+
+        $decisionFor = function (string $dir) {
+            $persistence = new FileSessionPersistence(
+                $dir,
+                ['idle_ttl' => 60, 'gc_probability' => 1, 'gc_divisor' => 100],
+                randomness: new \Quiote\Support\Random\SeededRandomness(456),
+            );
+            $persistence->save('old', ['a' => 1]);
+            foreach (scandir($dir) ?: [] as $entry) {
+                if ($entry !== '.' && $entry !== '..') {
+                    touch($dir . DIRECTORY_SEPARATOR . $entry, time() - 120);
+                }
+            }
+            $persistence->save('fresh', ['b' => 2]);
+
+            return $persistence->load('old') === null;
+        };
+
+        try {
+            $this->assertSame($decisionFor($dirA), $decisionFor($dirB));
+        } finally {
+            foreach ([$dirA, $dirB] as $dir) {
+                foreach (scandir($dir) ?: [] as $entry) {
+                    if ($entry !== '.' && $entry !== '..') {
+                        @unlink($dir . DIRECTORY_SEPARATOR . $entry);
+                    }
+                }
+                @rmdir($dir);
+            }
+        }
+    }
 }

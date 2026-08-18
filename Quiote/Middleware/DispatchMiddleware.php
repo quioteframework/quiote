@@ -21,6 +21,8 @@ use Quiote\Cache\ActionViewCache;
 use Quiote\Execution\ActionCacheHelper;
 use Quiote\Exception\QuioteException;
 use Quiote\Execution\ValidationDecision;
+use Quiote\Support\Random\RandomnessInterface;
+use Quiote\Support\Random\SystemRandomness;
 
 /**
  * DispatchMiddleware runs the requested action. Simple and non-simple actions
@@ -44,8 +46,10 @@ class DispatchMiddleware implements MiddlewareInterface
 
     // Forward loop protection moved to SecurityMiddleware (forwardCount in ExecutionState)
 
-    public function __construct(private readonly Controller $controller)
-    {
+    public function __construct(
+        private readonly Controller $controller,
+        private readonly RandomnessInterface $randomness = new SystemRandomness(),
+    ) {
         // Always use ActionExecutor; legacy container path removed unconditionally.
         $this->actionExecutor = new ActionExecutor($controller);
     }
@@ -579,7 +583,7 @@ class DispatchMiddleware implements MiddlewareInterface
         }
 
         try {
-            return bin2hex(random_bytes(4));
+            return bin2hex($this->randomness->bytes(4));
         } catch (\Throwable) {
             return uniqid();
         }

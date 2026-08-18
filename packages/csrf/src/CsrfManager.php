@@ -21,7 +21,9 @@ final readonly class CsrfManager
     public function __construct(private Context $context)
     {
         $this->manager = new CsrfTokenManager(
-            null, // default UriSafeTokenGenerator (random_bytes based)
+            new RandomnessBackedTokenGenerator(
+                $context->getContainer()->get(\Quiote\Support\Random\RandomnessInterface::class),
+            ),
             new SessionTokenStorage($context)
         );
     }

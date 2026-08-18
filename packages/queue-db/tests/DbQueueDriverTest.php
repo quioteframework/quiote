@@ -7,6 +7,7 @@ use Quiote\Queue\Db\DbQueueDriver;
 use Quiote\Queue\Job;
 use Quiote\Queue\JobPayload;
 use Quiote\Support\Clock\FrozenClock;
+use Quiote\Support\Random\SeededRandomness;
 
 final class DbQueueDriverTestJob implements Job
 {
@@ -161,5 +162,41 @@ final class DbQueueDriverTest extends TestCase
 
         $driver = new DbQueueDriver($this->sqlitePdo(), 'jobs; DROP TABLE jobs');
         $driver->push(new JobPayload(DbQueueDriverTestJob::class));
+    }
+
+    /**
+     * The job id goes through the injected RandomnessInterface seam rather
+     * than a direct random_bytes() call, per §6.2 of the record/replay
+     * determinism plan -- so a replay engine can reproduce exactly which job
+     * id a recorded push produced.
+     */
+    public function testJobIdIsDerivedFromTheInjectedRandomnessSeam(): void
+    {
+        $driver = new DbQueueDriver(
+            $this->sqlitePdo(),
+            randomness: new SeededRandomness(42),
+        );
+        $driver->push(new JobPayload(DbQueueDriverTestJob::class));
+
+        $reserved = $driver->reserve();
+
+        $this->assertNotNull($reserved);
+        $this->assertSame(bin2hex((new SeededRandomness(42))->bytes(16)), $reserved->id);
+    }
+
+    public function testSameSeedProducesTheSameJobIdAcrossTwoDrivers(): void
+    {
+        $driverA = new DbQueueDriver($this->sqlitePdo(), randomness: new SeededRandomness(7));
+        $driverB = new DbQueueDriver($this->sqlitePdo(), randomness: new SeededRandomness(7));
+
+        $driverA->push(new JobPayload(DbQueueDriverTestJob::class));
+        $driverB->push(new JobPayload(DbQueueDriverTestJob::class));
+
+        $reservedA = $driverA->reserve();
+        $reservedB = $driverB->reserve();
+        $this->assertNotNull($reservedA);
+        $this->assertNotNull($reservedB);
+
+        $this->assertSame($reservedA->id, $reservedB->id);
     }
 }

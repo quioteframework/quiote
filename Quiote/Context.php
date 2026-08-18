@@ -401,6 +401,7 @@ class Context implements \Stringable, ResetInterface, ContextInterface
           $factory->createPersistence($this, $parameters),
           $parameters,
           $container->get(\Quiote\Support\Clock\ClockInterface::class),
+          $container->get(\Quiote\Support\Random\RandomnessInterface::class),
         );
       },
       Container::SCOPE_SINGLETON,
@@ -555,6 +556,11 @@ class Context implements \Stringable, ResetInterface, ContextInterface
     // constructing SystemClock itself -- follows along.
     $container->set(\Quiote\Support\Clock\ClockInterface::class, \Quiote\Support\Clock\Clock::instance());
     $container->alias(\Psr\Clock\ClockInterface::class, \Quiote\Support\Clock\ClockInterface::class);
+
+    // The entropy seam every direct random_bytes()/random_int() call site on the request path
+    // is meant to go through instead. Seeded from the Randomness facade, for the same reason
+    // and in the same way as the clock binding above.
+    $container->set(\Quiote\Support\Random\RandomnessInterface::class, \Quiote\Support\Random\Randomness::instance());
 
     // The controller and the routing are bound by registerLazyCoreComponents() instead, as factories:
     // binding the instance here would win over the factory and pin whatever existed at initialize(),

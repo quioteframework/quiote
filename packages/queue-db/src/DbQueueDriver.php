@@ -9,6 +9,8 @@ use Quiote\Queue\PollableQueueDriverInterface;
 use Quiote\Queue\ReservedJob;
 use Quiote\Support\Clock\ClockInterface;
 use Quiote\Support\Clock\SystemClock;
+use Quiote\Support\Random\RandomnessInterface;
+use Quiote\Support\Random\SystemRandomness;
 
 /**
  * PDO-backed {@see PollableQueueDriverInterface}. Portable across PostgreSQL
@@ -40,6 +42,7 @@ final readonly class DbQueueDriver implements PollableQueueDriverInterface
         private PDO $pdo,
         private string $table = 'quiote_queue_jobs',
         private ClockInterface $clock = new SystemClock(),
+        private RandomnessInterface $randomness = new SystemRandomness(),
     ) {
     }
 
@@ -198,7 +201,7 @@ final readonly class DbQueueDriver implements PollableQueueDriverInterface
 
     private function randomId(): string
     {
-        return bin2hex(random_bytes(16));
+        return bin2hex($this->randomness->bytes(16));
     }
 
     /** DDL to create the backing table (PostgreSQL / SQLite compatible). */
