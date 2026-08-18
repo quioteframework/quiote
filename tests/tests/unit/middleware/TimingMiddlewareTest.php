@@ -8,6 +8,7 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Quiote\Execution\ExecutionState;
 use Quiote\Middleware\TimingMiddleware;
+use Quiote\Support\Clock\FrozenClock;
 
 /**
  * json_encode() is typed to return string|false; TimingMiddleware previously fed its result
@@ -70,5 +71,32 @@ final class TimingMiddlewareTest extends TestCase
 
         $this->assertTrue($resp->hasHeader('X-Quiote-Timing'));
         $this->assertInstanceOf(ExecutionState::class, $handler->seen?->getAttribute(ExecutionState::class));
+    }
+
+    /**
+     * total_ms is measured on the monotonic clock, so an NTP step mid-request
+     * can't produce a negative or inflated duration. Verified with a
+     * FrozenClock the downstream handler itself advances -- total_ms comes
+     * out exactly the advanced amount rather than "some non-negative number".
+     */
+    public function testTotalMsIsMeasuredOnTheInjectedMonotonicClock(): void
+    {
+        $clock = new FrozenClock(1_000_000.0, 100.0);
+        $mw = new TimingMiddleware(emitHeader: true, clock: $clock);
+        $req = new ServerRequest('GET', '/');
+        $handler = new class($clock) implements RequestHandlerInterface {
+            public function __construct(private readonly FrozenClock $clock) {}
+            public function handle(ServerRequestInterface $request): ResponseInterface
+            {
+                $this->clock->advance(0.25);
+                return new Psr7Response(200);
+            }
+        };
+
+        $resp = $mw->process($req, $handler);
+
+        $decoded = json_decode($resp->getHeaderLine('X-Quiote-Timing'), true);
+        $this->assertIsArray($decoded);
+        $this->assertSame(250.0, $decoded['total_ms']);
     }
 }

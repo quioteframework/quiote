@@ -5,6 +5,7 @@ declare(strict_types=1);
 use PHPUnit\Framework\TestCase;
 use Quiote\Security\RateLimit\LoginThrottle;
 use Quiote\Security\RateLimit\PdoRateLimiterStorage;
+use Quiote\Support\Clock\FrozenClock;
 use Symfony\Component\RateLimiter\Storage\InMemoryStorage;
 use Symfony\Component\RateLimiter\Storage\StorageInterface;
 
@@ -51,6 +52,28 @@ final class RateLimitTest extends TestCase
         $rejected = $t->registerFailure($key);
         $this->assertNotNull($rejected);
         $this->assertGreaterThan(0, $rejected);
+    }
+
+    /**
+     * secondsUntil() is `$retryAt - now`, so its value has to shrink in exact
+     * lockstep with the injected clock advancing -- the retry-at instant
+     * itself is fixed the moment the limit was exhausted.
+     */
+    public function testRetryAfterShrinksExactlyAsTheInjectedClockAdvances(): void
+    {
+        $clock = new FrozenClock(1_700_000_000.0);
+        $t = new LoginThrottle(new InMemoryStorage(), 1, '1 hour', 'test_throttle_clock', $clock);
+        $key = 'ip-clock';
+
+        $t->registerFailure($key);
+        $retryBefore = $t->retryAfter($key);
+        $this->assertNotNull($retryBefore);
+
+        $clock->advance(10.0);
+        $retryAfter = $t->retryAfter($key);
+        $this->assertNotNull($retryAfter);
+
+        $this->assertSame($retryBefore - 10, $retryAfter);
     }
 
     public function testResetClearsCounter(): void
@@ -127,6 +150,40 @@ final class RateLimitTest extends TestCase
         $pdo->exec('UPDATE quiote_rate_limit SET expires_at = ' . (time() - 10));
         $deleted = $storage->purgeExpired();
         $this->assertSame(1, $deleted);
+        $this->assertSame(0, $this->countRows($pdo));
+    }
+
+    /**
+     * expires_at is wall-clock (compared against "now" by whatever process's
+     * fetch()/purgeExpired() runs next), so save()/fetch()/purgeExpired() all
+     * derive it from the injected clock rather than the real system clock.
+     */
+    public function testExpiryIsComputedFromTheInjectedClock(): void
+    {
+        $pdo = $this->sqlitePdo();
+        $clock = new FrozenClock(1_700_000_000.0);
+        $storage = new PdoRateLimiterStorage($pdo, clock: $clock);
+        $t = $this->throttle($storage, 3);
+        $t->registerFailure('ip-clock');
+
+        $stmt = $pdo->query('SELECT expires_at FROM quiote_rate_limit');
+        $this->assertNotFalse($stmt);
+        $expiresAt = (int) $stmt->fetchColumn();
+        // Stamped relative to the injected "now", not the real clock -- the exact TTL
+        // is symfony/rate-limiter's own internal choice for a sliding window (larger
+        // than the configured interval, since it needs the previous window too), so
+        // this only asserts it is anchored to 1_700_000_000 at all, not a fixed offset.
+        $this->assertGreaterThan(1_700_000_000, $expiresAt);
+
+        // purgeExpired() compares that stored expiry against the injected clock, not
+        // the real one: not yet due for purge one second before the window closes...
+        $clock->set((float) $expiresAt - 1.0);
+        $this->assertSame(0, $storage->purgeExpired());
+        $this->assertSame(1, $this->countRows($pdo));
+
+        // ...and purged once the clock passes it (purgeExpired() uses strict "<").
+        $clock->set((float) $expiresAt + 1.0);
+        $this->assertSame(1, $storage->purgeExpired());
         $this->assertSame(0, $this->countRows($pdo));
     }
 

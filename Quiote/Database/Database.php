@@ -35,14 +35,15 @@ abstract class Database extends ParameterHolder implements ResetInterface
 	protected $resource = null;
 
 	/**
-	 * Timestamp (microtime(true)) of the last time this connection was
-	 * confirmed alive -- either by an actual getConnection() use or by a
-	 * ping() round trip. Used by ping() to skip the round trip entirely when
-	 * the connection was verified recently (see PING_IDLE_THRESHOLD_SECONDS):
-	 * recycleConnections() runs once per request between every worker
-	 * request, so under steady traffic a live connection would otherwise pay
-	 * a network round trip to every configured database on every single
-	 * request even though nothing has gone idle.
+	 * Monotonic reading ({@see \Quiote\Support\Clock\ClockInterface::monotonic()}) of the last
+	 * time this connection was confirmed alive -- either by an actual getConnection() use or by
+	 * a ping() round trip. Monotonic rather than wall-clock so an NTP correction mid-worker-life
+	 * can't make this connection look idle-verified for longer than it really was. Used by
+	 * ping() to skip the round trip entirely when the connection was verified recently (see
+	 * PING_IDLE_THRESHOLD_SECONDS): recycleConnections() runs once per request between every
+	 * worker request, so under steady traffic a live connection would otherwise pay a network
+	 * round trip to every configured database on every single request even though nothing has
+	 * gone idle.
 	 * @var        ?float
 	 */
 	protected ?float $lastUsedAt = null;
@@ -110,7 +111,7 @@ abstract class Database extends ParameterHolder implements ResetInterface
 			$this->connect();
 		}
 
-		$this->lastUsedAt = microtime(true);
+		$this->lastUsedAt = \Quiote\Support\Clock\Clock::instance()->monotonic();
 
 		if ($logger->isEnabled(\Quiote\Logging\Level::Debug) && is_object($this->connection)) {
 			$logger->debug('[Database] getConnection() returning connection_id=' . spl_object_id($this->connection) . ' type=' . $this->connection::class);
@@ -252,7 +253,7 @@ abstract class Database extends ParameterHolder implements ResetInterface
 	protected function wasRecentlyVerified(): bool
 	{
 		return $this->lastUsedAt !== null
-			&& (microtime(true) - $this->lastUsedAt) < static::PING_IDLE_THRESHOLD_SECONDS;
+			&& (\Quiote\Support\Clock\Clock::instance()->monotonic() - $this->lastUsedAt) < static::PING_IDLE_THRESHOLD_SECONDS;
 	}
 }
 

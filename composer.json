@@ -45,6 +45,7 @@
 		"psr/http-server-handler": "^1.0",
 		"psr/event-dispatcher": "^1.0",
 		"psr/log": "^3.0",
+		"psr/clock": "^1.0",
 		"nyholm/psr7": "^1.8",
 		"nyholm/psr7-server": "^1.0",
 		"psr/simple-cache": "^3.0",

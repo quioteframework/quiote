@@ -6,6 +6,8 @@ use Psr\Http\Server\RequestHandlerInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Quiote\Http\PsrResponseAdapter;
+use Quiote\Support\Clock\ClockInterface;
+use Quiote\Support\Clock\SystemClock;
 
 /**
  * Basic execution timing middleware replacing ExecutionTimeFilter.
@@ -13,7 +15,11 @@ use Quiote\Http\PsrResponseAdapter;
 #[\Quiote\Middleware\Attribute\Middleware(phase: 'finalize', priority: -10)]
 class ExecutionTimeMiddleware implements MiddlewareInterface
 {
-    public function __construct(private readonly bool $appendHtmlComment = true) {}
+    public function __construct(
+        private readonly bool $appendHtmlComment = true,
+        private readonly ClockInterface $clock = new SystemClock(),
+    ) {
+    }
 
     /**
      * Times the rest of the pipeline and optionally appends the duration as an HTML comment.
@@ -26,9 +32,9 @@ class ExecutionTimeMiddleware implements MiddlewareInterface
      */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
-        $start = microtime(true);
+        $start = $this->clock->monotonic();
         $response = $handler->handle($request);
-        $durationMs = (microtime(true) - $start) * 1000;
+        $durationMs = ($this->clock->monotonic() - $start) * 1000;
         if($this->appendHtmlComment && $response instanceof PsrResponseAdapter) {
             $legacy = $response->getLegacy();
             if($legacy->hasContent() && is_string($legacy->getContent())) {

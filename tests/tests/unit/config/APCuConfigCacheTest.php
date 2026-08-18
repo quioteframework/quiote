@@ -42,6 +42,7 @@ class APCuConfigCacheTest extends PhpUnitTestCase
 		if ($this->apcuAvailable) {
 			APCuConfigCache::clear();
 		}
+		\Quiote\Support\Clock\Clock::useClock(null);
 		parent::tearDown();
 	}
 
@@ -294,6 +295,23 @@ class APCuConfigCacheTest extends PhpUnitTestCase
 		$this->assertTrue($status['available']);
 		$this->assertFalse($status['warmed_up']);
 		$this->assertArrayHasKey('memory_usage', $status);
+	}
+
+	/**
+	 * age_seconds is wall-clock (the warmup metadata is compared against a
+	 * later request's real time, potentially in a different process), so an
+	 * injected clock must be honoured for both the stamp and the read-back.
+	 */
+	public function testGetStatusAgeSecondsIsComputedFromTheInjectedClock(): void
+	{
+		$clock = new \Quiote\Support\Clock\FrozenClock(1_000_000.0);
+		\Quiote\Support\Clock\Clock::useClock($clock);
+
+		APCuConfigCache::warmup(['tests/importtest.xml'], 'testing');
+		$clock->advance(42.0);
+
+		$status = APCuConfigCache::getStatus();
+		$this->assertSame(42, $status['age_seconds']);
 	}
 
 	// ---------------------------------------------------------------

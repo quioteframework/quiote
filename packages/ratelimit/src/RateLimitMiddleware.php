@@ -9,6 +9,8 @@ use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Quiote\Config\Config;
 use Quiote\Http\ProblemDetails;
+use Quiote\Support\Clock\ClockInterface;
+use Quiote\Support\Clock\SystemClock;
 use Symfony\Component\RateLimiter\RateLimiterFactory;
 use Symfony\Component\RateLimiter\Storage\StorageInterface;
 
@@ -31,8 +33,10 @@ use Symfony\Component\RateLimiter\Storage\StorageInterface;
 #[\Quiote\Middleware\Attribute\Middleware(phase: 'pre_routing', priority: 10)]
 final class RateLimitMiddleware implements MiddlewareInterface
 {
-    public function __construct(private readonly StorageInterface $storage)
-    {
+    public function __construct(
+        private readonly StorageInterface $storage,
+        private readonly ClockInterface $clock = new SystemClock(),
+    ) {
     }
 
     /**
@@ -62,7 +66,7 @@ final class RateLimitMiddleware implements MiddlewareInterface
         $limit = $factory->create($this->clientKey($request))->consume(1);
 
         if (!$limit->isAccepted()) {
-            $retryAfter = max(1, $limit->getRetryAfter()->getTimestamp() - time());
+            $retryAfter = max(1, $limit->getRetryAfter()->getTimestamp() - $this->clock->unixTimestamp());
             $problem = ProblemDetails::create(
                 status: 429,
                 detail: 'Too many requests. Retry after ' . $retryAfter . ' second(s).',

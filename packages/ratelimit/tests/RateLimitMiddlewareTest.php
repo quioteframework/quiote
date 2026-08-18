@@ -11,6 +11,7 @@ use Psr\Http\Server\RequestHandlerInterface;
 use Quiote\Config\Config;
 use Quiote\Http\ProblemDetails;
 use Quiote\Security\RateLimit\RateLimitMiddleware;
+use Quiote\Support\Clock\FrozenClock;
 use Symfony\Component\RateLimiter\Storage\InMemoryStorage;
 
 final class RateLimitMiddlewareTest extends TestCase
@@ -105,6 +106,27 @@ final class RateLimitMiddlewareTest extends TestCase
         $body = json_decode((string) $resp->getBody(), true);
         $this->assertIsArray($body);
         $this->assertSame(429, $body['status']);
+    }
+
+    /**
+     * Retry-After is `$retryAt - now`, computed from the injected clock -- an
+     * NTP step forward mid-outage must shrink it, not leave it stuck at
+     * whatever it read on the first rejection.
+     */
+    public function testRetryAfterShrinksExactlyAsTheInjectedClockAdvances(): void
+    {
+        Config::set('ratelimit.http.max_requests', 1);
+        $clock = new FrozenClock(1_700_000_000.0);
+        $mw = new RateLimitMiddleware(new InMemoryStorage(), $clock);
+        $handler = $this->okHandler();
+
+        $mw->process($this->requestFrom('1.2.3.4'), $handler);
+        $before = (int) $mw->process($this->requestFrom('1.2.3.4'), $handler)->getHeaderLine('Retry-After');
+
+        $clock->advance(10.0);
+        $after = (int) $mw->process($this->requestFrom('1.2.3.4'), $handler)->getHeaderLine('Retry-After');
+
+        $this->assertSame($before - 10, $after);
     }
 
     public function testDifferentClientsAreIsolated(): void

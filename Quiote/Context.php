@@ -400,6 +400,7 @@ class Context implements \Stringable, ResetInterface, ContextInterface
         return new \Quiote\Session\SessionManager(
           $factory->createPersistence($this, $parameters),
           $parameters,
+          $container->get(\Quiote\Support\Clock\ClockInterface::class),
         );
       },
       Container::SCOPE_SINGLETON,
@@ -544,6 +545,16 @@ class Context implements \Stringable, ResetInterface, ContextInterface
     // ConfigRepository dependency instead of reaching for the Config facade.
     $container->set(\Quiote\Config\ConfigRepository::class, Config::repository());
     $container->alias('config', \Quiote\Config\ConfigRepository::class);
+
+    // The clock seam every direct time()/microtime()/new DateTime() call site is meant to
+    // go through instead. Seeded from the Clock facade -- the same relationship
+    // ConfigRepository has to the Config facade above -- so installing a clock there before
+    // bootstrap (a test, an embedding application) reaches the container too. A test or a
+    // replay engine can also rebind Quiote\Support\Clock\ClockInterface directly on this
+    // container afterwards, and every collaborator that resolves the interface -- rather than
+    // constructing SystemClock itself -- follows along.
+    $container->set(\Quiote\Support\Clock\ClockInterface::class, \Quiote\Support\Clock\Clock::instance());
+    $container->alias(\Psr\Clock\ClockInterface::class, \Quiote\Support\Clock\ClockInterface::class);
 
     // The controller and the routing are bound by registerLazyCoreComponents() instead, as factories:
     // binding the instance here would win over the factory and pin whatever existed at initialize(),

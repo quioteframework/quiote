@@ -38,7 +38,7 @@ final class ScheduleRunCommand extends AbstractAppCommand
 
         $schedule = $container->get(Schedule::class);
 
-        $now = new \DateTimeImmutable();
+        $now = $container->get(\Quiote\Support\Clock\ClockInterface::class)->now();
         $ran = 0;
         $skipped = 0;
         $failed = 0;

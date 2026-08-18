@@ -163,7 +163,7 @@ final class CategoryLogger implements LoggerInterface
         }
 
         $event = new LogEvent(
-            timestamp: microtime(true),
+            timestamp: \Quiote\Support\Clock\Clock::instance()->microtime(),
             level: $lvl,
             category: $this->category,
             messageTemplate: (string) $message,

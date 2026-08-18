@@ -49,7 +49,7 @@ final class RoutesCompileCommand extends AbstractAppCommand
 			return self::FAILURE;
 		}
 
-		$artifact = ['generated_at' => date('c')] + $artifact;
+		$artifact = ['generated_at' => \Quiote\Support\Clock\Clock::instance()->now()->format('c')] + $artifact;
 		$target = rtrim(Config::getString('core.cache_dir'), '/') . '/introspection/app.json';
 
 		try {

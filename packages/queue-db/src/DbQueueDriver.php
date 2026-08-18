@@ -7,6 +7,8 @@ use Quiote\Queue\Job;
 use Quiote\Queue\JobPayload;
 use Quiote\Queue\PollableQueueDriverInterface;
 use Quiote\Queue\ReservedJob;
+use Quiote\Support\Clock\ClockInterface;
+use Quiote\Support\Clock\SystemClock;
 
 /**
  * PDO-backed {@see PollableQueueDriverInterface}. Portable across PostgreSQL
@@ -37,6 +39,7 @@ final readonly class DbQueueDriver implements PollableQueueDriverInterface
     public function __construct(
         private PDO $pdo,
         private string $table = 'quiote_queue_jobs',
+        private ClockInterface $clock = new SystemClock(),
     ) {
     }
 
@@ -61,7 +64,7 @@ final readonly class DbQueueDriver implements PollableQueueDriverInterface
             'job_class' => $payload->jobClass,
             'params' => json_encode($payload->params, JSON_THROW_ON_ERROR),
             'attempts' => $payload->attempts,
-            'available_at' => $payload->availableAt?->getTimestamp() ?? time(),
+            'available_at' => $payload->availableAt?->getTimestamp() ?? $this->clock->unixTimestamp(),
         ]);
     }
 
@@ -80,7 +83,7 @@ final readonly class DbQueueDriver implements PollableQueueDriverInterface
      */
     public function reserve(): ?ReservedJob
     {
-        $now = time();
+        $now = $this->clock->unixTimestamp();
         $token = $this->randomId();
 
         $claim = $this->pdo->prepare(sprintf(
@@ -170,7 +173,7 @@ final readonly class DbQueueDriver implements PollableQueueDriverInterface
             $this->quoteIdent($this->table),
         ));
         $stmt->execute([
-            'available_at' => time() + max(0, $delaySeconds),
+            'available_at' => $this->clock->unixTimestamp() + max(0, $delaySeconds),
             'attempts' => $job->payload->attempts + 1,
             'id' => $job->id,
         ]);

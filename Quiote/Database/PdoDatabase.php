@@ -208,7 +208,7 @@ class PdoDatabase extends Database
 				throw new \PDOException(sprintf('Expected a PDO connection, got %s.', get_debug_type($this->connection)));
 			}
 			$this->connection->query('SELECT 1');
-			$this->lastUsedAt = microtime(true);
+			$this->lastUsedAt = \Quiote\Support\Clock\Clock::instance()->monotonic();
 			return true;
 		} catch (\PDOException) {
 			// Connection lost — null it so getConnection() reconnects lazily.

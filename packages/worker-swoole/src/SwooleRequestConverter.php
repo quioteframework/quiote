@@ -7,6 +7,8 @@ namespace Quiote\Runtime\Swoole;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\UploadedFileInterface;
+use Quiote\Support\Clock\ClockInterface;
+use Quiote\Support\Clock\SystemClock;
 
 /**
  * Turns a {@see SwooleRequestSnapshot} into a PSR-7 request.
@@ -34,6 +36,7 @@ final class SwooleRequestConverter
     public function __construct(
         private readonly SwooleConverterOptions $options = new SwooleConverterOptions(),
         private readonly Psr17Factory $psr17 = new Psr17Factory(),
+        private readonly ClockInterface $clock = new SystemClock(),
     ) {
     }
 
@@ -134,8 +137,8 @@ final class SwooleRequestConverter
 
         // TelemetryMiddleware reads REQUEST_TIME_FLOAT to measure wall time, so
         // Swoole's own timings are preferred over "now" wherever available.
-        $params['REQUEST_TIME'] = (int) ($snapshot->serverValue('request_time') ?? (string) time());
-        $params['REQUEST_TIME_FLOAT'] = (float) ($snapshot->serverValue('request_time_float') ?? (string) microtime(true));
+        $params['REQUEST_TIME'] = (int) ($snapshot->serverValue('request_time') ?? (string) $this->clock->unixTimestamp());
+        $params['REQUEST_TIME_FLOAT'] = (float) ($snapshot->serverValue('request_time_float') ?? (string) $this->clock->microtime());
 
         foreach ($snapshot->header as $name => $value) {
             $key = strtoupper(str_replace('-', '_', (string) $name));

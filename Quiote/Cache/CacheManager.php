@@ -244,7 +244,10 @@ class CacheManager
      */
     private static function freshNamespaceVersion(): int
     {
-        return (int) (microtime(true) * 1000);
+        // Wall-clock, not monotonic: this value is written to a backend other processes
+        // read too, and a monotonic reading is only meaningful within the process that
+        // took it.
+        return (int) (\Quiote\Support\Clock\Clock::instance()->microtime() * 1000);
     }
 
     /**

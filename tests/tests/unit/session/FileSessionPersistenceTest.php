@@ -255,4 +255,46 @@ class FileSessionPersistenceTest extends UnitTestCase
             }
         }
     }
+
+    // -- injected clock -------------------------------------------------------
+    //
+    // The tests above backdate the file's real mtime with touch(); these instead
+    // move the clock the expiry check reads "now" from, leaving the file's real
+    // mtime alone -- which is what a replay-style test of this class wants,
+    // since it cannot control the filesystem's own clock.
+
+    public function testInjectedClockInTheFutureExpiresAFreshlyWrittenFile(): void
+    {
+        $clock = new \Quiote\Support\Clock\FrozenClock((float) time());
+        $persistence = new FileSessionPersistence($this->dir, ['idle_ttl' => 60], clock: $clock);
+        $persistence->save('sid-1', ['a' => 1]);
+
+        $clock->advance(120.0);
+
+        $this->assertNull($persistence->load('sid-1'));
+        $this->assertSame([], $this->sessionFiles(), 'expired file should be unlinked on load');
+    }
+
+    public function testInjectedClockStillWithinIdleTtlLeavesTheFileAlone(): void
+    {
+        $clock = new \Quiote\Support\Clock\FrozenClock((float) time());
+        $persistence = new FileSessionPersistence($this->dir, ['idle_ttl' => 60], clock: $clock);
+        $persistence->save('sid-1', ['a' => 1]);
+
+        $clock->advance(10.0);
+
+        $this->assertSame(['a' => 1], $persistence->load('sid-1'));
+    }
+
+    public function testGcCutoffIsComputedFromTheInjectedClock(): void
+    {
+        $clock = new \Quiote\Support\Clock\FrozenClock((float) time());
+        $persistence = new FileSessionPersistence($this->dir, ['idle_ttl' => 60, 'gc_probability' => 0], clock: $clock);
+        $persistence->save('old', ['a' => 1]);
+
+        $clock->advance(120.0);
+
+        $this->assertSame(1, $persistence->gc());
+        $this->assertNull($persistence->load('old'));
+    }
 }

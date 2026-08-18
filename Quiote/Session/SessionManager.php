@@ -7,6 +7,8 @@ namespace Quiote\Session;
 use Throwable;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
+use Quiote\Support\Clock\ClockInterface;
+use Quiote\Support\Clock\SystemClock;
 
 /**
  * Opinionated, PSR-7-based session handling: a cookie carrying a session id, and
@@ -75,8 +77,11 @@ class SessionManager
     /**
      * @param array<string, mixed> $parameters
      */
-    public function __construct(SessionPersistenceInterface $persistence, array $parameters = [])
-    {
+    public function __construct(
+        SessionPersistenceInterface $persistence,
+        array $parameters = [],
+        private readonly ClockInterface $clock = new SystemClock(),
+    ) {
         $this->persistence = $persistence;
         if (isset($parameters['cookie_name']) && (is_string($parameters['cookie_name']) || is_numeric($parameters['cookie_name']))) {
             $this->cookieName = (string)$parameters['cookie_name'];
@@ -206,7 +211,7 @@ class SessionManager
      */
     private function hasExpired(array $data): bool
     {
-        $now = time();
+        $now = $this->clock->unixTimestamp();
 
         if ($this->idleTimeout > 0) {
             $seenAt = self::timestamp($data[self::SEEN_AT_KEY] ?? null);
@@ -246,7 +251,7 @@ class SessionManager
             return $session;
         }
 
-        $now = time();
+        $now = $this->clock->unixTimestamp();
         if (self::timestamp($session->get(self::CREATED_AT_KEY)) === null) {
             $session->set(self::CREATED_AT_KEY, $now);
         }
@@ -281,8 +286,8 @@ class SessionManager
         }
 
         $redirectAt = $data[self::REDIRECT_AT_KEY] ?? 0;
-        $age = time() - (is_int($redirectAt) || is_string($redirectAt) ? (int)$redirectAt : 0);
-        // time() is wall-clock (CLOCK_REALTIME), not monotonic: NTP steps and,
+        $age = $this->clock->unixTimestamp() - (is_int($redirectAt) || is_string($redirectAt) ? (int)$redirectAt : 0);
+        // The clock's unixTimestamp() is wall-clock (CLOCK_REALTIME), not monotonic: NTP steps and,
         // notably, VM/hypervisor clock resyncs (observed on WSL2 under CPU load)
         // can move it backward between the migrateOld() write and this read,
         // producing a negative age. Treat that the same as an expired window
@@ -379,7 +384,7 @@ class SessionManager
         if ($this->idleTimeout <= 0 && $this->absoluteTimeout <= 0) {
             return;
         }
-        $now = time();
+        $now = $this->clock->unixTimestamp();
         if (self::timestamp($session->get(self::CREATED_AT_KEY)) === null) {
             $session->set(self::CREATED_AT_KEY, $now);
         }
@@ -460,7 +465,7 @@ class SessionManager
         try {
             $marker = [
                 self::REDIRECT_KEY => $new,
-                self::REDIRECT_AT_KEY => time(),
+                self::REDIRECT_AT_KEY => $this->clock->unixTimestamp(),
             ];
             if ($request !== null) {
                 $marker[self::REDIRECT_UA_KEY] = $this->userAgentFingerprint($request);
@@ -527,7 +532,7 @@ class SessionManager
     {
         $cookie = $this->cookieName . '=' . $sid;
         if ($this->lifetime > 0) {
-            $expire = time() + $this->lifetime;
+            $expire = $this->clock->unixTimestamp() + $this->lifetime;
             $cookie .= '; Expires=' . gmdate('D, d-M-Y H:i:s T', $expire) . '; Max-Age=' . $this->lifetime;
         }
         $cookie .= '; Path=/';

@@ -7,6 +7,8 @@ use Quiote\Queue\FailedJob;
 use Quiote\Queue\FailedJobRecord;
 use Quiote\Queue\FailedJobStoreInterface;
 use Quiote\Queue\InspectableFailedJobStoreInterface;
+use Quiote\Support\Clock\ClockInterface;
+use Quiote\Support\Clock\SystemClock;
 
 /**
  * Persistent {@see FailedJobStoreInterface} — an inspectable dead-letter
@@ -31,6 +33,7 @@ final readonly class DbFailedJobStore implements InspectableFailedJobStoreInterf
     public function __construct(
         private PDO $pdo,
         private string $table = 'quiote_queue_failed_jobs',
+        private ClockInterface $clock = new SystemClock(),
     ) {
     }
 
@@ -58,7 +61,7 @@ final readonly class DbFailedJobStore implements InspectableFailedJobStoreInterf
             'exception_message' => $failedJob->exceptionMessage,
             'exception_trace' => $failedJob->exceptionTrace,
             'attempts' => $failedJob->attempts,
-            'failed_at' => time(),
+            'failed_at' => $this->clock->unixTimestamp(),
         ]);
     }
 

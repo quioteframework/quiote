@@ -21,6 +21,8 @@ use Quiote\Config\Config;
 use Quiote\Execution\Slot\SlotCache;
 use Quiote\Execution\Slot\SlotParameterOverlay;
 use Quiote\Request\WebRequest;
+use Quiote\Support\Clock\ClockInterface;
+use Quiote\Support\Clock\SystemClock;
 
 /**
  * SlotDispatcher executes sub-actions ("slots") via container-less execution only.
@@ -41,6 +43,7 @@ class SlotDispatcher
     private readonly SlotExecutionGuard $executionGuard;
     private readonly ViewNameResolver $viewNameResolver;
     private readonly ViewFactory $viewFactory;
+    private readonly ClockInterface $clock;
 
     // Retained only to keep the constructor signature stable for callers that
     // inject it; nothing in this class reads it back yet.
@@ -49,7 +52,7 @@ class SlotDispatcher
     // Controller reference), so a fresh instance per dispatch was pure allocation.
     private ?SecurityService $securityService = null;
 
-    public function __construct(private readonly Controller $controller, ?ActionResolver $actionResolver = null, ?SlotExecutionGuard $executionGuard = null, ?ViewNameResolver $viewNameResolver = null, ?ForwardService $forwardService = null, ?ViewFactory $viewFactory = null)
+    public function __construct(private readonly Controller $controller, ?ActionResolver $actionResolver = null, ?SlotExecutionGuard $executionGuard = null, ?ViewNameResolver $viewNameResolver = null, ?ForwardService $forwardService = null, ?ViewFactory $viewFactory = null, ?ClockInterface $clock = null)
     {
         // Initialize pure resolver
         $this->viewNameResolver = $viewNameResolver ?? new ViewNameResolver();
@@ -57,6 +60,7 @@ class SlotDispatcher
         $this->executionGuard = $executionGuard ?? new SlotExecutionGuard(self::RECURSION_LIMIT);
         $this->forwardService ??= $forwardService ?? new ForwardService($controller);
         $this->viewFactory = $viewFactory ?? new ViewFactory($controller);
+        $this->clock = $clock ?? new SystemClock();
     }
 
     /**
@@ -136,7 +140,6 @@ class SlotDispatcher
 
         $this->executionGuard->enter($stack, $key);
         try {
-            $start = microtime(true);
             // Resolve the effective output type once for the whole dispatch; the raw
             // and lowercased forms are referenced many times below (view creation,
             // init contexts, execute-method name, execution context) and previously
@@ -570,7 +573,7 @@ class SlotDispatcher
                 'class' => $e::class,
                 'message' => $e->getMessage(),
                 'trace' => $this->truncateTrace($e->getTraceAsString()),
-                'time' => date('c'),
+                'time' => $this->clock->now()->format('c'),
             ]);
             \error_log('SLOT_EXCEPTION ' . $payload);
         } catch (\Throwable $dumpFailure) {

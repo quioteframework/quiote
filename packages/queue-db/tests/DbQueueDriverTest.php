@@ -6,6 +6,7 @@ use PHPUnit\Framework\TestCase;
 use Quiote\Queue\Db\DbQueueDriver;
 use Quiote\Queue\Job;
 use Quiote\Queue\JobPayload;
+use Quiote\Support\Clock\FrozenClock;
 
 final class DbQueueDriverTestJob implements Job
 {
@@ -112,6 +113,46 @@ final class DbQueueDriverTest extends TestCase
         $driver->discard($reserved);
 
         $this->assertNull($driver->reserve());
+    }
+
+    /**
+     * available_at is wall-clock (it's compared against "now" by a
+     * different worker process's reserve() call entirely), so it has to be
+     * derived from the injected clock rather than the real system clock.
+     */
+    public function testPushWithNoDelayStoresAvailableAtFromTheInjectedClock(): void
+    {
+        $pdo = $this->sqlitePdo();
+        $clock = new FrozenClock(1_700_000_000.0);
+        $driver = new DbQueueDriver($pdo, clock: $clock);
+
+        $driver->push(new JobPayload(DbQueueDriverTestJob::class));
+
+        $stmt = $pdo->query('SELECT available_at FROM quiote_queue_jobs');
+        $this->assertNotFalse($stmt);
+        $this->assertSame(1_700_000_000, (int) $stmt->fetchColumn());
+    }
+
+    /**
+     * release()'s delay is computed from the injected clock too, so a job
+     * released with a delay becomes due exactly when the clock says it
+     * should, not whenever the real system clock happens to reach that point.
+     */
+    public function testReleaseWithDelayBecomesDueExactlyWhenTheInjectedClockReachesIt(): void
+    {
+        $clock = new FrozenClock(1_700_000_000.0);
+        $driver = new DbQueueDriver($this->sqlitePdo(), clock: $clock);
+        $driver->push(new JobPayload(DbQueueDriverTestJob::class));
+        $reserved = $driver->reserve();
+        $this->assertNotNull($reserved);
+
+        $driver->release($reserved, 60);
+
+        $clock->advance(59.0);
+        $this->assertNull($driver->reserve(), 'one second before the delay elapses, still not due');
+
+        $clock->advance(1.0);
+        $this->assertNotNull($driver->reserve(), 'exactly at the delay, due');
     }
 
     public function testRejectsAnUnsafeTableName(): void

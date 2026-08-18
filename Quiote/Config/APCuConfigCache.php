@@ -217,7 +217,9 @@ class APCuConfigCache extends ConfigCache
             // kept only for backward compatibility with callers that read it.
             'routing_warmed' => false,
             'memory_used' => 0,
-            'start_time' => microtime(true),
+            // Monotonic: this only ever measures the duration of this call, never a
+            // point in time, so it must not be thrown off by a wall-clock step mid-warmup.
+            'start_time' => \Quiote\Support\Clock\Clock::instance()->monotonic(),
             'errors' => []
         ];
 
@@ -243,7 +245,7 @@ class APCuConfigCache extends ConfigCache
 
             // Store metadata about this warmup
             $meta = [
-                'timestamp' => time(),
+                'timestamp' => \Quiote\Support\Clock\Clock::instance()->unixTimestamp(),
                 'context' => $context,
                 'configs' => $configs,
                 'php_version' => PHP_VERSION,
@@ -256,7 +258,7 @@ class APCuConfigCache extends ConfigCache
             $stats['errors'][] = "General: " . $e->getMessage();
         }
         
-        $stats['duration'] = microtime(true) - $stats['start_time'];
+        $stats['duration'] = \Quiote\Support\Clock\Clock::instance()->monotonic() - $stats['start_time'];
         $stats['memory_used'] = self::getApcuMemoryUsage();
         
         return $stats;
@@ -560,7 +562,7 @@ class APCuConfigCache extends ConfigCache
                 ));
             }
             $status = array_merge($status, $meta);
-            $status['age_seconds'] = time() - $meta['timestamp'];
+            $status['age_seconds'] = \Quiote\Support\Clock\Clock::instance()->unixTimestamp() - $meta['timestamp'];
         }
         
         return $status;

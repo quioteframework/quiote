@@ -190,4 +190,37 @@ final class SlotDispatcherCachePayloadTest extends UnitTestCase
             @unlink($log);
         }
     }
+
+    /** The "time" field is stamped from the injected clock, not the real one. */
+    public function testTheTimeFieldComesFromTheInjectedClock(): void
+    {
+        $log = sys_get_temp_dir() . '/quiote-slot-exception-' . bin2hex(random_bytes(6)) . '.log';
+        $previous = ini_get('error_log');
+        ini_set('error_log', $log);
+
+        $dispatcher = new \Quiote\Execution\SlotDispatcher(
+            $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class),
+            clock: new \Quiote\Support\Clock\FrozenClock(1_700_000_000.0),
+        );
+
+        try {
+            (new ReflectionMethod(\Quiote\Execution\SlotDispatcher::class, 'logSlotException'))->invoke(
+                $dispatcher,
+                new RuntimeException('slot exploded'),
+                'Blog',
+                'Sidebar',
+                [],
+                'deferred',
+            );
+
+            $written = is_file($log) ? (string) file_get_contents($log) : '';
+            $this->assertStringContainsString(
+                '"time":"' . (new DateTimeImmutable('@1700000000'))->format('c') . '"',
+                $written,
+            );
+        } finally {
+            ini_set('error_log', $previous === false ? '' : $previous);
+            @unlink($log);
+        }
+    }
 }

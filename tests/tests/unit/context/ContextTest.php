@@ -333,6 +333,24 @@ class ContextTest extends PhpUnitTestCase
 	}
 
 	/**
+	 * The clock seam every direct time()/microtime()/new DateTime() call site is
+	 * meant to go through: a real SystemClock by default, resolvable both by its
+	 * own interface and by the PSR-20 one, as the same singleton instance --
+	 * rebinding one has to be enough to change what every collaborator sees.
+	 */
+	public function testClockIsBoundToASystemClockSingletonUnderBothInterfaces(): void
+	{
+		$ctx = Context::getInstance();
+		$container = $ctx->getContainer();
+
+		$clock = $container->get(\Quiote\Support\Clock\ClockInterface::class);
+
+		$this->assertInstanceOf(\Quiote\Support\Clock\SystemClock::class, $clock);
+		$this->assertSame($clock, $container->get(\Psr\Clock\ClockInterface::class));
+		$this->assertSame($clock, $container->get(\Quiote\Support\Clock\ClockInterface::class));
+	}
+
+	/**
 	 * reset() must drop request-scoped container entries in lockstep with the
 	 * request/session/user nulling it already does, so the container never
 	 * serves a discarded per-request instance.

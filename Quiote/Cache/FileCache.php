@@ -2,6 +2,8 @@
 namespace Quiote\Cache;
 
 use Psr\SimpleCache\CacheInterface;
+use Quiote\Support\Clock\ClockInterface;
+use Quiote\Support\Clock\SystemClock;
 
 /**
  * Very small file-system PSR-16 cache (not for high concurrency, but fine as default replacement of legacy action/view cache).
@@ -18,8 +20,10 @@ class FileCache implements CacheInterface
      */
     private const string RESERVED_KEY_CHARACTERS = '{}()/\\@:';
 
-    public function __construct(private readonly string $directory)
-    {
+    public function __construct(
+        private readonly string $directory,
+        private readonly ClockInterface $clock = new SystemClock(),
+    ) {
         if (!is_dir($directory)) {
             // 0700, not 0777: the directory holds serialized application data
             // that get() feeds to unserialize(), and replacing a file is governed
@@ -64,7 +68,7 @@ class FileCache implements CacheInterface
     {
         // A null TTL means "no expiry"; 0 or negative means already expired and
         // is handled by the caller, so it never reaches here as "no expiry".
-        $expires = $ttl === null ? 0 : time() + $ttl;
+        $expires = $ttl === null ? 0 : $this->clock->unixTimestamp() + $ttl;
         return $expires."\n".serialize($value);
     }
 
@@ -83,7 +87,7 @@ class FileCache implements CacheInterface
         $pos = strpos($payload,"\n");
         if ($pos === false) return [false, null];
         $exp = (int)substr($payload,0,$pos);
-        if ($exp !== 0 && $exp < time()) return [false, null];
+        if ($exp !== 0 && $exp < $this->clock->unixTimestamp()) return [false, null];
         $data = substr($payload,$pos+1);
         // allowed_classes: false -- the payload is attacker-controlled the moment
         // anything can write to the cache directory, and unserialize() without
@@ -127,7 +131,7 @@ class FileCache implements CacheInterface
      */
     public function set(string $key, mixed $value, null|int|\DateInterval $ttl = null): bool
     {
-        $ttlSeconds = $ttl instanceof \DateInterval ? (new \DateTimeImmutable())->add($ttl)->getTimestamp()-time() : $ttl;
+        $ttlSeconds = $ttl instanceof \DateInterval ? $this->clock->now()->add($ttl)->getTimestamp() - $this->clock->unixTimestamp() : $ttl;
         // PSR-16: a zero or negative TTL means the item is already expired, so it
         // must be deleted rather than stored. `$ttl ? … : 0` used to read 0 as
         // "no expiry", making set($k, $v, 0) cache forever.

@@ -2,6 +2,9 @@
 
 namespace Quiote\Response;
 
+use Quiote\Support\Clock\ClockInterface;
+use Quiote\Support\Clock\SystemClock;
+
 /**
  * Turns the cookie definitions queued on a response into `Set-Cookie` header lines.
  *
@@ -18,7 +21,11 @@ final class CookieSerializer
      * @param      string $defaultPath Path for a cookie that declares none. An empty string
      *             is treated as "/", so a cookie is never scoped to the empty path.
      */
-    public function __construct(private readonly string $defaultPath = '/') {}
+    public function __construct(
+        private readonly string $defaultPath = '/',
+        private readonly ClockInterface $clock = new SystemClock(),
+    ) {
+    }
 
     /**
      * Header lines for every queued cookie, in queue order.
@@ -68,7 +75,7 @@ final class CookieSerializer
      */
     public function normalize(string $name, array $cookie): array
     {
-        $now = time();
+        $now = $this->clock->unixTimestamp();
         $value = $cookie['value'] ?? null;
         $shouldDelete = ($value === false || $value === null || $value === '');
 

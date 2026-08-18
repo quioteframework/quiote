@@ -22,6 +22,22 @@ class WebResponseTest extends UnitTestCase
 	}
 
 	/**
+	 * testCookieExpiryFollowsAClockReboundInTheContainer() rebinds
+	 * Quiote\Support\Clock\ClockInterface on the shared context's container;
+	 * without restoring it here that FrozenClock would leak into every later
+	 * test sharing the same context in this process.
+	 */
+	#[\Override]
+	public function tearDown(): void
+	{
+		$this->getContext()->getContainer()->set(
+			\Quiote\Support\Clock\ClockInterface::class,
+			new \Quiote\Support\Clock\SystemClock(),
+		);
+		parent::tearDown();
+	}
+
+	/**
 	 * send() stages rather than emits, so the content is reachable on the staged
 	 * PSR-7 response instead of on the output buffer. Previously this class needed a
 	 * WebResponse subclass just to swallow the "headers already sent" warnings that
@@ -61,6 +77,28 @@ class WebResponseTest extends UnitTestCase
 		$this->assertSame('body', (string) $psr->getBody());
 		$this->assertNotSame([], $psr->getHeader('Set-Cookie'));
 		$this->assertStringStartsWith('sid=abc', $psr->getHeader('Set-Cookie')[0]);
+	}
+
+	/**
+	 * The cookie serializer WebResponse builds for itself resolves its clock
+	 * from the container rather than always constructing a real SystemClock, so
+	 * rebinding Quiote\Support\Clock\ClockInterface -- as a test or a replay
+	 * engine would -- changes the Expires this response bakes.
+	 */
+	public function testCookieExpiryFollowsAClockReboundInTheContainer(): void
+	{
+		$r = $this->_r;
+		$this->getContext()->getContainer()->set(
+			\Quiote\Support\Clock\ClockInterface::class,
+			new \Quiote\Support\Clock\FrozenClock(1_700_000_000.0),
+		);
+
+		$r->setCookie('sid', 'abc', 60);
+		$psr = $r->toPsrResponse();
+
+		$cookie = $psr->getHeader('Set-Cookie')[0] ?? '';
+		$this->assertStringContainsString('Expires=' . gmdate('D, d-M-Y H:i:s T', 1_700_000_060), $cookie);
+		$this->assertStringContainsString('Max-Age=60', $cookie);
 	}
 
 	public function testStagedResponseIsClearedByReset(): void

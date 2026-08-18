@@ -23,6 +23,7 @@ final class CacheManagerTest extends TestCase
         CacheManager::reset();
         Config::remove('core.cache_backend');
         Config::remove('core.redis_dsn');
+        \Quiote\Support\Clock\Clock::useClock(null);
     }
 
     public function testDefaultsToFilesystemBackend(): void
@@ -99,6 +100,23 @@ final class CacheManagerTest extends TestCase
 
         $this->assertNotEmpty($spy->recordedKeys());
         $this->assertSame([], $spy->illegalKeys());
+    }
+
+    /**
+     * A fresh namespace's seeded version is derived from the wall clock in
+     * milliseconds, not a counter -- see freshNamespaceVersion()'s docblock.
+     * Wall-clock rather than monotonic because the version is written to a
+     * backend other processes read too. Verified exactly with an injected
+     * FrozenClock instead of merely asserting "some positive integer".
+     */
+    public function testFreshNamespaceVersionIsDerivedFromTheInjectedWallClock(): void
+    {
+        $clock = new \Quiote\Support\Clock\FrozenClock(1_700_000_000.123);
+        \Quiote\Support\Clock\Clock::useClock($clock);
+
+        $version = CacheManager::getNamespaceVersion(CacheManager::key('avmod', 'fresh'));
+
+        $this->assertSame(1_700_000_000_123, $version);
     }
 
     public function testSlotTagNamespaceIsStableForTheSameTag(): void

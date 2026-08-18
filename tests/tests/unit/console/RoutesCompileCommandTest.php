@@ -21,6 +21,7 @@ final class RoutesCompileCommandTest extends PhpUnitTestCase
 	protected function tearDown(): void
 	{
 		@unlink($this->artifactPath());
+		\Quiote\Support\Clock\Clock::useClock(null);
 		parent::tearDown();
 	}
 
@@ -47,6 +48,21 @@ final class RoutesCompileCommandTest extends PhpUnitTestCase
 		$this->assertSame($written['routes'], $printed['routes']);
 		$this->assertSame($written['modules'], $printed['modules']);
 		$this->assertArrayHasKey('generated_at', $printed);
+	}
+
+	public function testGeneratedAtIsStampedFromTheInjectedClock(): void
+	{
+		\Quiote\Support\Clock\Clock::useClock(new \Quiote\Support\Clock\FrozenClock(1_700_000_000.0));
+
+		$tester = $this->tester();
+		$tester->execute(['--context' => 'web', '--json' => true]);
+
+		$printed = json_decode($tester->getDisplay(), true, flags: JSON_THROW_ON_ERROR);
+		self::assertIsArray($printed);
+		$this->assertSame(
+			(new DateTimeImmutable('@1700000000'))->format('c'),
+			$printed['generated_at'],
+		);
 	}
 
 	public function testTableOutputRendersRouteAndTriadCounts(): void

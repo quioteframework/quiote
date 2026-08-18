@@ -6,6 +6,7 @@ use PHPUnit\Framework\TestCase;
 use Quiote\Queue\Db\DbFailedJobStore;
 use Quiote\Queue\FailedJob;
 use Quiote\Queue\Job;
+use Quiote\Support\Clock\FrozenClock;
 
 final class DbFailedJobStoreTestJob implements Job
 {
@@ -161,5 +162,19 @@ final class DbFailedJobStoreTest extends TestCase
 
         $this->assertNull($store->find($id));
         $this->assertSame(0, $store->count());
+    }
+
+    /** failed_at is stamped from the injected clock, not the real system clock. */
+    public function testRecordStampsFailedAtFromTheInjectedClock(): void
+    {
+        $pdo = $this->sqlitePdo();
+        $clock = new FrozenClock(1_700_000_000.0);
+        $store = new DbFailedJobStore($pdo, clock: $clock);
+
+        $store->record(new FailedJob(DbFailedJobStoreTestJob::class, [], RuntimeException::class, 'a', '', 1));
+
+        $stmt = $pdo->query('SELECT failed_at FROM quiote_queue_failed_jobs');
+        $this->assertNotFalse($stmt);
+        $this->assertSame(1_700_000_000, (int) $stmt->fetchColumn());
     }
 }

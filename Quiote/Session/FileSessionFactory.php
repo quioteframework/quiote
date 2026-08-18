@@ -38,6 +38,10 @@ final class FileSessionFactory implements SessionFactoryInterface
             $dir = Config::getString('core.app_dir', sys_get_temp_dir()) . '/cache/sessions';
         }
 
-        return new FileSessionPersistence($dir, $parameters);
+        return new FileSessionPersistence(
+            $dir,
+            $parameters,
+            clock: $context->getContainer()->get(\Quiote\Support\Clock\ClockInterface::class),
+        );
     }
 }

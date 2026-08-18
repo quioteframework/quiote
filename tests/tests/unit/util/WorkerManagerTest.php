@@ -5,6 +5,8 @@ declare(strict_types=1);
 use PHPUnit\Framework\Attributes\After;
 use PHPUnit\Framework\Attributes\Before;
 use PHPUnit\Framework\TestCase;
+use Quiote\Support\Clock\Clock;
+use Quiote\Support\Clock\FrozenClock;
 use Quiote\Util\WorkerManager;
 use Symfony\Contracts\Service\ResetInterface;
 
@@ -63,6 +65,7 @@ final class WorkerManagerTest extends TestCase
         (new ReflectionProperty(WorkerManager::class, 'config'))->setValue(null, $this->configBackup);
         (new ReflectionProperty(WorkerManager::class, 'statistics'))->setValue(null, $this->statisticsBackup);
         (new ReflectionProperty(WorkerManager::class, 'requestCount'))->setValue(null, $this->requestCountBackup);
+        Clock::useClock(null);
     }
 
     /** @return array<string, mixed> */
@@ -145,6 +148,26 @@ final class WorkerManagerTest extends TestCase
         $this->assertGreaterThanOrEqual(0.0, $statistics['uptime']);
         $this->assertGreaterThan(0, $statistics['memory_usage']);
         $this->assertArrayHasKey('reset_count', $statistics, 'the recorded figures come through too');
+    }
+
+    /**
+     * start_time is stamped from the monotonic clock, and uptime is measured
+     * against it on the same clock -- not the wall clock, so an NTP step
+     * during a long worker's life can't corrupt either figure. Verified with a
+     * FrozenClock: start_time is stamped exactly where the clock stood at
+     * initialize(), and uptime is exactly the gap to wherever it stands later.
+     */
+    public function testStartTimeAndUptimeAreMeasuredOnTheInjectedMonotonicClock(): void
+    {
+        $clock = new FrozenClock(1_000_000.0, 12.5);
+        Clock::useClock($clock);
+
+        WorkerManager::initialize([]);
+        $this->assertSame(12.5, $this->readStatic('statistics')['start_time']);
+
+        $clock->setMonotonic(20.0);
+        $statistics = WorkerManager::getStatistics();
+        $this->assertSame(7.5, $statistics['uptime']);
     }
 
     public function testShutdownClearsTheResetCount(): void

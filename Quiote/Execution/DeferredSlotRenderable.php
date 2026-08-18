@@ -80,7 +80,7 @@ class DeferredSlotRenderable implements SlotRenderable, \Stringable
                         'class' => $e::class,
                         'message' => $e->getMessage(),
                         'trace' => $this->truncateTrace($e->getTraceAsString()),
-                        'time' => date('c'),
+                        'time' => $this->context->getContainer()->get(\Quiote\Support\Clock\ClockInterface::class)->now()->format('c'),
                     ]);
                     \error_log('SLOT_EXCEPTION ' . $payload);
                 } catch(\Throwable $logFailure) {

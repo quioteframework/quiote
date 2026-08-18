@@ -391,6 +391,39 @@ class TelemetryMiddlewareTest extends TestCase
         }
     }
 
+    /**
+     * With no REQUEST_TIME_FLOAT, the wall-start fallback and the later duration
+     * subtraction both read the injected clock, so the reported duration is
+     * exact rather than "some non-negative number" -- deliberately wall-clock,
+     * not monotonic, since a real REQUEST_TIME_FLOAT is wall-clock too and the
+     * two have to stay comparable.
+     */
+    public function testDurationIsComputedFromTheInjectedWallClockWhenRequestTimeFloatIsAbsent(): void
+    {
+        $this->enable();
+        $original = $_SERVER['REQUEST_TIME_FLOAT'] ?? null;
+        unset($_SERVER['REQUEST_TIME_FLOAT']);
+        $clock = new \Quiote\Support\Clock\FrozenClock(1_000_000.0);
+        \Quiote\Support\Clock\Clock::useClock($clock);
+        try {
+            $mw = new TelemetryMiddleware();
+
+            $mw->process(new ServerRequest('GET', '/x'), $this->terminal(new Psr7Response(200), function () use ($clock): void {
+                $clock->advance(0.25);
+            }));
+
+            $attrs = iterator_to_array($this->exportedSpans()[0]->getAttributes());
+            $this->assertSame(250.0, $attrs['quiote.duration_ms']);
+        } finally {
+            \Quiote\Support\Clock\Clock::useClock(null);
+            if ($original === null) {
+                unset($_SERVER['REQUEST_TIME_FLOAT']);
+            } else {
+                $_SERVER['REQUEST_TIME_FLOAT'] = $original;
+            }
+        }
+    }
+
     // --- sampling integration through the middleware --------------------------
 
     private function enableWithRatio(float $ratio): void

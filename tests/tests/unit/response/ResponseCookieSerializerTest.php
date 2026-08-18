@@ -2,6 +2,7 @@
 
 use PHPUnit\Framework\TestCase;
 use Quiote\Response\CookieSerializer;
+use Quiote\Support\Clock\FrozenClock;
 
 class ResponseCookieSerializerTest extends TestCase
 {
@@ -230,5 +231,40 @@ class ResponseCookieSerializerTest extends TestCase
     public function testHeadersOnAnEmptyQueueIsAnEmptyList(): void
     {
         $this->assertSame([], (new CookieSerializer())->headers([]));
+    }
+
+    // -- injected clock -------------------------------------------------------
+    //
+    // The tests above assert a tolerance range around the real time() because
+    // it moves during the test run; a FrozenClock lets the exact expiry be
+    // asserted instead.
+
+    public function testNumericLifetimeExpiryIsComputedFromTheInjectedClock(): void
+    {
+        $clock = new FrozenClock(1_700_000_000.0);
+        $normalized = (new CookieSerializer(clock: $clock))->normalize('sid', $this->cookie(['lifetime' => 3600]));
+
+        $this->assertSame(1_700_003_600, $normalized['expires']);
+        $this->assertSame(3600, $normalized['max_age']);
+    }
+
+    public function testDeletionExpiryIsComputedFromTheInjectedClock(): void
+    {
+        $clock = new FrozenClock(1_700_000_000.0);
+        $normalized = (new CookieSerializer(clock: $clock))->normalize('sid', $this->cookie(['value' => null]));
+
+        $this->assertSame(1_700_000_000 - 86400, $normalized['expires']);
+        $this->assertSame(0, $normalized['max_age']);
+    }
+
+    public function testHeaderReflectsTheClockDerivedExpiry(): void
+    {
+        $clock = new FrozenClock(1_700_000_000.0);
+        $serializer = new CookieSerializer(clock: $clock);
+
+        $header = $serializer->header('sid', $serializer->normalize('sid', $this->cookie(['lifetime' => 60])));
+
+        $this->assertStringContainsString('Expires=' . gmdate('D, d-M-Y H:i:s T', 1_700_000_060), $header);
+        $this->assertStringContainsString('Max-Age=60', $header);
     }
 }

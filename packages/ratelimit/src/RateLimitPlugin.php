@@ -62,7 +62,10 @@ final class RateLimitPlugin implements PluginInterface
             static function (Context $context): RateLimitMiddleware {
                 // The container refuses a binding that is not an instance of the id asked for, so the
                 // guard this used to carry here is held one level down now.
-                return new RateLimitMiddleware($context->getContainer()->get(StorageInterface::class));
+                return new RateLimitMiddleware(
+                    $context->getContainer()->get(StorageInterface::class),
+                    $context->getContainer()->get(\Quiote\Support\Clock\ClockInterface::class),
+                );
             },
         );
     }
@@ -79,6 +82,7 @@ final class RateLimitPlugin implements PluginInterface
             return new PdoRateLimiterStorage(
                 self::resolvePdo(),
                 Config::getString('ratelimit.pdo.table', 'quiote_rate_limit'),
+                self::resolveClock(),
             );
         }
 
@@ -103,6 +107,18 @@ final class RateLimitPlugin implements PluginInterface
         $connection = RedisAdapter::createConnection($dsn);
 
         return new CacheStorage(new RedisAdapter($connection));
+    }
+
+    /**
+     * The clock behind `ratelimit.storage = "pdo"`'s TTL/expiry columns, taken
+     * from the current {@see Context}'s container so a test or a replay engine
+     * that rebinds {@see \Quiote\Support\Clock\ClockInterface} there is honoured here too.
+     */
+    private static function resolveClock(): \Quiote\Support\Clock\ClockInterface
+    {
+        return Context::getInstance(Config::getString('core.default_context', 'web'))
+            ->getContainer()
+            ->get(\Quiote\Support\Clock\ClockInterface::class);
     }
 
     /**

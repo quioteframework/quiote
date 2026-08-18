@@ -2,6 +2,8 @@
 
 namespace Quiote\Security\RateLimit;
 
+use Quiote\Support\Clock\ClockInterface;
+use Quiote\Support\Clock\SystemClock;
 use Symfony\Component\RateLimiter\RateLimit;
 use Symfony\Component\RateLimiter\RateLimiterFactory;
 use Symfony\Component\RateLimiter\Storage\StorageInterface;
@@ -31,7 +33,8 @@ final readonly class LoginThrottle
         StorageInterface $storage,
         int $maxAttempts = 10,
         string $interval = '15 minutes',
-        string $id = 'quiote_login'
+        string $id = 'quiote_login',
+        private readonly ClockInterface $clock = new SystemClock(),
     ) {
         $this->factory = new RateLimiterFactory([
             'id' => $id,
@@ -82,6 +85,6 @@ final readonly class LoginThrottle
 
     private function secondsUntil(RateLimit $limit): int
     {
-        return max(1, $limit->getRetryAfter()->getTimestamp() - time());
+        return max(1, $limit->getRetryAfter()->getTimestamp() - $this->clock->unixTimestamp());
     }
 }

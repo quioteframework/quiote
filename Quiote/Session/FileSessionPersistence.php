@@ -6,6 +6,8 @@ namespace Quiote\Session;
 
 use FilesystemIterator;
 use Quiote\Exception\StorageException;
+use Quiote\Support\Clock\ClockInterface;
+use Quiote\Support\Clock\SystemClock;
 use Throwable;
 
 /**
@@ -48,6 +50,7 @@ class FileSessionPersistence implements SessionPersistenceInterface
         string $directory,
         array $parameters = [],
         private readonly SessionCodecInterface $codec = new SessionCodec(preferBinary: true),
+        private readonly ClockInterface $clock = new SystemClock(),
     ) {
         if (isset($parameters['idle_ttl']) && (is_int($parameters['idle_ttl']) || is_string($parameters['idle_ttl']))) {
             $this->idleTtl = max(0, (int)$parameters['idle_ttl']);
@@ -92,7 +95,7 @@ class FileSessionPersistence implements SessionPersistenceInterface
             $mtime = @filemtime($file);
             // A backward wall-clock step can make a fresh file look future-dated;
             // only a genuinely stale mtime counts as expired.
-            if ($mtime !== false && time() - $mtime > $this->idleTtl) {
+            if ($mtime !== false && $this->clock->unixTimestamp() - $mtime > $this->idleTtl) {
                 @unlink($file);
                 return null;
             }
@@ -161,7 +164,7 @@ class FileSessionPersistence implements SessionPersistenceInterface
             return 0;
         }
         $removed = 0;
-        $cutoff = time() - $this->idleTtl;
+        $cutoff = $this->clock->unixTimestamp() - $this->idleTtl;
         try {
             $iterator = new FilesystemIterator($this->directory, FilesystemIterator::SKIP_DOTS);
         } catch (Throwable $e) {

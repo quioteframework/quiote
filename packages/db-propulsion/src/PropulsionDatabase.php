@@ -197,7 +197,7 @@ class PropulsionDatabase extends Database
     public function getConnection()
     {
         $this->connect();
-        $this->lastUsedAt = microtime(true);
+        $this->lastUsedAt = \Quiote\Support\Clock\Clock::instance()->monotonic();
         return $this->connection;
     }
 

@@ -3,6 +3,7 @@
 use PHPUnit\Framework\TestCase;
 use Psr\SimpleCache\InvalidArgumentException;
 use Quiote\Cache\FileCache;
+use Quiote\Support\Clock\FrozenClock;
 
 /**
  * PSR-16 conformance and payload-handling guarantees for the dependency-free
@@ -214,5 +215,36 @@ class FileCacheTest extends TestCase
         file_put_contents($file, 'no-newline-at-all');
 
         $this->assertSame('MISS', $this->cache->get('headerless', 'MISS'));
+    }
+
+    // -- injected clock -------------------------------------------------------
+    //
+    // TTL expiry above is only exercised at 0/negative TTLs, since a positive
+    // one would need a real sleep() to observe expiring. A FrozenClock makes a
+    // real elapsed-time expiry deterministic instead.
+
+    public function testAPositiveTtlExpiresOnceTheInjectedClockPassesIt(): void
+    {
+        $clock = new FrozenClock(1_000_000.0);
+        $cache = new FileCache($this->dir, $clock);
+        $cache->set('k', 'v', 60);
+
+        $clock->advance(59.0);
+        $this->assertSame('v', $cache->get('k'));
+
+        $clock->advance(2.0);
+        $this->assertSame('MISS', $cache->get('k', 'MISS'));
+        $this->assertFalse($cache->has('k'));
+    }
+
+    public function testADateIntervalTtlIsResolvedAgainstTheInjectedClock(): void
+    {
+        $clock = new FrozenClock(1_000_000.0);
+        $cache = new FileCache($this->dir, $clock);
+        $cache->set('k', 'v', new \DateInterval('PT60S'));
+
+        $clock->advance(61.0);
+
+        $this->assertSame('MISS', $cache->get('k', 'MISS'));
     }
 }

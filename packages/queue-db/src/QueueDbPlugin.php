@@ -55,6 +55,7 @@ final class QueueDbPlugin implements PluginInterface
             static fn() => new DbQueueDriver(
                 self::resolvePdo(),
                 Config::getString('queue.db.table', 'quiote_queue_jobs'),
+                self::resolveClock(),
             ),
             Container::SCOPE_SINGLETON,
         );
@@ -64,9 +65,17 @@ final class QueueDbPlugin implements PluginInterface
             static fn() => new DbFailedJobStore(
                 self::resolvePdo(),
                 Config::getString('queue.db.failed_table', 'quiote_queue_failed_jobs'),
+                self::resolveClock(),
             ),
             Container::SCOPE_SINGLETON,
         );
+    }
+
+    private static function resolveClock(): \Quiote\Support\Clock\ClockInterface
+    {
+        return Context::getInstance(Config::getString('core.default_context', 'web'))
+            ->getContainer()
+            ->get(\Quiote\Support\Clock\ClockInterface::class);
     }
 
     private static function resolvePdo(): PDO

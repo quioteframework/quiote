@@ -63,6 +63,7 @@ final class TelemetryDashboardCommand extends Command
             return $this->selfTest($output, $configuredService, $host, $port);
         }
 
+        $clock = \Quiote\Support\Clock\Clock::instance();
         $state = new DashboardState();
         $serviceName = $configuredService;
 
@@ -70,14 +71,14 @@ final class TelemetryDashboardCommand extends Command
             $host,
             $port,
             new OtlpDecoder(),
-            function (array $spans) use (&$state, &$serviceName): void {
-                $state->ingestSpans($spans, time());
+            function (array $spans) use (&$state, &$serviceName, $clock): void {
+                $state->ingestSpans($spans, $clock->unixTimestamp());
                 foreach ($spans as $span) {
                     $serviceName = $span->serviceName() ?? $serviceName;
                 }
             },
-            function (array $metrics) use (&$state): void {
-                $state->ingestMetrics($metrics, time());
+            function (array $metrics) use (&$state, $clock): void {
+                $state->ingestMetrics($metrics, $clock->unixTimestamp());
             },
         );
 
@@ -90,7 +91,7 @@ final class TelemetryDashboardCommand extends Command
         }
 
         $tui = new Tui();
-        $tui->add(DashboardView::build($state->snapshot(time()), $serviceName, $receiver->endpoint()));
+        $tui->add(DashboardView::build($state->snapshot($clock->unixTimestamp()), $serviceName, $receiver->endpoint()));
 
         $tui->addListener(function (InputEvent $event) use ($tui): void {
             if (str_contains($event->getData(), 'q')) {
@@ -103,9 +104,9 @@ final class TelemetryDashboardCommand extends Command
             }
         });
 
-        $tui->scheduleInterval(function () use ($tui, &$state, &$serviceName, $receiver): void {
+        $tui->scheduleInterval(function () use ($tui, &$state, &$serviceName, $receiver, $clock): void {
             $tui->clear()
-                ->add(DashboardView::build($state->snapshot(time()), $serviceName, $receiver->endpoint()))
+                ->add(DashboardView::build($state->snapshot($clock->unixTimestamp()), $serviceName, $receiver->endpoint()))
                 ->requestRender();
         }, self::REFRESH_INTERVAL_SECONDS);
 
@@ -156,7 +157,7 @@ final class TelemetryDashboardCommand extends Command
     private function selfTest(OutputInterface $output, string $serviceName, string $host, int $port): int
     {
         $tree = DashboardView::build(
-            (new DashboardState())->snapshot(time()),
+            (new DashboardState())->snapshot(\Quiote\Support\Clock\Clock::instance()->unixTimestamp()),
             $serviceName,
             sprintf('http://%s:%d', $host, $port),
         );

@@ -224,7 +224,11 @@ class PdoDatabaseTest extends TestCase
             }
         };
         (new ReflectionProperty($db, 'connection'))->setValue($db, $broken);
-        (new ReflectionProperty($db, 'lastUsedAt'))->setValue($db, microtime(true) - 3600);
+        // lastUsedAt is a monotonic reading (see Database::wasRecentlyVerified()), not a wall-clock
+        // one, so staleness has to be expressed as an offset from the same monotonic clock the
+        // production code reads -- an arbitrary large wall-clock-scale number would instead read as
+        // "far in the future" and never trip the idle threshold.
+        (new ReflectionProperty($db, 'lastUsedAt'))->setValue($db, \Quiote\Support\Clock\Clock::instance()->monotonic() - 3600);
 
         $this->assertFalse($db->ping());
         $this->assertNull((new ReflectionProperty($db, 'connection'))->getValue($db));

@@ -3,6 +3,7 @@
 use Quiote\Testing\UnitTestCase;
 use Quiote\Session\Session;
 use Quiote\Session\SessionManager;
+use Quiote\Support\Clock\FrozenClock;
 use Nyholm\Psr7\ServerRequest;
 use Nyholm\Psr7\Response;
 
@@ -588,5 +589,115 @@ class SessionManagerTest extends UnitTestCase
         // touch()ed like any other resolved session, so this request counts
         // against the idle timeout instead of silently not counting.
         $this->assertSame(time(), $resolved->get(self::SEEN_AT));
+    }
+
+    // -- injected clock -------------------------------------------------------
+    //
+    // The tests above pre-seed timestamps as an offset from the real time() at
+    // the moment the test runs, which is deterministic enough for a wide
+    // window (900s) but would be flaky for an exact boundary. A FrozenClock
+    // makes the boundary itself exact and immune to how long the test runner
+    // takes to get here.
+
+    public function testIdleTimeoutBoundaryIsExactWithAFrozenClock(): void
+    {
+        $clock = new FrozenClock(1_000_000.0);
+        $persistence = new InMemorySessionPersistence();
+        $persistence->save('boundary-session-id-1234567890', [
+            'user_id' => 42,
+            self::SEEN_AT => 1_000_000 - 900,
+        ]);
+        $manager = new SessionManager($persistence, ['session_idle_timeout' => 900], $clock);
+
+        $request = (new ServerRequest('GET', '/'))->withCookieParams(['QSID' => 'boundary-session-id-1234567890']);
+        $session = $manager->startFromRequest($request);
+
+        // Exactly at the boundary (900s idle) still counts as fresh; hasExpired()
+        // only trips once the gap is strictly greater than the configured timeout.
+        $this->assertSame('boundary-session-id-1234567890', $session->getId());
+    }
+
+    public function testOneSecondPastTheIdleTimeoutBoundaryExpires(): void
+    {
+        $clock = new FrozenClock(1_000_000.0);
+        $persistence = new InMemorySessionPersistence();
+        $persistence->save('past-boundary-session-id-123', [
+            'user_id' => 42,
+            self::SEEN_AT => 1_000_000 - 901,
+        ]);
+        $manager = new SessionManager($persistence, ['session_idle_timeout' => 900], $clock);
+
+        $request = (new ServerRequest('GET', '/'))->withCookieParams(['QSID' => 'past-boundary-session-id-123']);
+        $session = $manager->startFromRequest($request);
+
+        $this->assertNotSame('past-boundary-session-id-123', $session->getId());
+    }
+
+    public function testNewSessionIsStampedFromTheInjectedClockRatherThanTheRealClock(): void
+    {
+        $clock = new FrozenClock(1_700_000_000.0);
+        $persistence = new InMemorySessionPersistence();
+        $manager = new SessionManager($persistence, ['session_idle_timeout' => 900], $clock);
+
+        $session = $manager->startFromRequest(new ServerRequest('GET', '/'));
+        $session->set('user_id', 42);
+        $manager->persistAndBakeCookies($session, new Response());
+
+        $stored = $persistence->load($session->getId());
+        $this->assertIsArray($stored);
+        $this->assertSame(1_700_000_000, $stored[self::SEEN_AT] ?? null);
+        $this->assertSame(1_700_000_000, $stored[self::CREATED_AT] ?? null);
+    }
+
+    public function testMigrationGraceWindowExpiresExactlyAtTheConfiguredSecond(): void
+    {
+        $clock = new FrozenClock(1_000_000.0);
+        $persistence = new InMemorySessionPersistence();
+        $manager = new SessionManager($persistence, ['session_migration_grace_seconds' => 300], $clock);
+
+        $newId = 'grace-target-id-1234567890abc';
+        $oldId = 'grace-source-id-1234567890abc';
+        $persistence->save($newId, ['user_id' => 42]);
+        $manager->migrateOld($oldId, $newId);
+
+        $clock->advance(301.0);
+
+        $raced = (new ServerRequest('GET', '/'))->withCookieParams(['QSID' => $oldId]);
+        $resolved = $manager->startFromRequest($raced);
+
+        $this->assertNotSame($newId, $resolved->getId(), 'a grace window one second past its limit must not resolve');
+    }
+
+    public function testMigrationGraceWindowStillResolvesJustBeforeItExpires(): void
+    {
+        $clock = new FrozenClock(1_000_000.0);
+        $persistence = new InMemorySessionPersistence();
+        $manager = new SessionManager($persistence, ['session_migration_grace_seconds' => 300], $clock);
+
+        $newId = 'grace-target-id-0987654321abc';
+        $oldId = 'grace-source-id-0987654321abc';
+        $persistence->save($newId, ['user_id' => 42]);
+        $manager->migrateOld($oldId, $newId);
+
+        $clock->advance(299.0);
+
+        $raced = (new ServerRequest('GET', '/'))->withCookieParams(['QSID' => $oldId]);
+        $resolved = $manager->startFromRequest($raced);
+
+        $this->assertSame($newId, $resolved->getId());
+    }
+
+    public function testSessionCookieExpiresIsComputedFromTheInjectedClock(): void
+    {
+        $clock = new FrozenClock(1_700_000_000.0);
+        $manager = new SessionManager(new InMemorySessionPersistence(), ['session_cookie_lifetime' => 3600], $clock);
+
+        $session = $manager->startFromRequest(new ServerRequest('GET', '/'));
+        $session->set('user_id', 42);
+        $response = $manager->persistAndBakeCookies($session, new Response());
+
+        $cookie = $response->getHeaderLine('Set-Cookie');
+        $this->assertStringContainsString('Expires=' . gmdate('D, d-M-Y H:i:s T', 1_700_000_000 + 3600), $cookie);
+        $this->assertStringContainsString('Max-Age=3600', $cookie);
     }
 }

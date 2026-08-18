@@ -8,6 +8,8 @@ use Predis\ClientInterface;
 use Quiote\Queue\JobPayload;
 use Quiote\Queue\PollableQueueDriverInterface;
 use Quiote\Queue\ReservedJob;
+use Quiote\Support\Clock\ClockInterface;
+use Quiote\Support\Clock\SystemClock;
 use RuntimeException;
 
 /**
@@ -29,6 +31,7 @@ final readonly class RedisQueueDriver implements PollableQueueDriverInterface
     public function __construct(
         private ClientInterface $redis,
         private string $prefix = 'quiote_queue',
+        private ClockInterface $clock = new SystemClock(),
     ) {
     }
 
@@ -45,10 +48,10 @@ final readonly class RedisQueueDriver implements PollableQueueDriverInterface
      */
     public function push(JobPayload $payload): void
     {
-        $availableAt = $payload->availableAt?->getTimestamp() ?? time();
+        $availableAt = $payload->availableAt?->getTimestamp() ?? $this->clock->unixTimestamp();
         $entry = $this->encode($payload, $availableAt);
 
-        if ($availableAt <= time()) {
+        if ($availableAt <= $this->clock->unixTimestamp()) {
             $this->redis->lpush($this->readyKey(), [$entry]);
         } else {
             $this->redis->zadd($this->delayedKey(), [$entry => $availableAt]);
@@ -97,10 +100,10 @@ final readonly class RedisQueueDriver implements PollableQueueDriverInterface
     {
         $this->redis->lrem($this->processingKey(), 0, $job->id);
 
-        $availableAt = time() + max(0, $delaySeconds);
+        $availableAt = $this->clock->unixTimestamp() + max(0, $delaySeconds);
         $entry = $this->encode($job->payload->withAttempts($job->payload->attempts + 1), $availableAt, $job->id);
 
-        if ($availableAt <= time()) {
+        if ($availableAt <= $this->clock->unixTimestamp()) {
             $this->redis->lpush($this->readyKey(), [$entry]);
         } else {
             $this->redis->zadd($this->delayedKey(), [$entry => $availableAt]);
@@ -120,7 +123,7 @@ final readonly class RedisQueueDriver implements PollableQueueDriverInterface
 
     private function promoteDueDelayed(): void
     {
-        $now = time();
+        $now = $this->clock->unixTimestamp();
         /** @var list<string> $due */
         $due = $this->redis->zrangebyscore($this->delayedKey(), '-inf', (string) $now);
         foreach ($due as $entry) {

@@ -3,6 +3,8 @@
 namespace Quiote\Queue;
 
 use Quiote\DI\Container;
+use Quiote\Support\Clock\ClockInterface;
+use Quiote\Support\Clock\SystemClock;
 
 /**
  * App-facing entry point: `$container->get(QueueManager::class)->push(SendWelcomeEmail::class, ['userId' => 5])`.
@@ -18,6 +20,7 @@ final readonly class QueueManager
     public function __construct(
         private Container $container,
         private QueueConfig $config,
+        private ClockInterface $clock = new SystemClock(),
     ) {
     }
 
@@ -27,7 +30,7 @@ final readonly class QueueManager
      */
     public function push(string $jobClass, array $params = [], ?int $delaySeconds = null): void
     {
-        $availableAt = $delaySeconds !== null ? new \DateTimeImmutable(sprintf('+%d seconds', $delaySeconds)) : null;
+        $availableAt = $delaySeconds !== null ? $this->clock->now()->modify(sprintf('+%d seconds', $delaySeconds)) : null;
         $this->driver()->push(new JobPayload($jobClass, $params, 0, $availableAt));
     }
 

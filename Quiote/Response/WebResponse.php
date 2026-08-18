@@ -962,18 +962,23 @@ class WebResponse extends AttributeHolder implements ResetInterface, WebResponse
 	private function cookieSerializer(): CookieSerializer
 	{
 		$path = '/';
+		$clock = null;
 		try {
-			$base = $this->context?->getContainer()->get(\Quiote\Routing\Routing::class)?->getBasePath();
+			$container = $this->context?->getContainer();
+			$base = $container?->get(\Quiote\Routing\Routing::class)?->getBasePath();
 			if(is_string($base) && $base !== '') {
 				$path = $base;
 			}
+			$clock = $container?->get(\Quiote\Support\Clock\ClockInterface::class);
 		} catch(\Throwable $e) {
 			\Quiote\Logging\Log::for($this)->debug(
 				'[WebResponse] routing base path unavailable for cookie scoping, using "/": ' . $e->getMessage()
 			);
 		}
 
-		return new CookieSerializer($path);
+		return $clock instanceof \Quiote\Support\Clock\ClockInterface
+			? new CookieSerializer($path, $clock)
+			: new CookieSerializer($path);
 	}
 
 	/**

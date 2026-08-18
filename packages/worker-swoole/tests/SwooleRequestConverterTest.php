@@ -265,6 +265,15 @@ final class SwooleRequestConverterTest extends TestCase
         $this->assertGreaterThan(0, $params['REQUEST_TIME']);
     }
 
+    public function testTimingsFallBackToTheInjectedClockExactlyWhenSwooleOmitsThem(): void
+    {
+        $clock = new \Quiote\Support\Clock\FrozenClock(1_700_000_000.5);
+        $params = (new SwooleRequestConverter(clock: $clock))->toPsr7(self::snapshot())->getServerParams();
+
+        $this->assertSame(1_700_000_000, $params['REQUEST_TIME']);
+        $this->assertSame(1_700_000_000.5, $params['REQUEST_TIME_FLOAT']);
+    }
+
     public function testASingleUploadBecomesAPsr7UploadedFile(): void
     {
         $tmp = self::tempUpload('contents');

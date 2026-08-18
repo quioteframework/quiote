@@ -2,6 +2,8 @@
 
 namespace Quiote\Security\RateLimit;
 
+use Quiote\Support\Clock\ClockInterface;
+use Quiote\Support\Clock\SystemClock;
 use Symfony\Component\RateLimiter\LimiterStateInterface;
 use Symfony\Component\RateLimiter\Storage\StorageInterface;
 
@@ -55,7 +57,8 @@ final readonly class PdoRateLimiterStorage implements StorageInterface
 
     public function __construct(
         private \PDO $pdo,
-        private string $table = 'quiote_rate_limit'
+        private string $table = 'quiote_rate_limit',
+        private ClockInterface $clock = new SystemClock(),
     ) {
     }
 
@@ -73,7 +76,7 @@ final readonly class PdoRateLimiterStorage implements StorageInterface
         $id = $this->key($limiterState->getId());
         $blob = base64_encode(serialize($limiterState));
         $ttl = $limiterState->getExpirationTime();
-        $expiresAt = ($ttl === null) ? null : (time() + $ttl);
+        $expiresAt = ($ttl === null) ? null : ($this->clock->unixTimestamp() + $ttl);
 
         $sql = sprintf(
             'INSERT INTO %1$s (id, state, expires_at) VALUES (:id, :state, :exp)'
@@ -120,7 +123,7 @@ final readonly class PdoRateLimiterStorage implements StorageInterface
         }
 
         $expiresAt = $row['expires_at'] ?? null;
-        if ((is_int($expiresAt) || is_string($expiresAt)) && (int) $expiresAt < time()) {
+        if ((is_int($expiresAt) || is_string($expiresAt)) && (int) $expiresAt < $this->clock->unixTimestamp()) {
             // Expired window — drop it and behave as if absent.
             $this->delete($limiterStateId);
             return null;
@@ -163,7 +166,7 @@ final readonly class PdoRateLimiterStorage implements StorageInterface
         $stmt = $this->pdo->prepare(
             sprintf('DELETE FROM %s WHERE expires_at IS NOT NULL AND expires_at < :now', $this->quoteIdent($this->table))
         );
-        $stmt->bindValue(':now', time(), \PDO::PARAM_INT);
+        $stmt->bindValue(':now', $this->clock->unixTimestamp(), \PDO::PARAM_INT);
         $stmt->execute();
         return $stmt->rowCount();
     }

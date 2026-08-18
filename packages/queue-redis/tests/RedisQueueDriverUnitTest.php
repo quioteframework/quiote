@@ -6,6 +6,7 @@ use PHPUnit\Framework\TestCase;
 use Quiote\Queue\JobPayload;
 use Quiote\Queue\Redis\RedisQueueDriver;
 use Quiote\Queue\ReservedJob;
+use Quiote\Support\Clock\FrozenClock;
 use Quiote\Test\Redis\InMemoryPredisClient;
 
 /**
@@ -255,6 +256,30 @@ final class RedisQueueDriverUnitTest extends TestCase
         $this->assertSame(0, $this->redis->llen(self::PREFIX . ':ready'));
         $this->assertSame(1, $this->redis->zcard(self::PREFIX . ':delayed'));
         $this->assertNull($this->driver->reserve());
+    }
+
+    /**
+     * available_at is wall-clock (it's compared against "now" by whatever
+     * worker process's reserve() runs next), so both push() and release()
+     * derive it from the injected clock -- and become due exactly when that
+     * clock, not the real one, reaches the delay.
+     */
+    public function testPushAndReleaseDelaysAreComputedFromTheInjectedClock(): void
+    {
+        $clock = new FrozenClock(1_700_000_000.0);
+        $driver = new RedisQueueDriver($this->redis, self::PREFIX, $clock);
+        $driver->push(new JobPayload('App\\Job\\Immediate'));
+        $reserved = $driver->reserve();
+        $this->assertInstanceOf(ReservedJob::class, $reserved);
+
+        $driver->release($reserved, 60);
+        $this->assertSame(1, $this->redis->zcard(self::PREFIX . ':delayed'));
+
+        $clock->advance(59.0);
+        $this->assertNull($driver->reserve(), 'one second before the delay elapses, still not due');
+
+        $clock->advance(1.0);
+        $this->assertInstanceOf(ReservedJob::class, $driver->reserve(), 'exactly at the delay, due');
     }
 
     public function testANegativeReleaseDelayIsTreatedAsImmediate(): void

@@ -94,7 +94,7 @@ class WorkerManager
         $config = array_merge(self::$config, $options);
         self::$requestCount++;
         self::$statistics['reset_count']++;
-        self::$statistics['last_reset_time'] = microtime(true);
+        self::$statistics['last_reset_time'] = \Quiote\Support\Clock\Clock::instance()->monotonic();
         
     $logger = self::getLogger();
     // Reset context state using existing getInstance API and reset() method
@@ -197,17 +197,18 @@ class WorkerManager
      */
     public static function initialize(array $options = []): void
     {
-        $startTime = microtime(true);
-        
+        $clock = \Quiote\Support\Clock\Clock::instance();
+        $startTime = $clock->monotonic();
+
         // Merge with default configuration
         self::$config = array_merge(self::$config, $options);
-        
+
         // Initialize statistics
         self::$statistics['start_time'] = $startTime;
         self::$statistics['db_connections_active'] = (bool) ($options['preserve_database_connections'] ?? false);
         self::$statistics['apcu_acceleration'] = (bool) ($options['apcu_acceleration'] ?? false);
-        
-        self::$statistics['initialization_time'] = microtime(true) - $startTime;
+
+        self::$statistics['initialization_time'] = $clock->monotonic() - $startTime;
         
     self::getLogger()->debug('WorkerManager initialized with options: ' . json_encode($options));
     }
@@ -219,7 +220,7 @@ class WorkerManager
     public static function getStatistics(): array
     {
         $stats = self::$statistics;
-        $stats['uptime'] = microtime(true) - self::$statistics['start_time'];
+        $stats['uptime'] = \Quiote\Support\Clock\Clock::instance()->monotonic() - self::$statistics['start_time'];
         $stats['memory_usage'] = memory_get_usage(true);
         $stats['memory_peak'] = memory_get_peak_usage(true);
         

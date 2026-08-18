@@ -84,7 +84,11 @@ class TelemetryMiddleware implements MiddlewareInterface
         $propagationScope = self::extractInboundContext($request);
 
         $requestTimeFloat = $_SERVER['REQUEST_TIME_FLOAT'] ?? null;
-        $wallStart = is_int($requestTimeFloat) || is_float($requestTimeFloat) ? (float) $requestTimeFloat : microtime(true);
+        // Wall-clock, not monotonic: REQUEST_TIME_FLOAT (set by the runtime before this
+        // middleware ever runs) is itself a wall-clock epoch reading, so the fallback and
+        // recordMeasurements()'s later subtraction have to be measured against the same kind
+        // of clock as that external value.
+        $wallStart = is_int($requestTimeFloat) || is_float($requestTimeFloat) ? (float) $requestTimeFloat : \Quiote\Support\Clock\Clock::instance()->microtime();
         $cpuStart = self::cpuTimes();
         if (function_exists('memory_reset_peak_usage')) {
             // Worker mode: memory_get_peak_usage() is monotonic for the process
@@ -229,7 +233,7 @@ class TelemetryMiddleware implements MiddlewareInterface
         ?int $responseSize,
         bool $cacheHit,
     ): void {
-        $durationSeconds = microtime(true) - $wallStart;
+        $durationSeconds = \Quiote\Support\Clock\Clock::instance()->microtime() - $wallStart;
         $span->setAttribute('quiote.duration_ms', round($durationSeconds * 1000, 3));
 
         $cpuUserSeconds = null;
