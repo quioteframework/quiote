@@ -19,6 +19,12 @@
 		"quioteframework/quiote": "^4.0",
 		"psr/log": "^3.0"
 	},
+	"require-dev": {
+		"quioteframework/propulsion": "^2.0 || ^3.0"
+	},
+	"suggest": {
+		"quioteframework/propulsion": "Enables Quiote\\Replay\\Db\\PropulsionQueryRecorder, an effect-ledger recorder for Propulsion's own query observer seam."
+	},
 	"autoload": {
 		"psr-4": {
 			"Quiote\\Replay\\": "src/"
