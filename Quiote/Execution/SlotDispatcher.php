@@ -23,6 +23,8 @@ use Quiote\Execution\Slot\SlotParameterOverlay;
 use Quiote\Request\WebRequest;
 use Quiote\Support\Clock\ClockInterface;
 use Quiote\Support\Clock\SystemClock;
+use Quiote\Support\Environment\EnvironmentReaderInterface;
+use Quiote\Support\Environment\SystemEnvironmentReader;
 
 /**
  * SlotDispatcher executes sub-actions ("slots") via container-less execution only.
@@ -44,6 +46,7 @@ class SlotDispatcher
     private readonly ViewNameResolver $viewNameResolver;
     private readonly ViewFactory $viewFactory;
     private readonly ClockInterface $clock;
+    private readonly EnvironmentReaderInterface $environment;
 
     // Retained only to keep the constructor signature stable for callers that
     // inject it; nothing in this class reads it back yet.
@@ -52,7 +55,7 @@ class SlotDispatcher
     // Controller reference), so a fresh instance per dispatch was pure allocation.
     private ?SecurityService $securityService = null;
 
-    public function __construct(private readonly Controller $controller, ?ActionResolver $actionResolver = null, ?SlotExecutionGuard $executionGuard = null, ?ViewNameResolver $viewNameResolver = null, ?ForwardService $forwardService = null, ?ViewFactory $viewFactory = null, ?ClockInterface $clock = null)
+    public function __construct(private readonly Controller $controller, ?ActionResolver $actionResolver = null, ?SlotExecutionGuard $executionGuard = null, ?ViewNameResolver $viewNameResolver = null, ?ForwardService $forwardService = null, ?ViewFactory $viewFactory = null, ?ClockInterface $clock = null, ?EnvironmentReaderInterface $environment = null)
     {
         // Initialize pure resolver
         $this->viewNameResolver = $viewNameResolver ?? new ViewNameResolver();
@@ -61,6 +64,7 @@ class SlotDispatcher
         $this->forwardService ??= $forwardService ?? new ForwardService($controller);
         $this->viewFactory = $viewFactory ?? new ViewFactory($controller);
         $this->clock = $clock ?? new SystemClock();
+        $this->environment = $environment ?? new SystemEnvironmentReader();
     }
 
     /**
@@ -146,7 +150,7 @@ class SlotDispatcher
             // re-ran getOutputType()->getName() + strtolower() at each site.
             $resolvedOutputType = $outputType ?? $this->controller->getOutputType()->getName();
             $resolvedOutputTypeLower = strtolower($resolvedOutputType);
-            $cacheEnabled = Config::getBool('core.use_cache', false) && (bool)getenv('QUIOTE_SLOT_CACHE');
+            $cacheEnabled = Config::getBool('core.use_cache', false) && (bool)$this->environment->get('QUIOTE_SLOT_CACHE');
             $cacheKey = null;
             $cacheHit = false;
             // Slot parameters go onto the shared request for the length of this dispatch only.

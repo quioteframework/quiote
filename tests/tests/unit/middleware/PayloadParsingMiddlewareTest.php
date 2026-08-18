@@ -7,6 +7,7 @@ use Psr\Http\Server\RequestHandlerInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Quiote\Middleware\PayloadParsingMiddleware;
+use Quiote\Support\Environment\EnvironmentReaderInterface;
 
 final class PayloadParsingMiddlewareTest extends TestCase
 {
@@ -76,5 +77,40 @@ final class PayloadParsingMiddlewareTest extends TestCase
         $this->assertNotSame('', $body);
         $decoded = json_decode($body, true);
         $this->assertIsArray($decoded);
+    }
+
+    /**
+     * With no explicit `$strict` argument, the constructor's default reads
+     * `QUIOTE_JSON_STRICT` through the injected EnvironmentReaderInterface
+     * seam rather than a direct getenv() call, per §6.5 of the record/replay
+     * determinism plan.
+     */
+    public function testDefaultStrictnessIsReadThroughTheInjectedEnvironmentSeam(): void
+    {
+        $environment = new class implements EnvironmentReaderInterface {
+            public function get(string $name): string|false
+            {
+                return $name === 'QUIOTE_JSON_STRICT' ? '0' : false;
+            }
+        };
+        $factory = new Nyholm\Psr7\Factory\Psr17Factory();
+        $req = (new ServerRequest('POST', '/api/foo'))
+            ->withHeader('Content-Type', 'application/json')
+            ->withBody($factory->createStream('{ oops'));
+
+        // strict: null so the constructor falls back to the environment reader.
+        $mw = new PayloadParsingMiddleware(null, $environment);
+        $final = new class implements RequestHandlerInterface {
+            public function handle(ServerRequestInterface $r): ResponseInterface
+            {
+                return new Psr7Response(204);
+            }
+        };
+
+        $resp = $mw->process($req, $final);
+
+        // QUIOTE_JSON_STRICT=0 disables strict mode, so invalid JSON falls
+        // through to the handler instead of producing a 400.
+        $this->assertSame(204, $resp->getStatusCode());
     }
 }

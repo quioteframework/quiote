@@ -562,6 +562,11 @@ class Context implements \Stringable, ResetInterface, ContextInterface
     // and in the same way as the clock binding above.
     $container->set(\Quiote\Support\Random\RandomnessInterface::class, \Quiote\Support\Random\Randomness::instance());
 
+    // The env seam a direct getenv() call site on the request path is meant to go through
+    // instead. Seeded from the Environment facade, for the same reason and in the same way
+    // as the clock and randomness bindings above.
+    $container->set(\Quiote\Support\Environment\EnvironmentReaderInterface::class, \Quiote\Support\Environment\Environment::instance());
+
     // The controller and the routing are bound by registerLazyCoreComponents() instead, as factories:
     // binding the instance here would win over the factory and pin whatever existed at initialize(),
     // which is precisely what the lazy rebuild has to be able to replace.

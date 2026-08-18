@@ -8,6 +8,8 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Middlewares\JsonPayload; // JSON parsing
 use Middlewares\Utils\Dispatcher; // utility to run stack manually
+use Quiote\Support\Environment\EnvironmentReaderInterface;
+use Quiote\Support\Environment\SystemEnvironmentReader;
 
 /**
  * Unified body parsing leveraging middlewares/payload.
@@ -23,9 +25,9 @@ class PayloadParsingMiddleware implements MiddlewareInterface
     private readonly bool $strict;
     private readonly JsonPayload $json;
 
-    public function __construct(?bool $strict = null)
+    public function __construct(?bool $strict = null, EnvironmentReaderInterface $environment = new SystemEnvironmentReader())
     {
-        $this->strict = $strict ?? (getenv('QUIOTE_JSON_STRICT') !== '0');
+        $this->strict = $strict ?? ($environment->get('QUIOTE_JSON_STRICT') !== '0');
         $this->json = (new JsonPayload())
             ->options(JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)
             ->associative(true);
