@@ -1,0 +1,33 @@
+{
+	"name": "quioteframework/replay",
+	"description": "Record → replay → regression test: an effect ledger and per-subsystem recording/stub seams (database, HTTP client, cache, queue, env) for Quiote.",
+	"keywords": ["quiote", "replay", "record", "testing", "determinism"],
+	"homepage": "https://github.com/quioteframework/replay",
+	"type": "library",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "Quiote Contributors",
+			"homepage": "https://github.com/quioteframework/quiote/graphs/contributors"
+		}
+	],
+	"support": {
+		"issues": "https://github.com/quioteframework/quiote/issues"
+	},
+	"require": {
+		"php": ">=8.5.0",
+		"quioteframework/quiote": "^4.0",
+		"psr/log": "^3.0"
+	},
+	"autoload": {
+		"psr-4": {
+			"Quiote\\Replay\\": "src/"
+		}
+	},
+	"extra": {
+		"branch-alias": {
+			"dev-main": "4.0.x-dev"
+		},
+		"quiote-monorepo-note": "Developed in-tree under quioteframework/quiote's packages/replay/; split to this standalone repo via splitsh/lite on tag push. PRs go to the monorepo, not here."
+	}
+}

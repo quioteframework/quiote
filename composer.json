@@ -103,7 +103,8 @@
 		"quioteframework/cloud-s3": "^4.0",
 		"quioteframework/cloud-gcs": "^4.0",
 		"quioteframework/cloud-azure": "^4.0",
-		"quioteframework/storage": "^4.0"
+		"quioteframework/storage": "^4.0",
+		"quioteframework/replay": "^4.0"
 	},
 	"suggest": {
 		"phpunit/phpunit": "Install phpunit if you want to run your tests",
@@ -150,7 +151,8 @@
 		"quioteframework/cloud-s3": "Minimal S3 REST client (Quiote\\Storage\\S3\\); pulled in automatically by the matching session-* and filesystem-* packages",
 		"quioteframework/cloud-gcs": "Minimal GCS REST client (Quiote\\Storage\\Gcs\\); pulled in automatically by the matching session-* and filesystem-* packages",
 		"quioteframework/cloud-azure": "Minimal Azure Blob and Table Storage REST client (Quiote\\Storage\\Azure\\); pulled in automatically by the matching session-* and filesystem-* packages",
-		"quioteframework/storage": "Framework-agnostic object-store contracts (Quiote\\Storage\\ObjectStoreClientInterface and friends); pulled in automatically by cloud-azure, cloud-s3 and cloud-gcs"
+		"quioteframework/storage": "Framework-agnostic object-store contracts (Quiote\\Storage\\ObjectStoreClientInterface and friends); pulled in automatically by cloud-azure, cloud-s3 and cloud-gcs",
+		"quioteframework/replay": "Record → replay → regression test: an effect ledger and per-subsystem recording/stub seams (Quiote\\Replay\\*)"
 	},
 	"scripts": {
 		"test": "php -d apc.enable_cli=0 vendor/bin/phpunit --no-coverage",
