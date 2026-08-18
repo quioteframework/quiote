@@ -24,6 +24,7 @@
 	"require": {
 		"php": ">=8.5.0",
 		"quioteframework/quiote": "^4.0",
+		"quioteframework/filesystem": "^4.0",
 		"quioteframework/cloud-azure": "^4.0"
 	},
 	"autoload": {

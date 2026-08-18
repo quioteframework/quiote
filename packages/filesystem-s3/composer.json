@@ -25,7 +25,7 @@
 		"quioteframework/cloud-s3": "^4.0"
 	},
 	"suggest": {
-		"quioteframework/quiote": "Needed to use S3FilesystemAdapter/S3FilesystemPlugin as a Quiote\\Filesystem\\FilesystemManager disk; not needed to use S3Client from quioteframework/cloud-s3 directly"
+		"quioteframework/filesystem": "Needed to use S3FilesystemAdapter/S3FilesystemPlugin as a Quiote\\Filesystem\\FilesystemManager disk; not needed to use S3Client from quioteframework/cloud-s3 directly"
 	},
 	"autoload": {
 		"psr-4": {

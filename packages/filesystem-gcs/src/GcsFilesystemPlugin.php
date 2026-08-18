@@ -41,6 +41,7 @@ final class GcsFilesystemPlugin implements PluginInterface
         $registrar->configDefault('filesystem.disks.gcs.key_prefix', '');
 
         FilesystemDriverRegistry::register('gcs', GcsFilesystemAdapter::class);
+        $registrar->stateReset('filesystem-driver-registry', static fn() => FilesystemDriverRegistry::reset());
 
         $registrar->service(
             GcsFilesystemAdapter::class,

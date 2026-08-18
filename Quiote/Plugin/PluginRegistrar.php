@@ -169,4 +169,21 @@ final class PluginRegistrar
         \Quiote\Exception\Rendering\ExceptionRendererRegistry::setSafeRenderer($factory);
         return $this;
     }
+
+    /**
+     * Contribute a callback that clears a plugin-owned static registry, invoked by
+     * {@see PluginManager::reset()}. For a driver registry a plugin package owns and populates
+     * directly (per this class's own docblock): a generic seam so PluginManager never needs to
+     * import and call that registry by name itself, the way {@see PluginManager::addRequestEndClear()}
+     * is the generic seam for per-request state.
+     *
+     * Keyed by $label, so registering the same label twice replaces rather than clearing twice.
+     *
+     * @param \Closure(): void $reset
+     */
+    public function stateReset(string $label, \Closure $reset): self
+    {
+        PluginManager::addStateReset($label, $reset);
+        return $this;
+    }
 }

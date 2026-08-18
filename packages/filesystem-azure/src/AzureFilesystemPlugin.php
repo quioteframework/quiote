@@ -51,6 +51,7 @@ final class AzureFilesystemPlugin implements PluginInterface
         $registrar->configDefault('filesystem.disks.azure.key_prefix', '');
 
         FilesystemDriverRegistry::register('azure', AzureFilesystemAdapter::class);
+        $registrar->stateReset('filesystem-driver-registry', static fn() => FilesystemDriverRegistry::reset());
 
         $registrar->service(
             AzureFilesystemAdapter::class,

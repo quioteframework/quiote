@@ -23,6 +23,7 @@
 	"require": {
 		"php": ">=8.5.0",
 		"quioteframework/quiote": "^4.0",
+		"quioteframework/filesystem": "^4.0",
 		"quioteframework/cloud-s3": "^4.0"
 	},
 	"autoload": {

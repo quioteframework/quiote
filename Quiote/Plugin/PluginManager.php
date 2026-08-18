@@ -50,6 +50,9 @@ final class PluginManager
     /** @var array<string, \Closure(): void> contributed end-of-request clears, keyed by label */
     private static array $requestEndClears = [];
 
+    /** @var array<string, \Closure(): void> contributed static-state resets, keyed by label */
+    private static array $stateResets = [];
+
     private function __construct() {}
 
     /** Register a plugin (instance or class-string). De-duped by class; declared order preserved. */
@@ -198,6 +201,25 @@ final class PluginManager
         self::$requestEndClears[$label] = $clear;
     }
 
+    /**
+     * Contribute a callback that clears a plugin-owned static registry, run as part of
+     * {@see reset()}.
+     *
+     * For a driver registry that accumulates aliases across possibly-disjoint plugin instances
+     * (e.g. a cloud filesystem package's own plugin calling its driver registry directly, the way
+     * {@see PluginInterface}'s own docblock says a plugin-owned registry should): without this,
+     * PluginManager would need to import and call every such registry by name itself, coupling
+     * core to every optional subsystem that happens to keep one.
+     *
+     * Keyed by $label, so registering the same label twice replaces rather than clearing twice.
+     *
+     * @param      \Closure(): void $reset
+     */
+    public static function addStateReset(string $label, \Closure $reset): void
+    {
+        self::$stateResets[$label] = $reset;
+    }
+
     // --- application phases -------------------------------------------------
 
     /**
@@ -271,6 +293,10 @@ final class PluginManager
      */
     public static function reset(): void
     {
+        foreach (self::$stateResets as $reset) {
+            $reset();
+        }
+
         self::$plugins = [];
         self::$registered = false;
         self::$moduleDirs = [];
@@ -278,11 +304,11 @@ final class PluginManager
         self::$containerServices = [];
         self::$httpClientConfigs = [];
         self::$requestEndClears = [];
+        self::$stateResets = [];
         \Quiote\Middleware\MiddlewareCatalog::reset();
         \Quiote\Middleware\Config\MiddlewareConfigRegistry::reset();
         \Quiote\Database\DatabaseDriverRegistry::reset();
         \Quiote\Exception\Rendering\ExceptionRendererRegistry::reset();
-        \Quiote\Filesystem\FilesystemDriverRegistry::reset();
         \Quiote\Runtime\Worker\WorkerRuntimeRegistry::reset();
         \Quiote\Runtime\Worker\WorkerRuntimeInfo::reset();
     }

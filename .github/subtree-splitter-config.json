@@ -56,6 +56,11 @@
 			"target": "git@github.com:quioteframework/session-redis.git"
 		},
 		{
+			"name": "filesystem",
+			"directory": "packages/filesystem",
+			"target": "git@github.com:quioteframework/filesystem.git"
+		},
+		{
 			"name": "filesystem-azure",
 			"directory": "packages/filesystem-azure",
 			"target": "git@github.com:quioteframework/filesystem-azure.git"

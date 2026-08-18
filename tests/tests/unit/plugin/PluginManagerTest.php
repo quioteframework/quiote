@@ -195,6 +195,36 @@ class PluginManagerTest extends TestCase
         $this->assertTrue($factory->has('demo-api'));
     }
 
+    /**
+     * A plugin-owned registry (a driver registry accumulating aliases across possibly-disjoint
+     * plugin instances, the way a cloud filesystem package's own plugin populates
+     * FilesystemDriverRegistry) needs a way to clear itself on reset() without PluginManager
+     * importing and calling it by name.
+     */
+    public function testStateResetContributionRunsOnReset(): void
+    {
+        StateResetCounter::$count = 0;
+        PluginManager::add(new StateResetPluginA());
+        PluginManager::bootFromConfig();
+
+        PluginManager::reset();
+
+        $this->assertSame(1, StateResetCounter::$count);
+    }
+
+    /** Two plugins contributing the same label collapse into one reset call, not two. */
+    public function testStateResetIsKeyedByLabelAcrossDifferentPlugins(): void
+    {
+        StateResetCounter::$count = 0;
+        PluginManager::add(new StateResetPluginA());
+        PluginManager::add(new StateResetPluginB());
+        PluginManager::bootFromConfig();
+
+        PluginManager::reset();
+
+        $this->assertSame(1, StateResetCounter::$count);
+    }
+
     public function testBootIsIdempotent(): void
     {
         $plugin = new CountingPlugin();
@@ -302,6 +332,33 @@ final class CountingPlugin implements PluginInterface
 
 final class DemoPluginEvent extends \Quiote\Event\Event
 {
+}
+
+final class StateResetCounter
+{
+    public static int $count = 0;
+}
+
+#[PluginAttribute(name: 'state-reset-a')]
+final class StateResetPluginA implements PluginInterface
+{
+    public function register(PluginRegistrar $r): void
+    {
+        $r->stateReset('demo-shared-registry', static function (): void {
+            StateResetCounter::$count++;
+        });
+    }
+}
+
+#[PluginAttribute(name: 'state-reset-b')]
+final class StateResetPluginB implements PluginInterface
+{
+    public function register(PluginRegistrar $r): void
+    {
+        $r->stateReset('demo-shared-registry', static function (): void {
+            StateResetCounter::$count++;
+        });
+    }
 }
 
 // Deliberately NOT #[PluginAttribute] -- see testClassStringActivationRefusesAPluginInterfaceClassWithoutTheAttribute().

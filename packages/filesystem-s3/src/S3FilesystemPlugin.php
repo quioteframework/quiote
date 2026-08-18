@@ -42,6 +42,7 @@ final class S3FilesystemPlugin implements PluginInterface
         $registrar->configDefault('filesystem.disks.s3.key_prefix', '');
 
         FilesystemDriverRegistry::register('s3', S3FilesystemAdapter::class);
+        $registrar->stateReset('filesystem-driver-registry', static fn() => FilesystemDriverRegistry::reset());
 
         $registrar->service(
             S3FilesystemAdapter::class,
