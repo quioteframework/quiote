@@ -26,14 +26,51 @@ final class CassetteStoreRegistry
         'file' => FileCassetteStore::class,
     ];
 
+    /**
+     * How to build each alias's store, when its own package knows and this class cannot.
+     *
+     * A store package used to claim the `CassetteStoreInterface` binding itself, with a
+     * `PluginRegistrar::service()` call in its own plugin. That is set-if-absent, so it only took
+     * effect when the package loaded *before* `ReplayPlugin` -- which both `replay-azure` and
+     * `replay-pdo` documented as a requirement -- and having loaded first it then won
+     * unconditionally, whatever `replay.store` actually said. Installing `quioteframework/replay-azure`
+     * to have the option therefore forced every cassette through Azure, and a plain
+     * `replay.store = file` app got a blob client built for a container it never named.
+     *
+     * Registering a factory here instead inverts that: one binding, in `ReplayPlugin`, resolves
+     * whichever alias `replay.store` names to the factory its package left behind. Load order stops
+     * mattering, and a registered-but-unselected store is never constructed.
+     *
+     * @var array<string, \Closure(\Quiote\DI\Container): CassetteStoreInterface>
+     */
+    private static array $factories = [];
+
     private function __construct()
     {
     }
 
-    /** @param class-string<CassetteStoreInterface> $storeClass */
-    public static function register(string $alias, string $storeClass): void
+    /**
+     * @param class-string<CassetteStoreInterface> $storeClass
+     * @param (\Closure(\Quiote\DI\Container): CassetteStoreInterface)|null $factory How to build it.
+     *        Required for any store `ReplayPlugin` does not know how to construct itself, which is
+     *        every store but the built-in file one -- see {@see $factories}.
+     */
+    public static function register(string $alias, string $storeClass, ?\Closure $factory = null): void
     {
         self::$aliases[$alias] = $storeClass;
+        if ($factory !== null) {
+            self::$factories[$alias] = $factory;
+        }
+    }
+
+    /**
+     * The factory for $alias, or null when its package registered none.
+     *
+     * @return (\Closure(\Quiote\DI\Container): CassetteStoreInterface)|null
+     */
+    public static function factoryFor(string $alias): ?\Closure
+    {
+        return self::$factories[$alias] ?? null;
     }
 
     /** Whether $alias has been registered -- a fully-qualified class name is not an alias. */
@@ -92,5 +129,6 @@ final class CassetteStoreRegistry
     public static function reset(): void
     {
         self::$aliases = ['file' => FileCassetteStore::class];
+        self::$factories = [];
     }
 }

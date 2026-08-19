@@ -36,9 +36,13 @@ use RuntimeException;
  * wins when `--key` is given, Log Analytics resolves a bare id with no hint at all, and the prefix
  * scan is the fallback for a developer with blob read but no workspace access.
  *
- * **Must be loaded before `Quiote\Replay\ReplayPlugin`** -- same reason as
- * `quioteframework/replay-pdo`'s own plugin: `PluginRegistrar::service()` is set-if-absent, and
- * `ReplayPlugin`'s own factory only knows how to build the file store.
+ * Load order does not matter, and installing this package does not commit an application to Azure.
+ * It contributes an alias, a factory, a config family and three index factories; `ReplayPlugin`'s
+ * single `CassetteStoreInterface` binding then builds whichever store `replay.store` actually names.
+ * Previously this plugin claimed that binding itself with a set-if-absent `service()` call, which
+ * only worked when it loaded first -- and, having loaded first, then won regardless of
+ * `replay.store`, so merely installing the package forced every cassette through a blob container
+ * the application may never have named.
  */
 #[PluginAttribute(name: 'quioteframework/replay-azure')]
 final class ReplayAzurePlugin implements PluginInterface
@@ -51,23 +55,30 @@ final class ReplayAzurePlugin implements PluginInterface
         $registrar->configDefault('replay.store.azure.account_key', '');
         $registrar->configDefault('replay.store.azure.endpoint', '');
         $registrar->configDefault('replay.store.azure.prefix', 'quiote-cassettes');
+        // The environment segment of a cassette key, between the prefix and the date. Empty means
+        // "this process's own core.environment", which is right for the deployment doing the
+        // recording. A reader running somewhere else -- a developer's CLI, or the MCP assistant on
+        // a laptop -- has a different core.environment than the deployment that wrote the key, and
+        // core.environment is readonly once bootstrapped, so it cannot simply be overridden. This
+        // is how such a reader names the environment whose cassettes it wants.
+        $registrar->configDefault('replay.store.azure.env', '');
         $registrar->configDefault('replay.store.azure.lookback_hours', 48);
         // Empty by default: LogAnalyticsIndex declines (not an error) until a workspace is given.
         $registrar->configDefault('replay.index.log_analytics.workspace_id', '');
         $registrar->configDefault('replay.index.log_analytics.endpoint', 'https://api.loganalytics.io');
         $registrar->configDefault('replay.index.log_analytics.lookback_hours', 720);
 
-        CassetteStoreRegistry::register('azure-blob', ObjectStoreCassetteStore::class);
+        // The factory travels with the alias, so `ReplayPlugin`'s single binding can build this
+        // store when -- and only when -- `replay.store` says `azure-blob`.
+        CassetteStoreRegistry::register(
+            'azure-blob',
+            ObjectStoreCassetteStore::class,
+            static fn(Container $container): ObjectStoreCassetteStore => self::makeStore($container),
+        );
         $registrar->stateReset('quioteframework/replay-azure', static function (): void {
             CassetteStoreRegistry::reset();
             CassetteIndexRegistry::reset();
         });
-
-        $registrar->service(
-            CassetteStoreInterface::class,
-            static fn(Container $container): CassetteStoreInterface => self::makeStore($container),
-            Container::SCOPE_SINGLETON,
-        );
 
         CassetteIndexRegistry::register(static fn(Container $container): CassetteIndexInterface => new ExplicitKeyIndex(self::makeObjectClient($container)));
         CassetteIndexRegistry::register(static fn(Container $container): CassetteIndexInterface => self::makeLogAnalyticsIndex($container));
@@ -88,13 +99,17 @@ final class ReplayAzurePlugin implements PluginInterface
     /**
      * Built with `queryClient: null` (a permanent decline) when no workspace is configured --
      * config-driven, not a container/credential problem, so this never needs a bound HTTP client
-     * just to find out the index is unused.
+     * just to find out the index is unused. It gets no object client either: one is only used to
+     * fetch the object a pointer names, and building a blob client plus its credential for an index
+     * that declines every call is work with no result. That matters for the common configuration --
+     * blob storage with `--date`/`--key` hints and no workspace at all -- where this index is
+     * present in the chain purely to be skipped.
      */
     private static function makeLogAnalyticsIndex(Container $container): LogAnalyticsIndex
     {
         $workspaceId = Config::getString('replay.index.log_analytics.workspace_id', '');
         if ($workspaceId === '') {
-            return new LogAnalyticsIndex(null, self::makeObjectClient($container));
+            return new LogAnalyticsIndex(null);
         }
 
         $endpoint = Config::getString('replay.index.log_analytics.endpoint', 'https://api.loganalytics.io');
@@ -138,11 +153,18 @@ final class ReplayAzurePlugin implements PluginInterface
         return new AzureBlobContainerClient($blobClient, $containerName);
     }
 
+    /**
+     * The key scheme, whose environment segment is `replay.store.azure.env` when set and this
+     * process's own `core.environment` otherwise -- see that config default for why a reader needs
+     * to be able to say which environment's keys it is after.
+     */
     private static function makeKeyScheme(): CassetteKeyScheme
     {
+        $env = Config::getString('replay.store.azure.env', '');
+
         return new CassetteKeyScheme(
             Config::getString('replay.store.azure.prefix', 'quiote-cassettes'),
-            Config::getString('core.environment', 'production'),
+            $env !== '' ? $env : Config::getString('core.environment', 'production'),
         );
     }
 

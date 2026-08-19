@@ -92,7 +92,17 @@ final class ReplayPlugin implements PluginInterface
 
         // Singleton: the file store checks/creates its directory (and its permissions) once at
         // construction, and there is no reason to repeat that per request.
-        $registrar->service(CassetteStoreInterface::class, static fn(): CassetteStoreInterface => self::makeStore(), Container::SCOPE_SINGLETON);
+        //
+        // The one binding for every store, not just the file one. A store package registers a
+        // factory against its alias in CassetteStoreRegistry and this resolves whichever alias
+        // `replay.store` names -- so `replay-azure` and `replay-pdo` no longer have to load before
+        // this plugin to claim the binding, and a package installed but not selected is never
+        // constructed. See CassetteStoreRegistry::$factories for what the previous arrangement did.
+        $registrar->service(
+            CassetteStoreInterface::class,
+            static fn(Container $container): CassetteStoreInterface => self::makeStore($container),
+            Container::SCOPE_SINGLETON,
+        );
 
         $registrar->attributedMiddleware(
             RecorderMiddleware::class,
@@ -121,25 +131,30 @@ final class ReplayPlugin implements PluginInterface
         });
     }
 
-    private static function makeStore(): CassetteStoreInterface
+    private static function makeStore(Container $container): CassetteStoreInterface
     {
         $alias = Config::getString('replay.store', 'file');
         $class = CassetteStoreRegistry::instantiateClassFor($alias);
+
+        $factory = CassetteStoreRegistry::factoryFor($alias);
+        if ($factory !== null) {
+            return $factory($container);
+        }
 
         if ($class === FileCassetteStore::class) {
             return new FileCassetteStore(Config::getString('replay.store.path', 'var/cassettes'));
         }
 
-        // A registered non-file store must supply its own factory (its plugin's job to
-        // register a service for CassetteStoreInterface ahead of this one, per the
-        // set-if-absent contract PluginRegistrar::service() documents), since this class knows
-        // how to construct only the built-in file store.
+        // A registered alias with no factory: its package named itself in the registry but left no
+        // way to build the store. That is a packaging mistake rather than a user misconfiguration,
+        // so it names the class and what is missing.
         throw new RuntimeException(sprintf(
-            'Cassette store "%s" (class "%s") has no constructor known to %s; its own plugin must register a %s service instead of relying on this default factory.',
+            'Cassette store "%s" (class "%s") registered no factory with %s, so %s cannot build it. '
+            . 'Its own plugin must pass a factory to CassetteStoreRegistry::register().',
             $alias,
             $class,
+            CassetteStoreRegistry::class,
             self::class,
-            CassetteStoreInterface::class,
         ));
     }
 }

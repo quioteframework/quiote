@@ -21,13 +21,12 @@ use RuntimeException;
  * binding, through the same plugin mechanism every other Quiote package
  * uses.
  *
- * **Must be loaded before `Quiote\Replay\ReplayPlugin`** for `replay.store =
- * pdo` to actually take effect: `PluginRegistrar::service()` is set-if-absent
- * (first registration wins), and `ReplayPlugin`'s own `CassetteStoreInterface`
- * factory only knows how to build the built-in file store -- its docblock
- * states plainly that a non-file store's own plugin is responsible for
- * registering the service ahead of it. This mirrors
- * `quioteframework/queue-db`'s `QueueDbPlugin` exactly.
+ * Load order does not matter, and installing this package does not commit an application to a
+ * database-backed store. It contributes an alias, a factory and a config family; `ReplayPlugin`'s
+ * single `CassetteStoreInterface` binding then builds whichever store `replay.store` actually
+ * names. Previously this plugin claimed that binding itself with a set-if-absent `service()` call,
+ * which only worked when it loaded first -- and, having loaded first, then won regardless of
+ * `replay.store`.
  */
 #[PluginAttribute(name: 'quioteframework/replay-pdo')]
 final class ReplayPdoPlugin implements PluginInterface
@@ -37,17 +36,18 @@ final class ReplayPdoPlugin implements PluginInterface
         $registrar->configDefault('replay.store.pdo.connection', 'main');
         $registrar->configDefault('replay.store.pdo.table', 'quiote_cassettes');
 
-        CassetteStoreRegistry::register('pdo', PdoCassetteStore::class);
-        $registrar->stateReset('quioteframework/replay-pdo', static fn() => CassetteStoreRegistry::reset());
-
-        $registrar->service(
-            CassetteStoreInterface::class,
-            static fn(): CassetteStoreInterface => new PdoCassetteStore(
+        // The factory travels with the alias, so `ReplayPlugin`'s single binding can build this
+        // store when -- and only when -- `replay.store` says `pdo`.
+        CassetteStoreRegistry::register(
+            'pdo',
+            PdoCassetteStore::class,
+            static fn(Container $container): PdoCassetteStore => new PdoCassetteStore(
                 self::resolvePdo(),
                 Config::getString('replay.store.pdo.table', 'quiote_cassettes'),
             ),
-            Container::SCOPE_SINGLETON,
         );
+        $registrar->stateReset('quioteframework/replay-pdo', static fn() => CassetteStoreRegistry::reset());
+
     }
 
     private static function resolvePdo(): PDO

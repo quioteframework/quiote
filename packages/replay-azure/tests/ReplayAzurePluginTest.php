@@ -11,6 +11,9 @@ use Quiote\DI\Container;
 use Quiote\Plugin\PluginManager;
 use Quiote\Replay\Index\CassetteIndexRegistry;
 use Quiote\Replay\Store\Azure\ReplayAzurePlugin;
+use Quiote\Replay\ReplayPlugin;
+use Quiote\Replay\Store\CassetteStoreInterface;
+use Quiote\Replay\Store\FileCassetteStore;
 use Quiote\Replay\Store\CassetteStoreRegistry;
 use Quiote\Replay\Store\Storage\ObjectStoreCassetteStore;
 
@@ -54,6 +57,9 @@ final class ReplayAzurePluginTest extends TestCase
         Config::remove('replay.index.log_analytics.workspace_id');
         Config::remove('replay.index.log_analytics.endpoint');
         Config::remove('replay.index.log_analytics.lookback_hours');
+        Config::remove('replay.store');
+        Config::remove('replay.store.path');
+        Config::remove('replay.store.azure.env');
     }
 
     public function testRegistersDefaultConfig(): void
@@ -117,6 +123,71 @@ final class ReplayAzurePluginTest extends TestCase
 
         $this->assertSame([], CassetteIndexRegistry::build(new Container()));
     }
+
+    public function testTheKeySchemeEnvDefaultsToEmptyMeaningThisProcessesOwnEnvironment(): void
+    {
+        PluginManager::add(new ReplayAzurePlugin());
+        PluginManager::bootFromConfig();
+
+        $this->assertSame('', Config::getString('replay.store.azure.env'));
+    }
+
+
+    public function testInstallingTheAzurePluginDoesNotForceTheAzureStore(): void
+    {
+        // The bug this pins: the plugin used to claim the CassetteStoreInterface binding itself with
+        // a set-if-absent service() call, which only took effect when it loaded before ReplayPlugin
+        // -- and having loaded first it then won regardless of replay.store, so merely installing
+        // the package sent every cassette to a blob container the app may never have named.
+        Config::set('replay.store', 'file', true, false);
+        Config::set('replay.store.path', sys_get_temp_dir() . '/quiote-azure-plugin-' . bin2hex(random_bytes(6)), true, false);
+
+        PluginManager::add(new ReplayAzurePlugin());
+        PluginManager::add(new ReplayPlugin());
+        PluginManager::bootFromConfig();
+
+        $container = new Container();
+        $container->set(ClientInterface::class, new PluginTestNeverCalledHttpClient());
+        PluginManager::configureContainer($container);
+
+        $store = $container->get(CassetteStoreInterface::class);
+
+        $this->assertInstanceOf(FileCassetteStore::class, $store);
+    }
+
+    public function testTheAzureStoreIsBuiltWhenReplayStoreNamesIt(): void
+    {
+        Config::set('replay.store', 'azure-blob', true, false);
+        Config::set('replay.store.azure.account', 'examplestore', true, false);
+
+        PluginManager::add(new ReplayAzurePlugin());
+        PluginManager::add(new ReplayPlugin());
+        PluginManager::bootFromConfig();
+
+        $container = new Container();
+        $container->set(ClientInterface::class, new PluginTestNeverCalledHttpClient());
+        PluginManager::configureContainer($container);
+
+        $this->assertInstanceOf(ObjectStoreCassetteStore::class, $container->get(CassetteStoreInterface::class));
+    }
+
+    public function testLoadOrderNoLongerMatters(): void
+    {
+        // The old arrangement documented "must be loaded before ReplayPlugin" as a requirement.
+        Config::set('replay.store', 'azure-blob', true, false);
+        Config::set('replay.store.azure.account', 'examplestore', true, false);
+
+        PluginManager::add(new ReplayPlugin());
+        PluginManager::add(new ReplayAzurePlugin());
+        PluginManager::bootFromConfig();
+
+        $container = new Container();
+        $container->set(ClientInterface::class, new PluginTestNeverCalledHttpClient());
+        PluginManager::configureContainer($container);
+
+        $this->assertInstanceOf(ObjectStoreCassetteStore::class, $container->get(CassetteStoreInterface::class));
+    }
+
 }
 
 final class PluginTestNeverCalledHttpClient implements ClientInterface

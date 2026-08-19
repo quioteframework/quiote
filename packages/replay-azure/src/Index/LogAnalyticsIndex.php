@@ -26,9 +26,17 @@ use Quiote\Storage\ObjectStoreClientInterface;
  */
 final readonly class LogAnalyticsIndex implements CassetteIndexInterface
 {
+    /**
+     * @param AzureMonitorQueryClientInterface|null $queryClient Null when no workspace is
+     *        configured, which makes this index a permanent decline.
+     * @param ObjectStoreClientInterface|null $objectClient Only ever used to fetch the object a
+     *        pointer names, so it is not required when `$queryClient` is null -- and building one
+     *        for an index that will decline every call means constructing a blob client and its
+     *        credential for nothing, on every resolution attempt.
+     */
     public function __construct(
         private ?AzureMonitorQueryClientInterface $queryClient,
-        private ObjectStoreClientInterface $objectClient,
+        private ?ObjectStoreClientInterface $objectClient = null,
         private int $lookbackHours = 720,
         private CassetteCodec $codec = new CassetteCodec(),
     ) {
@@ -37,7 +45,7 @@ final readonly class LogAnalyticsIndex implements CassetteIndexInterface
     #[\Override]
     public function resolve(CassetteId $id, IndexHints $hints): ?Cassette
     {
-        if ($this->queryClient === null) {
+        if ($this->queryClient === null || $this->objectClient === null) {
             return null;
         }
 
