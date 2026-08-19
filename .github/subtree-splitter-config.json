@@ -189,6 +189,51 @@
 			"name": "rector",
 			"directory": "packages/rector",
 			"target": "git@github.com:quioteframework/rector.git"
+		},
+		{
+			"name": "docs",
+			"directory": "packages/docs",
+			"target": "git@github.com:quioteframework/docs.git"
+		},
+		{
+			"name": "replay",
+			"directory": "packages/replay",
+			"target": "git@github.com:quioteframework/replay.git"
+		},
+		{
+			"name": "replay-propulsion",
+			"directory": "packages/replay-propulsion",
+			"target": "git@github.com:quioteframework/replay-propulsion.git"
+		},
+		{
+			"name": "replay-doctrine",
+			"directory": "packages/replay-doctrine",
+			"target": "git@github.com:quioteframework/replay-doctrine.git"
+		},
+		{
+			"name": "replay-eloquent",
+			"directory": "packages/replay-eloquent",
+			"target": "git@github.com:quioteframework/replay-eloquent.git"
+		},
+		{
+			"name": "replay-cycle",
+			"directory": "packages/replay-cycle",
+			"target": "git@github.com:quioteframework/replay-cycle.git"
+		},
+		{
+			"name": "replay-pdo",
+			"directory": "packages/replay-pdo",
+			"target": "git@github.com:quioteframework/replay-pdo.git"
+		},
+		{
+			"name": "replay-storage",
+			"directory": "packages/replay-storage",
+			"target": "git@github.com:quioteframework/replay-storage.git"
+		},
+		{
+			"name": "replay-azure",
+			"directory": "packages/replay-azure",
+			"target": "git@github.com:quioteframework/replay-azure.git"
 		}
 	]
 }
