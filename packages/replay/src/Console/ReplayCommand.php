@@ -153,6 +153,17 @@ final class ReplayCommand extends AbstractAppCommand
         if ($emitted !== null) {
             $io->writeln(sprintf('Emitted test: %s', $emitted['test']));
             $io->writeln(sprintf('Emitted cassette: %s', $emitted['cassette']));
+            $recordedMethod = $cassette->request['method'] ?? null;
+            if (is_string($recordedMethod) && !ReplayEngine::isSafeMethod($recordedMethod)) {
+                // Said at emit time, not left for CI to discover: the generated test dispatches a
+                // write on every run, and ReplayTestCase refuses that until a suite opts in.
+                $io->warning(sprintf(
+                    'The emitted test replays a %s request, which re-performs its writes on every run. '
+                    . 'It will refuse to run until replay.tests_allow_live=true is set for the suite, and '
+                    . 'that is only safe where the test environment is disposable.',
+                    strtoupper($recordedMethod),
+                ));
+            }
         }
 
         if ($result->drift->isClean()) {

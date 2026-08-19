@@ -24,17 +24,29 @@ use Throwable;
  *
  * Because of that, the two safety rules a `live` mode needs are enforced
  * here directly: replay refuses to run at all unless `replay.allow_live` is
- * `true` (default `false`), and refuses a non-idempotent method (anything
- * but GET/HEAD/OPTIONS/PUT/DELETE) without `$force`.
+ * `true` (default `false`), and refuses anything but a *safe* method without
+ * `$force`.
+ *
+ * Safe, not idempotent. `PUT` and `DELETE` are idempotent -- doing them twice
+ * leaves the same state as doing them once -- but that says nothing about
+ * whether doing them at all is harmless, and this engine really re-performs
+ * the request's side effects. Gating on idempotence let a recorded
+ * `DELETE /accounts/42` replay against a live application, and delete account
+ * 42, with no prompt.
  */
 final class ReplayEngine
 {
-    /** @var list<string> */
-    private const IDEMPOTENT_METHODS = ['GET', 'HEAD', 'OPTIONS', 'PUT', 'DELETE'];
+    /**
+     * The HTTP methods defined as safe -- read-only by contract, so re-performing one is not
+     * expected to change server state. Anything else needs `$force`.
+     *
+     * @var list<string>
+     */
+    public const SAFE_METHODS = ['GET', 'HEAD', 'OPTIONS', 'TRACE'];
 
     /**
      * @throws ReplayException if the cassette has no replayable request, `replay.allow_live`
-     *         is off, or the method is non-idempotent and `$force` is false.
+     *         is off, or the method is not a safe one and `$force` is false.
      */
     public function replay(Context $context, Cassette $cassette, bool $force = false): ReplayResult
     {
@@ -47,11 +59,13 @@ final class ReplayEngine
                 . 'replay.allow_live=true to allow that, and only where doing so is safe.',
             );
         }
-        if (!$force && !in_array(strtoupper($request->getMethod()), self::IDEMPOTENT_METHODS, true)) {
+        if (!$force && !self::isSafeMethod($request->getMethod())) {
             throw new ReplayException(sprintf(
-                'Refusing to replay a %s request without --force: it will really re-perform '
-                . 'its side effects (no effect stubbing exists yet to make this safe).',
+                'Refusing to replay a %s request without --force: %s is not a safe method, so '
+                . 'replaying it will really re-perform its side effects against whatever this '
+                . 'context is configured with (no effect stubbing exists yet to make this safe).',
                 $request->getMethod(),
+                strtoupper($request->getMethod()),
             ));
         }
 
@@ -71,5 +85,11 @@ final class ReplayEngine
         $diagnostics = (new ResponseDiffer())->diff($cassette->response, $response, $cassetteId);
 
         return new ReplayResult($response, new DriftReport($diagnostics));
+    }
+
+    /** Whether $method is one of the safe methods replay will re-perform without `--force`. */
+    public static function isSafeMethod(string $method): bool
+    {
+        return in_array(strtoupper($method), self::SAFE_METHODS, true);
     }
 }

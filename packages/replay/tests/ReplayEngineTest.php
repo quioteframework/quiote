@@ -103,7 +103,7 @@ final class ReplayEngineTest extends TestCase
         (new ReplayEngine())->replay($context, $cassette);
     }
 
-    public function testRefusesANonIdempotentMethodWithoutForce(): void
+    public function testRefusesANonSafeMethodWithoutForce(): void
     {
         Config::set('replay.allow_live', true, true, false);
         [$context] = $this->contextReturning(new Response(200));
@@ -114,7 +114,7 @@ final class ReplayEngineTest extends TestCase
         (new ReplayEngine())->replay($context, $cassette);
     }
 
-    public function testAllowsANonIdempotentMethodWithForce(): void
+    public function testAllowsANonSafeMethodWithForce(): void
     {
         Config::set('replay.allow_live', true, true, false);
         [$context] = $this->contextReturning(new Response(200));
@@ -123,6 +123,62 @@ final class ReplayEngineTest extends TestCase
         $result = (new ReplayEngine())->replay($context, $cassette, force: true);
 
         $this->assertSame(200, $result->response->getStatusCode());
+    }
+
+    /** @return iterable<string, array{0: string}> */
+    public static function unsafeMethods(): iterable
+    {
+        yield 'post' => ['POST'];
+        yield 'patch' => ['PATCH'];
+        // Idempotent, but not safe: doing it twice leaves the same state as doing it once, which
+        // says nothing about whether doing it at all is harmless. A recorded DELETE /accounts/42
+        // replayed against a live application deletes account 42.
+        yield 'put' => ['PUT'];
+        yield 'delete' => ['DELETE'];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('unsafeMethods')]
+    public function testAnIdempotentButUnsafeMethodStillNeedsForce(string $method): void
+    {
+        Config::set('replay.allow_live', true, true, false);
+        [$context] = $this->contextReturning(new Response(200));
+        $cassette = $this->cassette(['method' => $method, 'uri' => '/accounts/42'], ['status' => 200]);
+
+        $this->expectException(ReplayException::class);
+        $this->expectExceptionMessageMatches('/not a safe method/');
+        (new ReplayEngine())->replay($context, $cassette);
+    }
+
+    /** @return iterable<string, array{0: string}> */
+    public static function safeMethods(): iterable
+    {
+        yield 'get' => ['GET'];
+        yield 'head' => ['HEAD'];
+        yield 'options' => ['OPTIONS'];
+        yield 'trace' => ['TRACE'];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('safeMethods')]
+    public function testASafeMethodReplaysWithoutForce(string $method): void
+    {
+        Config::set('replay.allow_live', true, true, false);
+        [$context] = $this->contextReturning(new Response(200));
+        $cassette = $this->cassette(['method' => $method, 'uri' => '/things'], ['status' => 200, 'headers' => [], 'body' => []]);
+
+        $result = (new ReplayEngine())->replay($context, $cassette);
+
+        $this->assertSame(200, $result->response->getStatusCode());
+    }
+
+    public function testTheMethodGateIsCaseInsensitive(): void
+    {
+        Config::set('replay.allow_live', true, true, false);
+        [$context] = $this->contextReturning(new Response(200));
+        $cassette = $this->cassette(['method' => 'get', 'uri' => '/things'], ['status' => 200, 'headers' => [], 'body' => []]);
+
+        $this->assertSame(200, (new ReplayEngine())->replay($context, $cassette)->response->getStatusCode());
+        $this->assertTrue(ReplayEngine::isSafeMethod('Get'));
+        $this->assertFalse(ReplayEngine::isSafeMethod('delete'));
     }
 
     public function testAnUnrecordedRequestRefusesBeforeCheckingAllowLive(): void

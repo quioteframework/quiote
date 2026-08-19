@@ -7,6 +7,7 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
+use Quiote\Config\Config;
 use Quiote\Context;
 use Quiote\Middleware\Config\MiddlewareConfigRegistry;
 use Quiote\Middleware\MiddlewareCatalog;
@@ -42,6 +43,7 @@ final class ReplayTestCaseTest extends ReplayTestCase
     {
         MiddlewareCatalog::reset();
         MiddlewareConfigRegistry::reset();
+        Config::remove('replay.tests_allow_live');
         foreach ($this->filesToDelete as $file) {
             if (is_file($file)) {
                 @unlink($file);
@@ -121,6 +123,9 @@ final class ReplayTestCaseTest extends ReplayTestCase
 
     public function testReplayReturnsAUsableTestResponseForChainedAssertions(): void
     {
+        // A POST re-performs its writes, so replaying one is gated -- this suite opts in because
+        // its "application" is an echo middleware with nothing to write to.
+        Config::set('replay.tests_allow_live', true, true, false);
         $this->replaceStackWithEcho();
         $path = $this->cassetteFile([
             'method' => 'POST',
@@ -134,6 +139,67 @@ final class ReplayTestCaseTest extends ReplayTestCase
         $this->replay($path)
             ->assertOk()
             ->assertJson(['method' => 'POST']);
+    }
+
+    public function testANonSafeMethodIsRefusedUnlessTheSuiteOptsIn(): void
+    {
+        // The gate exists because an emitted test runs unattended on every CI run: without it,
+        // `--as-test` on a recorded POST produced a test that re-performed that write forever.
+        $this->replaceStackWithEcho();
+        $path = $this->cassetteFile([
+            'method' => 'DELETE',
+            'uri' => '/accounts/42',
+            'headers' => [],
+            'cookies' => [],
+            'body' => ['encoding' => 'utf8', 'content' => '', 'truncated' => false],
+            'server' => [],
+        ]);
+
+        $this->expectException(ReplayException::class);
+        $this->expectExceptionMessageMatches('/Refusing to replay the DELETE request/');
+        $this->expectExceptionMessageMatches('/replay\.tests_allow_live/');
+        $this->replay($path);
+    }
+
+    public function testEveryNonSafeMethodIsRefusedByDefault(): void
+    {
+        $this->replaceStackWithEcho();
+        foreach (['POST', 'PUT', 'PATCH', 'DELETE'] as $method) {
+            $path = $this->cassetteFile([
+                'method' => $method,
+                'uri' => '/x',
+                'headers' => [],
+                'cookies' => [],
+                'body' => ['encoding' => 'utf8', 'content' => '', 'truncated' => false],
+                'server' => [],
+            ]);
+
+            try {
+                $this->replay($path);
+                $this->fail("Replaying a $method cassette should have been refused.");
+            } catch (ReplayException $e) {
+                $this->assertStringContainsString(strtoupper($method), $e->getMessage());
+            }
+        }
+    }
+
+    public function testASafeMethodReplaysWithNoConfigurationAtAll(): void
+    {
+        // The promise the gate must not break: a committed regression test for a GET needs
+        // nothing configured beyond having the package installed.
+        $this->replaceStackWithEcho();
+        foreach (['GET', 'HEAD', 'OPTIONS'] as $method) {
+            $path = $this->cassetteFile([
+                'method' => $method,
+                'uri' => '/x',
+                'headers' => [],
+                'cookies' => [],
+                'body' => ['encoding' => 'utf8', 'content' => '', 'truncated' => false],
+                'server' => [],
+            ]);
+
+            $this->replay($path)->assertOk();
+        }
     }
 
     public function testReplayThrowsAClearErrorForANoRecordSkeletonCassette(): void

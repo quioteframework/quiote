@@ -81,6 +81,11 @@ final class ReplayPlugin implements PluginInterface
         // effect stubbing exists, so replaying really re-performs a request's side effects) --
         // see ReplayEngine's own docblock.
         $registrar->configDefault('replay.allow_live', false);
+        // The same rule for an emitted test, which bypasses ReplayEngine so it can run in CI
+        // with nothing configured. A safe method needs no opt-in; anything else re-performs a
+        // write on every run, so it needs one from whoever knows the test environment is
+        // disposable -- see ReplayTestCase.
+        $registrar->configDefault('replay.tests_allow_live', false);
 
         // Singleton: the file store checks/creates its directory (and its permissions) once at
         // construction, and there is no reason to repeat that per request.
