@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use PHPUnit\Framework\TestCase;
+use Quiote\Replay\Cache\CacheFingerprint;
 use Quiote\Replay\Cassette\Effect;
 use Quiote\Replay\Cassette\EffectKind;
 use Quiote\Replay\Replay\EffectLedger;
@@ -40,13 +41,6 @@ final class StubbedCacheTest extends TestCase
         $this->assertNull($cache->get('k', 'should-not-see-this'));
     }
 
-    public function testGetThrowsOnANoMatchingRecordedEffect(): void
-    {
-        $cache = new StubbedCache(new EffectLedger());
-
-        $this->expectException(\RuntimeException::class);
-        $cache->get('k');
-    }
 
     public function testHasReturnsTheRecordedBoolean(): void
     {
@@ -58,13 +52,6 @@ final class StubbedCacheTest extends TestCase
         $this->assertTrue($cache->has('k'));
     }
 
-    public function testHasThrowsOnANoMatchingRecordedEffect(): void
-    {
-        $cache = new StubbedCache(new EffectLedger());
-
-        $this->expectException(\RuntimeException::class);
-        $cache->has('k');
-    }
 
     public function testTwoIdenticalGetCallsMatchTwoRecordedEffectsInOrder(): void
     {
@@ -140,5 +127,58 @@ final class StubbedCacheTest extends TestCase
         $cache = new StubbedCache(new EffectLedger());
 
         $this->assertTrue($cache->deleteMultiple(['a', 'b']));
+    }
+
+    public function testAnUnrecordedGetReturnsTheCallersDefaultAsPsr16Requires(): void
+    {
+        // PSR-16's get() must return $default on a miss and may only throw for an invalid key, and
+        // Quiote\Cache\CacheInterface extends it -- so throwing here broke the contract in exactly
+        // the way a substituted implementation must not.
+        $cache = new StubbedCache(new EffectLedger());
+
+        $this->assertSame('fallback', $cache->get('orders.42', 'fallback'));
+        $this->assertNull($cache->get('orders.43'));
+    }
+
+    public function testAnUnrecordedGetIsStillReportedRatherThanSilentlyAnswered(): void
+    {
+        // The intent behind the old throw was right: an isolated replay answering a read it has no
+        // recording for fabricates a passing test. The information moves somewhere a test asserts
+        // on rather than being dropped.
+        $cache = new StubbedCache(new EffectLedger());
+
+        $cache->get('orders.42');
+        $cache->has('orders.43');
+
+        $this->assertSame(['get("orders.42")', 'has("orders.43")'], $cache->unrecordedReads());
+    }
+
+    public function testAnUnrecordedHasReturnsFalseRatherThanThrowing(): void
+    {
+        $cache = new StubbedCache(new EffectLedger());
+
+        $this->assertFalse($cache->has('orders.42'));
+    }
+
+    public function testAMalformedRecordedReadIsReportedAndFallsBackToTheDefault(): void
+    {
+        $ledger = new EffectLedger([
+            new Effect(0, EffectKind::Cache, CacheFingerprint::of('get', 'k'), ['op' => 'get', 'key' => 'k'], 'not-a-read'),
+        ]);
+        $cache = new StubbedCache($ledger);
+
+        $this->assertSame('fallback', $cache->get('k', 'fallback'));
+        $this->assertSame(['get("k") [malformed recorded effect]'], $cache->unrecordedReads());
+    }
+
+    public function testARecordedReadIsNotReportedAsUnrecorded(): void
+    {
+        $ledger = new EffectLedger([
+            new Effect(0, EffectKind::Cache, CacheFingerprint::of('get', 'k'), ['op' => 'get', 'key' => 'k'], ['hit' => true, 'value' => 'v']),
+        ]);
+        $cache = new StubbedCache($ledger);
+
+        $this->assertSame('v', $cache->get('k'));
+        $this->assertSame([], $cache->unrecordedReads());
     }
 }

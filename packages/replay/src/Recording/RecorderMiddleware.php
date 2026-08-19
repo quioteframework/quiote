@@ -71,6 +71,9 @@ use Throwable;
 #[MiddlewareAttribute(phase: 'bootstrap', priority: 1100)]
 final class RecorderMiddleware implements MiddlewareInterface, ResetInterface
 {
+    /** Read size for {@see hashUploadStream()}, so a large upload costs one chunk rather than all of it. */
+    private const UPLOAD_HASH_CHUNK_BYTES = 1_048_576;
+
     /** @var list<string> */
     private const SERVER_ALLOWLIST = [
         'REQUEST_METHOD', 'REQUEST_URI', 'SERVER_PROTOCOL', 'HTTP_HOST',
@@ -108,6 +111,17 @@ final class RecorderMiddleware implements MiddlewareInterface, ResetInterface
             return $handler->handle($request);
         }
 
+        // Rolled here rather than after the handler returns. Under `record = rate` with a
+        // sample_rate of 0.01, deciding at the end meant every request paid for the full capture --
+        // a body copy up to max_bytes, a digest over every upload, and an effect ledger that
+        // accumulated for the whole request -- and 99% of it was then discarded. The rate does not
+        // depend on the outcome, so losing the roll up front is a decision that can be acted on.
+        $sampleRate = Config::getFloat('replay.sample_rate', 0.0);
+        $rolled = false;
+        if ($policy->declinesUpFront($sampleRate, $this->randomness, $rolled)) {
+            return $handler->handle($request);
+        }
+
         // Computed once, up front: needed before the request reaches the database (an
         // EffectSource may need to tag queries by it) as well as for the cassette id built at
         // the end.
@@ -119,7 +133,6 @@ final class RecorderMiddleware implements MiddlewareInterface, ResetInterface
             $session->setRequest($this->captureRequest($request, $redactor));
         }
 
-        $sampleRate = Config::getFloat('replay.sample_rate', 0.0);
         $headerPresent = $this->triggerHeaderPresent($request);
         $sources = EffectSourceRegistry::all();
         foreach ($sources as $source) {
@@ -130,7 +143,7 @@ final class RecorderMiddleware implements MiddlewareInterface, ResetInterface
             $response = $handler->handle($request);
         } catch (Throwable $e) {
             $this->deactivate($sources, $rawId);
-            if ($policy->shouldKeep(500, true, $sampleRate, $this->randomness, $headerPresent)) {
+            if ($policy->shouldKeep(500, true, $sampleRate, $this->randomness, $headerPresent, $rolled)) {
                 $this->finishRecording($session, $request, null, $e, $redactor, $policy, $rawId, $sources !== []);
             }
             throw $e;
@@ -138,7 +151,7 @@ final class RecorderMiddleware implements MiddlewareInterface, ResetInterface
 
         $this->deactivate($sources, $rawId);
 
-        if ($policy->shouldKeep($response->getStatusCode(), false, $sampleRate, $this->randomness, $headerPresent)) {
+        if ($policy->shouldKeep($response->getStatusCode(), false, $sampleRate, $this->randomness, $headerPresent, $rolled)) {
             $this->finishRecording($session, $request, $response, null, $redactor, $policy, $rawId, $sources !== []);
         }
 
@@ -206,10 +219,40 @@ final class RecorderMiddleware implements MiddlewareInterface, ResetInterface
         }
     }
 
+    /**
+     * A streaming SHA-256 over an uploaded file, or null when it cannot be taken safely.
+     *
+     * `hash('sha256', (string)$stream)` materialized the whole upload as a PHP string -- 500 MB of
+     * resident memory on top of the temp file, for a 32-byte digest, on every sampled request with
+     * an attachment. Read in chunks through the stream itself instead, so the peak cost is one
+     * chunk regardless of the upload's size.
+     *
+     * A non-seekable stream is declined rather than consumed, the same rule
+     * {@see \Quiote\Replay\Http\HttpFingerprint::captureBody()} already applies: reading it to
+     * the end leaves nothing for the application's own `moveTo()` to write, so recording an
+     * upload's digest would cost the upload itself. A seekable one is rewound afterwards, so the
+     * position the caller had is restored either way and the stream is handed back untouched.
+     */
     private static function hashUploadStream(UploadedFileInterface $file): ?string
     {
         try {
-            return hash('sha256', (string)$file->getStream());
+            $stream = $file->getStream();
+            if (!$stream->isSeekable()) {
+                return null;
+            }
+
+            $stream->rewind();
+            $context = hash_init('sha256');
+            while (!$stream->eof()) {
+                $chunk = $stream->read(self::UPLOAD_HASH_CHUNK_BYTES);
+                if ($chunk === '') {
+                    break;
+                }
+                hash_update($context, $chunk);
+            }
+            $stream->rewind();
+
+            return hash_final($context);
         } catch (Throwable) {
             return null;
         }
@@ -492,15 +535,24 @@ final class RecorderMiddleware implements MiddlewareInterface, ResetInterface
         ]);
     }
 
+    /**
+     * Whether the resolved action carries `#[NoRecord]`.
+     *
+     * Reflects on the class *name*, not on an instance. Going through
+     * `Controller::createActionInstance()` really built a second action through the container --
+     * every constructor side effect and every autowired dependency running again, after the
+     * response had already been produced, on every recorded request. An action whose constructor
+     * touches a database or a queue did it twice. A class attribute needs no instance to read.
+     */
     private function isNoRecord(ActionDescriptor $descriptor): bool
     {
         try {
             $controller = $this->context->getContainer()->get(Controller::class);
-            $action = $controller->createActionInstance($descriptor->module, $descriptor->action);
+            $class = $controller->resolveActionClass($descriptor->module, $descriptor->action);
         } catch (Throwable) {
             return false;
         }
 
-        return (new ReflectionClass($action))->getAttributes(NoRecord::class, ReflectionAttribute::IS_INSTANCEOF) !== [];
+        return (new ReflectionClass($class))->getAttributes(NoRecord::class, ReflectionAttribute::IS_INSTANCEOF) !== [];
     }
 }

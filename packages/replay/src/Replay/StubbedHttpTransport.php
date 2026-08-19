@@ -24,7 +24,9 @@ use Quiote\Replay\Http\HttpFingerprint;
  *
  * A ledger miss -- no recorded effect for this method+URI+body, or every
  * recorded effect for it has already been consumed -- raises rather than
- * fabricating a 200: inventing a response would fabricate a passing test.
+ * fabricating a 200: inventing a response would fabricate a passing test. It raises a
+ * {@see StubbedTransportException}, which is a `ClientExceptionInterface` as PSR-18 requires --
+ * see that class for what a bare `\RuntimeException` here broke.
  */
 final class StubbedHttpTransport implements ClientInterface
 {
@@ -41,7 +43,7 @@ final class StubbedHttpTransport implements ClientInterface
         $fingerprint = HttpFingerprint::of($request);
         $effect = $this->ledger->match(EffectKind::Http, $fingerprint);
         if ($effect === null) {
-            throw new \RuntimeException(sprintf(
+            throw new StubbedTransportException(sprintf(
                 'StubbedHttpTransport: no recorded HTTP effect for "%s %s".',
                 $request->getMethod(),
                 (string) $request->getUri(),
@@ -50,7 +52,7 @@ final class StubbedHttpTransport implements ClientInterface
 
         $result = $effect->result;
         if (!is_array($result) || !isset($result['status']) || !is_int($result['status'])) {
-            throw new \RuntimeException(sprintf('StubbedHttpTransport: recorded effect for "%s" is not a valid HTTP response.', $fingerprint));
+            throw new StubbedTransportException(sprintf('StubbedHttpTransport: recorded effect for "%s" is not a valid HTTP response.', $fingerprint));
         }
 
         $response = $this->responseFactory->createResponse($result['status']);

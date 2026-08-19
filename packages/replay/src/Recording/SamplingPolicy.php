@@ -42,6 +42,29 @@ enum SamplingPolicy: string
     }
 
     /**
+     * Whether this policy can already tell, at request entry, that nothing will be kept.
+     *
+     * Only {@see Rate} can: its decision is a coin flip that does not depend on the outcome, so
+     * losing the flip up front means the whole capture -- the body copy, the upload digests, the
+     * effect ledger -- can be skipped rather than performed and thrown away. {@see Error} and
+     * {@see Header} genuinely need the response, and {@see Always}/{@see Never} are already
+     * decided.
+     *
+     * The roll is passed in rather than taken here so `process()` makes it exactly once: rolling
+     * again in `shouldKeep()` would sample twice at the configured rate and keep far fewer
+     * requests than asked for.
+     */
+    public function declinesUpFront(float $sampleRate, RandomnessInterface $randomness, bool &$rolled): bool
+    {
+        if ($this !== self::Rate) {
+            return false;
+        }
+        $rolled = $this->rollRate($sampleRate, $randomness);
+
+        return !$rolled;
+    }
+
+    /**
      * Whether a request with the given outcome should be kept, under this
      * policy.
      *
@@ -56,13 +79,16 @@ enum SamplingPolicy: string
         float $sampleRate,
         RandomnessInterface $randomness,
         bool $headerPresent,
+        ?bool $rolled = null,
     ): bool {
         return match ($this) {
             self::Never => false,
             self::Always => true,
             self::Error => $exceptionEscaped || $status >= 500,
             self::Header => $headerPresent,
-            self::Rate => $this->rollRate($sampleRate, $randomness),
+            // Reuses the roll made at entry when there was one, so a request is sampled once and
+            // not twice.
+            self::Rate => $rolled ?? $this->rollRate($sampleRate, $randomness),
         };
     }
 

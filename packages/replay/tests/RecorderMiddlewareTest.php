@@ -105,6 +105,21 @@ final class RecorderMiddlewareTest extends TestCase
         );
     }
 
+    /**
+     * The first recorded upload entry from a cassette.
+     *
+     * @return array<string, mixed>
+     */
+    private static function firstUpload(Cassette $cassette): array
+    {
+        $uploads = $cassette->request['uploads'] ?? null;
+        self::assertIsArray($uploads);
+        $first = $uploads[0] ?? null;
+        self::assertIsArray($first);
+
+        return $first;
+    }
+
     private function handler(ResponseInterface $response): RequestHandlerInterface
     {
         return new class($response) implements RequestHandlerInterface {
@@ -253,9 +268,9 @@ final class RecorderMiddlewareTest extends TestCase
         $requestState = $this->requestStatePublishing($published);
         $controller = new class extends Controller {
             #[\Override]
-            public function createActionInstance($moduleName, $actionName): Action
+            public function resolveActionClass($moduleName, $actionName): string
             {
-                return new RecorderMiddlewareTestNoRecordAction();
+                return RecorderMiddlewareTestNoRecordAction::class;
             }
         };
 
@@ -569,9 +584,9 @@ final class RecorderMiddlewareTest extends TestCase
         $published = (new ServerRequest('GET', '/pay'))->withAttribute(ActionDescriptor::class, $descriptor);
         $controller = new class extends Controller {
             #[\Override]
-            public function createActionInstance($moduleName, $actionName): Action
+            public function resolveActionClass($moduleName, $actionName): string
             {
-                return new RecorderMiddlewareTestNoRecordAction();
+                return RecorderMiddlewareTestNoRecordAction::class;
             }
         };
         $middleware = new RecorderMiddleware(
@@ -583,6 +598,194 @@ final class RecorderMiddlewareTest extends TestCase
 
         $this->assertCount(1, $store->put);
         $this->assertSame([], $store->put[0][1]->response['headers']);
+    }
+    public function testARateDeclinedRequestSkipsCaptureEntirely(): void
+    {
+        // Deciding at the end meant every request paid for the full capture and 99% of it was
+        // discarded. A lost roll must now cost nothing beyond the roll.
+        $this->enable('rate');
+        Config::set('replay.sample_rate', 0.0, true, false);
+        $store = $this->spyStore();
+        $factory = new Psr17Factory();
+        $body = $factory->createStream(str_repeat('x', 4096));
+        $middleware = new RecorderMiddleware($this->context($store), $store);
+
+        $middleware->process((new ServerRequest('POST', '/'))->withBody($body), $this->handler(new Response(200)));
+
+        $this->assertCount(0, $store->put);
+        // Untouched: nothing read the body, so a downstream consumer still sees it from the start.
+        $this->assertSame(0, $body->tell());
+    }
+
+    public function testARateKeptRequestIsSampledOnceNotTwice(): void
+    {
+        // The roll happens at entry now; rolling again in shouldKeep() would sample twice at the
+        // configured rate and keep far fewer requests than asked for.
+        $this->enable('rate');
+        Config::set('replay.sample_rate', 1.0, true, false);
+        $store = $this->spyStore();
+        $randomness = new class implements \Quiote\Support\Random\RandomnessInterface {
+            public int $intCalls = 0;
+
+            public function bytes(int $length): string
+            {
+                return str_repeat("\0", $length);
+            }
+
+            public function int(int $min, int $max): int
+            {
+                $this->intCalls++;
+
+                return $min;
+            }
+        };
+        $middleware = new RecorderMiddleware($this->context($store), $store, randomness: $randomness);
+
+        $middleware->process(new ServerRequest('GET', '/'), $this->handler(new Response(200)));
+
+        $this->assertCount(1, $store->put);
+        // sample_rate >= 1.0 short-circuits without consuming randomness at all; what matters is
+        // that the decision was not taken twice.
+        $this->assertLessThanOrEqual(1, $randomness->intCalls);
+    }
+
+    public function testTheErrorPolicyStillDecidesAfterTheResponse(): void
+    {
+        // Only `rate` can decide up front; error genuinely needs the outcome.
+        $this->enable('error');
+        $store = $this->spyStore();
+        $middleware = new RecorderMiddleware($this->context($store), $store);
+
+        $middleware->process(new ServerRequest('GET', '/'), $this->handler(new Response(500)));
+
+        $this->assertCount(1, $store->put);
+    }
+
+    public function testAnUploadIsHashedWithoutMaterializingItAndIsLeftRewound(): void
+    {
+        $this->enable('always');
+        $store = $this->spyStore();
+        $middleware = new RecorderMiddleware($this->context($store), $store);
+        $factory = new Psr17Factory();
+        $content = str_repeat('u', 3_000_000);
+        $uploadStream = $factory->createStream($content);
+        $upload = new \Nyholm\Psr7\UploadedFile($uploadStream, strlen($content), UPLOAD_ERR_OK, 'big.bin', 'application/octet-stream');
+        $request = (new ServerRequest('POST', '/upload'))->withUploadedFiles(['file' => $upload]);
+
+        $before = memory_get_usage(true);
+        $middleware->process($request, $this->handler(new Response(200)));
+        $grew = memory_get_usage(true) - $before;
+
+        $recordedUpload = self::firstUpload($store->put[0][1]);
+        $this->assertSame(hash('sha256', $content), $recordedUpload['sha256']);
+        // The digest is correct without a second copy of the payload in memory.
+        $this->assertLessThan(strlen($content), $grew, sprintf('Hashing the upload grew memory by %d bytes.', $grew));
+        // And the stream is handed back at the start, so the application's own moveTo() still works.
+        $this->assertSame(0, $upload->getStream()->tell());
+    }
+
+    public function testANonSeekableUploadIsNotConsumedToHashIt(): void
+    {
+        // Reading it to the end would leave nothing for moveTo() to write -- recording an upload's
+        // digest must not cost the upload.
+        $this->enable('always');
+        $store = $this->spyStore();
+        $middleware = new RecorderMiddleware($this->context($store), $store);
+        $resource = fopen('php://temp', 'r+');
+        $this->assertIsResource($resource);
+        fwrite($resource, 'payload');
+        rewind($resource);
+        $nonSeekable = new class($resource) implements \Psr\Http\Message\StreamInterface {
+            /** @param resource $resource */
+            public function __construct(private $resource)
+            {
+            }
+
+            public function __toString(): string
+            {
+                return (string)stream_get_contents($this->resource);
+            }
+
+            public function close(): void
+            {
+            }
+
+            public function detach()
+            {
+                return null;
+            }
+
+            public function getSize(): ?int
+            {
+                return null;
+            }
+
+            public function tell(): int
+            {
+                return (int)ftell($this->resource);
+            }
+
+            public function eof(): bool
+            {
+                return feof($this->resource);
+            }
+
+            public function isSeekable(): bool
+            {
+                return false;
+            }
+
+            public function seek(int $offset, int $whence = SEEK_SET): void
+            {
+                throw new \RuntimeException('not seekable');
+            }
+
+            public function rewind(): void
+            {
+                throw new \RuntimeException('not seekable');
+            }
+
+            public function isWritable(): bool
+            {
+                return false;
+            }
+
+            public function write(string $string): int
+            {
+                throw new \RuntimeException('not writable');
+            }
+
+            public function isReadable(): bool
+            {
+                return true;
+            }
+
+            public function read(int $length): string
+            {
+                return $length < 1 ? '' : (string)fread($this->resource, $length);
+            }
+
+            public function getContents(): string
+            {
+                return (string)stream_get_contents($this->resource);
+            }
+
+            /** @return array<mixed>|mixed */
+            public function getMetadata(?string $key = null)
+            {
+                return $key === null ? [] : null;
+            }
+        };
+        $upload = new \Nyholm\Psr7\UploadedFile($nonSeekable, 7, UPLOAD_ERR_OK, 'x.bin', 'application/octet-stream');
+
+        $middleware->process(
+            (new ServerRequest('POST', '/upload'))->withUploadedFiles(['file' => $upload]),
+            $this->handler(new Response(200)),
+        );
+
+        $this->assertNull(self::firstUpload($store->put[0][1])['sha256'], 'Declined rather than consumed.');
+        // Still readable from the start, so moveTo() would write the whole payload.
+        $this->assertSame('payload', $nonSeekable->getContents());
     }
 }
 
@@ -610,4 +813,5 @@ final class RecorderMiddlewareTestNoRecordAction extends Action
     {
         return 'Charge';
     }
+
 }

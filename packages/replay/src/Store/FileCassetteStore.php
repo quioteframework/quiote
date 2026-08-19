@@ -7,6 +7,7 @@ namespace Quiote\Replay\Store;
 use FilesystemIterator;
 use Quiote\Config\Config;
 use Quiote\Exception\StorageException;
+use Quiote\Logging\Log;
 use Quiote\Replay\Cassette\Cassette;
 use Quiote\Replay\Cassette\CassetteCodec;
 use Quiote\Replay\Cassette\CassetteId;
@@ -29,17 +30,15 @@ final class FileCassetteStore implements ListableCassetteStoreInterface
     private readonly string $directory;
 
     /**
-     * @throws StorageException if the directory is empty, sits inside the app's public
-     *         document root, or cannot be created/written to.
+     * @throws StorageException if the directory is empty, is relative with no `core.app_dir` to
+     *         anchor it, sits inside the app's public document root, cannot be created/written to,
+     *         or already exists with permissions wider than the owner.
      */
     public function __construct(
         string $directory,
         private readonly CassetteCodec $codec = new CassetteCodec(),
     ) {
-        $directory = rtrim($directory, '/\\');
-        if ($directory === '') {
-            throw new StorageException('Cassette directory must not be empty.');
-        }
+        $directory = self::anchored(rtrim($directory, '/\\'));
         if (self::isInsidePublicDocumentRoot($directory)) {
             throw new StorageException(sprintf(
                 'Cassette directory "%s" must not be inside the application\'s public document root ("%s"): '
@@ -48,11 +47,15 @@ final class FileCassetteStore implements ListableCassetteStoreInterface
                 rtrim(Config::getString('core.app_dir', ''), '/\\') . '/pub',
             ));
         }
-        if (!is_dir($directory) && !@mkdir($directory, 0700, true) && !is_dir($directory)) {
+        $existed = is_dir($directory);
+        if (!$existed && !@mkdir($directory, 0700, true) && !is_dir($directory)) {
             throw new StorageException(sprintf('Cassette directory "%s" could not be created.', $directory));
         }
         if (!is_writable($directory)) {
             throw new StorageException(sprintf('Cassette directory "%s" is not writable.', $directory));
+        }
+        if ($existed) {
+            self::tightenToOwnerOnly($directory);
         }
         $this->directory = $directory;
     }
@@ -63,11 +66,21 @@ final class FileCassetteStore implements ListableCassetteStoreInterface
         $file = $this->fileFor($id);
         $tmp = $this->directory . DIRECTORY_SEPARATOR . uniqid('.tmp-', true);
 
-        if (@file_put_contents($tmp, $payload) !== strlen($payload)) {
+        // Created 0600 *before* anything is written to it, rather than chmod'd afterwards: a
+        // cassette carries request bodies and session data, and between the write and the chmod the
+        // file carried whatever the process umask allowed.
+        $handle = @fopen($tmp, 'x');
+        if ($handle === false) {
+            throw new StorageException(sprintf('Failed creating cassette temp file in "%s".', $this->directory));
+        }
+        @chmod($tmp, 0600);
+        $written = @fwrite($handle, $payload);
+        @fclose($handle);
+
+        if ($written !== strlen($payload)) {
             @unlink($tmp);
             throw new StorageException(sprintf('Failed writing cassette file in "%s".', $this->directory));
         }
-        @chmod($tmp, 0600);
         if (!@rename($tmp, $file)) {
             @unlink($tmp);
             throw new StorageException(sprintf('Failed publishing cassette file "%s".', $file));
@@ -130,6 +143,97 @@ final class FileCassetteStore implements ListableCassetteStoreInterface
     private function fileFor(CassetteId $id): string
     {
         return $this->directory . DIRECTORY_SEPARATOR . $id->slug . self::FILE_SUFFIX;
+    }
+
+    /**
+     * Resolves a relative path against `core.app_dir`, and refuses one when there is no app dir to
+     * resolve it against.
+     *
+     * `replay.store.path` and `replay.local_path` both default to the relative `var/cassettes`, and
+     * nothing anchored it -- so where cassettes containing request bodies and session data actually
+     * landed depended on the process working directory: the project root under RoadRunner or
+     * Swoole, frequently the document root under php-fpm. The public-root check below only knows
+     * one shape of web root, so a deployment whose real root is elsewhere got no protection at all.
+     * Refusing an unanchorable relative path is the honest answer: a cassette store whose location
+     * is decided by the CWD is not a location anyone chose.
+     */
+    private static function anchored(string $directory): string
+    {
+        if ($directory === '') {
+            throw new StorageException('Cassette directory must not be empty.');
+        }
+        if (self::isAbsolute($directory)) {
+            return $directory;
+        }
+
+        $appDir = rtrim(Config::getString('core.app_dir', ''), '/\\');
+        if ($appDir === '') {
+            throw new StorageException(sprintf(
+                'Cassette directory "%s" is relative and "core.app_dir" is not set, so where cassettes would '
+                . 'be written depends on the process working directory -- which differs between php-fpm, '
+                . 'RoadRunner and the console. Configure an absolute path, or set core.app_dir.',
+                $directory,
+            ));
+        }
+
+        return $appDir . DIRECTORY_SEPARATOR . $directory;
+    }
+
+    private static function isAbsolute(string $path): bool
+    {
+        return str_starts_with($path, '/')
+            || str_starts_with($path, '\\\\')
+            || preg_match('/^[A-Za-z]:[\\\\\/]/', $path) === 1;
+    }
+
+    /**
+     * Narrows a pre-existing directory to `0700`, and refuses it only if that cannot be done.
+     *
+     * The `0700` on the `mkdir()` above applies only to a directory this class creates. One that
+     * already existed -- `mkdir -p var/cassettes` under the usual umask leaves 0755, or an earlier
+     * deployment left it behind -- was accepted with whatever mode it had, so the 0600 cassettes
+     * inside it sat in a directory anyone on the host could list and traverse.
+     *
+     * Tightened rather than rejected. Rejecting is the stricter-sounding choice and the worse one:
+     * this store is a container singleton the recorder middleware resolves, so throwing here takes
+     * every request down -- turning a permissions problem into an outage, on a directory shape
+     * common enough to be the default. Narrowing fixes the exposure instead, and says so, because
+     * silently changing a directory's permissions is not something to do quietly.
+     *
+     * Skipped on Windows, where the POSIX bits `stat()` reports are not the real ACL.
+     */
+    private static function tightenToOwnerOnly(string $directory): void
+    {
+        if (DIRECTORY_SEPARATOR !== '/') {
+            return;
+        }
+
+        $mode = @fileperms($directory);
+        if ($mode === false || ($mode & 0o077) === 0) {
+            return;
+        }
+
+        @chmod($directory, 0700);
+        clearstatcache(true, $directory);
+        $narrowed = @fileperms($directory) ?: 0;
+
+        if (($narrowed & 0o077) !== 0) {
+            throw new StorageException(sprintf(
+                'Cassette directory "%s" is mode %04o and could not be narrowed to 0700: group or other can '
+                . 'reach it. A cassette can carry request bodies, cookies and session data, so this must not '
+                . 'be readable by anyone but the owner. Fix the ownership, or point replay.store.path '
+                . 'somewhere private.',
+                $directory,
+                $narrowed & 0o777,
+            ));
+        }
+
+        Log::create(self::class)->warning(sprintf(
+            'Narrowed cassette directory "%s" from mode %04o to 0700: it was reachable by group or other, and '
+            . 'a cassette can carry request bodies, cookies and session data.',
+            $directory,
+            $mode & 0o777,
+        ));
     }
 
     /**

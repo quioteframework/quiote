@@ -18,9 +18,11 @@ use Quiote\Replay\Cassette\EffectKind;
  * replaying it needs no simulation of intervening writes -- the ledger
  * captured exactly what the backend held at the moment of that specific call
  * in the original request. A read (`get()`, `has()`) with no matching
- * recorded effect throws rather than fabricating a value or silently
- * returning the caller's `$default`: inventing read data would fabricate a
- * passing test, the same rule `StubbedPdo`/`StubbedHttpTransport` follow.
+ * recorded effect returns the caller's `$default` and is reported through
+ * {@see unrecordedReads()} -- not thrown, because PSR-16 requires exactly that return, and not
+ * silently either, because an isolated replay answering a read it has no recording for fabricates
+ * a passing test. `StubbedPdo` and `StubbedHttpTransport` do throw for the same situation, and
+ * correctly: `\PDO` and PSR-18 both allow it where PSR-16 does not.
  *
  * A write (`set()`, `delete()`, `clear()`) is different in kind: its return
  * value is a bare success flag with no data a caller could act on
@@ -35,8 +37,32 @@ use Quiote\Replay\Cassette\EffectKind;
  */
 final class StubbedCache implements CacheInterface
 {
+    /** @var list<string> Reads with no recorded counterpart, in the order they were asked for. */
+    private array $unrecordedReads = [];
+
     public function __construct(private readonly EffectLedger $ledger)
     {
+    }
+
+    /**
+     * Reads this replay could not answer from the ledger.
+     *
+     * Reported rather than thrown, because `Quiote\Cache\CacheInterface` extends PSR-16, whose
+     * `get()` must return `$default` on a miss and may only throw for an invalid key. Throwing from
+     * a read broke that contract in exactly the way a substituted implementation must not: a
+     * caller written against the interface could not survive the swap.
+     *
+     * The intent behind the throw was right -- an isolated replay must not quietly answer a read it
+     * has no recording for, because that fabricates a passing test -- so the information is kept
+     * and moved somewhere a test can assert on it. A test that cares checks this is empty; the
+     * interface keeps its guarantees either way. {@see EffectLedger::misses()} records the same
+     * calls from the ledger's side.
+     *
+     * @return list<string>
+     */
+    public function unrecordedReads(): array
+    {
+        return $this->unrecordedReads;
     }
 
     #[\Override]
@@ -44,12 +70,16 @@ final class StubbedCache implements CacheInterface
     {
         $effect = $this->ledger->match(EffectKind::Cache, CacheFingerprint::of('get', $key));
         if ($effect === null) {
-            throw new \RuntimeException(sprintf('StubbedCache: no recorded cache effect for get("%s").', $key));
+            $this->unrecordedReads[] = sprintf('get("%s")', $key);
+
+            return $default;
         }
 
         $result = $effect->result;
         if (!is_array($result) || !isset($result['hit'])) {
-            throw new \RuntimeException(sprintf('StubbedCache: recorded effect for get("%s") is not a valid cache read.', $key));
+            $this->unrecordedReads[] = sprintf('get("%s") [malformed recorded effect]', $key);
+
+            return $default;
         }
 
         return $result['hit'] === true ? ($result['value'] ?? null) : $default;
@@ -59,11 +89,10 @@ final class StubbedCache implements CacheInterface
     public function has(string $key): bool
     {
         $effect = $this->ledger->match(EffectKind::Cache, CacheFingerprint::of('has', $key));
-        if ($effect === null) {
-            throw new \RuntimeException(sprintf('StubbedCache: no recorded cache effect for has("%s").', $key));
-        }
-        if (!is_bool($effect->result)) {
-            throw new \RuntimeException(sprintf('StubbedCache: recorded effect for has("%s") is not a valid boolean.', $key));
+        if ($effect === null || !is_bool($effect->result)) {
+            $this->unrecordedReads[] = sprintf('has("%s")', $key);
+
+            return false;
         }
 
         return $effect->result;

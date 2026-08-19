@@ -171,4 +171,118 @@ final class FileCassetteStoreTest extends TestCase
         @unlink($sibling . DIRECTORY_SEPARATOR . CassetteId::fromRaw('CRX2050')->slug . '.qcast');
         @rmdir($sibling);
     }
+
+    public function testTheCassetteFileIsOwnerOnlyFromTheMomentItExists(): void
+    {
+        if (DIRECTORY_SEPARATOR !== '/') {
+            $this->markTestSkipped('POSIX mode bits are not the real ACL on this platform.');
+        }
+        $store = new FileCassetteStore($this->dir);
+        $id = CassetteId::fromRaw('PERMS');
+
+        $store->put($id, $this->makeCassette('X'));
+
+        $file = $this->dir . DIRECTORY_SEPARATOR . 'PERMS.qcast';
+        $this->assertFileExists($file);
+        $this->assertSame(0600, fileperms($file) & 0777);
+    }
+
+    public function testAPreExistingWorldReadableDirectoryIsNarrowedToOwnerOnly(): void
+    {
+        if (DIRECTORY_SEPARATOR !== '/') {
+            $this->markTestSkipped('POSIX mode bits are not the real ACL on this platform.');
+        }
+        // The 0700 mkdir applies only to a directory this class creates; one that already existed --
+        // `mkdir -p` under the usual umask leaves 0755 -- was accepted as-is, so 0600 cassettes sat
+        // in a directory anyone on the host could list. Narrowed rather than refused, because this
+        // store is a container singleton and throwing takes every request down.
+        $loose = $this->dir . '-loose';
+        mkdir($loose, 0777, true);
+        chmod($loose, 0755);
+
+        try {
+            $store = new FileCassetteStore($loose);
+            clearstatcache(true, $loose);
+
+            $this->assertSame(0700, fileperms($loose) & 0777);
+            $store->put(CassetteId::fromRaw('OK'), $this->makeCassette('X'));
+            $this->assertNotNull($store->get(CassetteId::fromRaw('OK')));
+        } finally {
+            foreach (glob($loose . '/*') ?: [] as $f) {
+                @unlink($f);
+            }
+            @rmdir($loose);
+        }
+    }
+
+    public function testAPreExistingOwnerOnlyDirectoryIsAccepted(): void
+    {
+        if (DIRECTORY_SEPARATOR !== '/') {
+            $this->markTestSkipped('POSIX mode bits are not the real ACL on this platform.');
+        }
+        $tight = $this->dir . '-tight';
+        mkdir($tight, 0700, true);
+
+        try {
+            $store = new FileCassetteStore($tight);
+            $store->put(CassetteId::fromRaw('OK1'), $this->makeCassette('X'));
+            $this->assertNotNull($store->get(CassetteId::fromRaw('OK1')));
+        } finally {
+            foreach (glob($tight . '/*') ?: [] as $f) {
+                @unlink($f);
+            }
+            @rmdir($tight);
+        }
+    }
+
+    public function testARelativePathIsAnchoredToTheAppDirNotTheWorkingDirectory(): void
+    {
+        // Where a cassette lands must not depend on the SAPI's CWD -- the project root under
+        // RoadRunner, frequently the document root under php-fpm.
+        $appDir = $this->dir . '-app';
+        mkdir($appDir, 0700, true);
+        $original = Config::getNullableString('core.app_dir');
+        Config::set('core.app_dir', $appDir, true, false);
+
+        try {
+            $store = new FileCassetteStore('var/cassettes');
+            $store->put(CassetteId::fromRaw('ANCHORED'), $this->makeCassette('X'));
+
+            $this->assertFileExists($appDir . '/var/cassettes/ANCHORED.qcast');
+        } finally {
+            @unlink($appDir . '/var/cassettes/ANCHORED.qcast');
+            @rmdir($appDir . '/var/cassettes');
+            @rmdir($appDir . '/var');
+            @rmdir($appDir);
+            if ($original !== null) {
+                Config::set('core.app_dir', $original, true, false);
+            } else {
+                Config::remove('core.app_dir');
+            }
+        }
+    }
+
+    public function testARelativePathWithNoAppDirIsRefusedRatherThanResolvedAgainstTheCwd(): void
+    {
+        $original = Config::getNullableString('core.app_dir');
+        Config::remove('core.app_dir');
+
+        try {
+            $this->expectException(StorageException::class);
+            $this->expectExceptionMessageMatches('/depends on the process working directory/');
+            new FileCassetteStore('var/cassettes');
+        } finally {
+            if ($original !== null) {
+                Config::set('core.app_dir', $original, true, false);
+            }
+        }
+    }
+
+    public function testAnAbsolutePathIsUsedAsGiven(): void
+    {
+        $store = new FileCassetteStore($this->dir);
+        $store->put(CassetteId::fromRaw('ABS'), $this->makeCassette('X'));
+
+        $this->assertFileExists($this->dir . DIRECTORY_SEPARATOR . 'ABS.qcast');
+    }
 }

@@ -298,6 +298,25 @@ class Controller extends ParameterHolder implements ResetInterface, ControllerIn
 	 */
 	public function createActionInstance($moduleName, $actionName): Action
 	{
+		return $this->instantiateAction($this->resolveActionClass($moduleName, $actionName));
+	}
+
+	/**
+	 * Resolve an Action's class name without constructing it.
+	 *
+	 * Separate from {@see createActionInstance()} because a caller that only needs to *read*
+	 * something about the class -- a class attribute, via reflection -- must not pay for an
+	 * instance to do it. `Quiote\Replay\Recording\RecorderMiddleware` reads `#[NoRecord]` at
+	 * the end of every recorded request, and going through `createActionInstance()` meant every
+	 * constructor side effect and every autowired dependency ran a second time, after the
+	 * response had already been produced.
+	 * @param      string $moduleName A module name.
+	 * @param      string $actionName An action name.
+	 * @return     class-string A fully qualified Action class name that exists.
+	 * @throws     ClassNotFoundException if neither naming convention resolves to a loadable class.
+	 */
+	public function resolveActionClass($moduleName, $actionName): string
+	{
 		$this->initializeModule($moduleName);
 
 		$actionName = Toolkit::canonicalName($actionName);
@@ -312,11 +331,10 @@ class Controller extends ParameterHolder implements ResetInterface, ControllerIn
 		$actionSuffix = str_ends_with($namespacedActionName, 'Action') ? '' : 'Action';
 		$namespacedClass = $baseNamespace . '\\Modules\\' . $moduleName . '\\Actions\\' . $namespacedActionName . $actionSuffix;
 		$oldClass = $moduleName . '_' . $longActionName . 'Action';
-		// optional debug logging removed
 
 		// Try namespaced class first (autoloader will handle it)
 		if(class_exists($namespacedClass)) {
-			return $this->instantiateAction($namespacedClass);
+			return $namespacedClass;
 		}
 
 		// Fall back to old naming convention
@@ -328,7 +346,7 @@ class Controller extends ParameterHolder implements ResetInterface, ControllerIn
 			}
 		}
 		if(class_exists($oldClass)) {
-			return $this->instantiateAction($oldClass);
+			return $oldClass;
 		}
 
 		// Neither class found
