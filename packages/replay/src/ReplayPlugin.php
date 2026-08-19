@@ -12,6 +12,7 @@ use Quiote\Plugin\PluginInterface;
 use Quiote\Plugin\PluginRegistrar;
 use Quiote\Replay\Console\CassetteListCommand;
 use Quiote\Replay\Console\CassetteShowCommand;
+use Quiote\Replay\Console\ReplayCommand;
 use Quiote\Replay\Recording\RecorderMiddleware;
 use Quiote\Replay\Store\CassetteStoreInterface;
 use Quiote\Replay\Store\CassetteStoreRegistry;
@@ -55,6 +56,10 @@ final class ReplayPlugin implements PluginInterface
         $registrar->configDefault('replay.redact.params', ['password', 'password_confirm', 'token', 'secret', 'card', 'cvv', 'ssn']);
         $registrar->configDefault('replay.redact.session', ['_csrf', 'auth.token']);
         $registrar->configDefault('replay.redact.mode', 'drop');
+        // Off by default everywhere: replay always runs in ReplayEngine's one mode today (no
+        // effect stubbing exists, so replaying really re-performs a request's side effects) --
+        // see ReplayEngine's own docblock.
+        $registrar->configDefault('replay.allow_live', false);
 
         // Singleton: the file store checks/creates its directory (and its permissions) once at
         // construction, and there is no reason to repeat that per request.
@@ -74,6 +79,7 @@ final class ReplayPlugin implements PluginInterface
 
         $registrar->command(CassetteListCommand::class);
         $registrar->command(CassetteShowCommand::class);
+        $registrar->command(ReplayCommand::class);
 
         $registrar->stateReset('quioteframework/replay', static function (): void {
             CassetteStoreRegistry::reset();

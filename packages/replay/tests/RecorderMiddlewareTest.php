@@ -152,6 +152,7 @@ final class RecorderMiddlewareTest extends TestCase
         $this->assertSame(200, $cassette->response['status']);
         $this->assertSame('GET', $cassette->request['method']);
         $this->assertSame([], $cassette->effects);
+        $this->assertFalse($cassette->meta['effects_instrumented']);
     }
 
     public function testRecordsAnEscapedExceptionAndRethrowsIt(): void

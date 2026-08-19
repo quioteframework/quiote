@@ -53,9 +53,11 @@ use Throwable;
  * middleware: that requires the app's live PDO/cache/queue/HTTP-client
  * instances to be swapped for their `Recording*` counterparts for the
  * request's duration, a distinct integration task. Every cassette this
- * middleware writes has `effects: []`. `response.stray_output` is likewise
- * always empty: `OutputCapture` is owned by `Quiote\Runtime\Kernel` and not
- * reachable from a PSR-15 middleware.
+ * middleware writes has `effects: []` and states so in `meta.effects_instrumented`
+ * (`false`), so a `cassette:show` reader can tell "nothing happened" apart
+ * from "nothing was watched" without reading this source file.
+ * `response.stray_output` is likewise always empty: `OutputCapture` is owned
+ * by `Quiote\Runtime\Kernel` and not reachable from a PSR-15 middleware.
  */
 #[MiddlewareAttribute(phase: 'bootstrap', priority: 1100)]
 final class RecorderMiddleware implements MiddlewareInterface, ResetInterface
@@ -330,6 +332,13 @@ final class RecorderMiddleware implements MiddlewareInterface, ResetInterface
                 'trace_id' => null,
                 'span_id' => null,
                 'trigger' => $policy->value,
+                // §6.3's own precedent: "a cassette that recorded no DB effects because its
+                // adapter is not yet instrumented says so in meta" -- always false today, since
+                // nothing wires the DB/HTTP/cache/queue/env recorders into a live request yet.
+                // Stated in the data itself, not only in this class's docblock, so a
+                // cassette:show reader can tell "nothing happened" apart from "nothing was
+                // watched" without reading the source.
+                'effects_instrumented' => false,
             ],
             request: $request,
             resolved: $session->resolved(),

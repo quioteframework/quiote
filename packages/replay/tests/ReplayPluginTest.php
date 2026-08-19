@@ -12,6 +12,7 @@ use Quiote\Middleware\MiddlewareCatalog;
 use Quiote\Plugin\PluginManager;
 use Quiote\Replay\Console\CassetteListCommand;
 use Quiote\Replay\Console\CassetteShowCommand;
+use Quiote\Replay\Console\ReplayCommand;
 use Quiote\Replay\Recording\RecorderMiddleware;
 use Quiote\Replay\ReplayPlugin;
 use Quiote\Replay\Store\CassetteStoreInterface;
@@ -33,6 +34,7 @@ final class ReplayPluginTest extends TestCase
         'replay.store', 'replay.store.path', 'replay.write', 'replay.max_bytes', 'replay.max_effects',
         'replay.capture_body', 'replay.capture_session', 'replay.capture_log',
         'replay.redact.headers', 'replay.redact.params', 'replay.redact.session', 'replay.redact.mode',
+        'replay.allow_live',
     ];
 
     #[Before]
@@ -61,6 +63,7 @@ final class ReplayPluginTest extends TestCase
         $this->assertTrue(Config::getBool('replay.capture_session'));
         $this->assertFalse(Config::getBool('replay.capture_log'));
         $this->assertSame('drop', Config::getString('replay.redact.mode'));
+        $this->assertFalse(Config::getBool('replay.allow_live'));
     }
 
     public function testRegistersTheRecorderMiddlewareAsAnAttributedCandidate(): void
@@ -72,13 +75,14 @@ final class ReplayPluginTest extends TestCase
         $this->assertNotNull(MiddlewareCatalog::attributedFactory(RecorderMiddleware::class));
     }
 
-    public function testRegistersBothConsoleCommands(): void
+    public function testRegistersAllThreeConsoleCommands(): void
     {
         PluginManager::add(new ReplayPlugin());
         PluginManager::bootFromConfig();
 
         $this->assertContains(CassetteListCommand::class, PluginManager::contributedCommands());
         $this->assertContains(CassetteShowCommand::class, PluginManager::contributedCommands());
+        $this->assertContains(ReplayCommand::class, PluginManager::contributedCommands());
     }
 
     public function testCassetteStoreServiceResolvesToTheFileStoreByDefault(): void
