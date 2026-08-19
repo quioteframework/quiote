@@ -26,15 +26,21 @@ use Throwable;
 /**
  * `quiote replay <id>` -- re-runs a recorded cassette against the real
  * pipeline and reports drift (§7.2), and, with `--as-test`, emits a
- * committed regression test from it (§8). `--save`/`--live` from §9's full
- * signature are not offered: `--save` belongs to the fetch-from-a-remote-store
- * flow (§12.4, no non-file store exists yet), and `--live` is not offered
- * either -- see {@see ReplayEngine}'s docblock for why there is currently
- * only one mode to run in.
+ * committed regression test from it (§8). The cassette is looked up through
+ * whichever store `replay.store` resolves to (see {@see ResolvesCassetteStore}
+ * -- file, or `quioteframework/replay-pdo`'s table, today). `--save`/`--live`
+ * from §9's full signature are still not offered: `--save` belongs
+ * specifically to the fetch-from-a-remote-*object*-store-and-cache-locally
+ * flow (§12.4 -- Azure/S3/GCS, none of which exist yet; a PDO store has
+ * nothing to "download", it is queried directly), and `--live` is not
+ * offered either -- see {@see ReplayEngine}'s docblock for why there is
+ * currently only one mode to run in.
  */
 #[AsCommand(name: 'replay', description: 'Re-run a recorded cassette against the live app and report drift')]
 final class ReplayCommand extends AbstractAppCommand
 {
+    use ResolvesCassetteStore;
+
     protected function configure(): void
     {
         $this->configureAppOptions();
@@ -59,17 +65,14 @@ final class ReplayCommand extends AbstractAppCommand
             return self::FAILURE;
         }
 
-        $storeAlias = Config::getString('replay.store', 'file');
-        if ($storeAlias !== 'file') {
-            $io->error(sprintf('replay only supports the "file" store today; "replay.store" is "%s".', $storeAlias));
-
+        $sourceStore = $this->resolveCassetteStore($io);
+        if ($sourceStore === null) {
             return self::FAILURE;
         }
 
         $id = CassetteId::fromRaw($idArgument);
         try {
-            $store = new FileCassetteStore(Config::getString('replay.store.path', 'var/cassettes'));
-            $cassette = $store->get($id);
+            $cassette = $sourceStore->get($id);
         } catch (Throwable $e) {
             $io->error($e->getMessage());
 

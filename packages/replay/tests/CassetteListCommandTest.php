@@ -4,13 +4,23 @@ declare(strict_types=1);
 
 use PHPUnit\Framework\TestCase;
 use Quiote\Config\Config;
+use Quiote\ContextRegistry;
+use Quiote\Plugin\PluginManager;
 use Quiote\Replay\Cassette\Cassette;
 use Quiote\Replay\Cassette\CassetteCodec;
 use Quiote\Replay\Cassette\CassetteId;
 use Quiote\Replay\Console\CassetteListCommand;
+use Quiote\Replay\ReplayPlugin;
 use Quiote\Replay\Store\FileCassetteStore;
 use Symfony\Component\Console\Tester\CommandTester;
 
+/**
+ * See {@see ReplayCommandTest}'s own docblock for why `ReplayPlugin` is
+ * registered and `ContextRegistry::shared()->clear()` is called here: the
+ * command resolves `CassetteStoreInterface` through `core.default_context`'s
+ * real, process-cached container, which the sandbox test app's own plugin
+ * list does not otherwise put it in.
+ */
 final class CassetteListCommandTest extends TestCase
 {
     private string $dir;
@@ -25,6 +35,10 @@ final class CassetteListCommandTest extends TestCase
         $this->originalStorePath = Config::getNullableString('replay.store.path');
         Config::set('replay.store', 'file', true, false);
         Config::set('replay.store.path', $this->dir, true, false);
+
+        PluginManager::add(new ReplayPlugin());
+        PluginManager::bootFromConfig();
+        ContextRegistry::shared()->clear();
     }
 
     protected function tearDown(): void
@@ -45,6 +59,8 @@ final class CassetteListCommandTest extends TestCase
         } else {
             Config::remove('replay.store.path');
         }
+        PluginManager::reset();
+        ContextRegistry::shared()->clear();
         parent::tearDown();
     }
 
@@ -152,14 +168,18 @@ final class CassetteListCommandTest extends TestCase
         $this->assertStringContainsString('No cassettes found', $tester->getDisplay());
     }
 
-    public function testNonFileStoreConfigurationFailsWithAClearError(): void
+    public function testUnregisteredStoreAliasFailsWithAClearError(): void
     {
-        Config::set('replay.store', 'azure-blob', true, false);
+        Config::set('replay.store', 'not-a-real-store', true, false);
+        // The plugin registered in setUp() already bound a working CassetteStoreInterface
+        // service; rebuilding forces it to notice replay.store changed underneath it.
+        ContextRegistry::shared()->clear();
 
         $tester = new CommandTester(new CassetteListCommand());
         $exitCode = $tester->execute([]);
 
         $this->assertSame(1, $exitCode);
-        $this->assertStringContainsString('only supports the "file" store', $tester->getDisplay());
+        $this->assertStringContainsString('Could not resolve the configured cassette store', $tester->getDisplay());
+        $this->assertStringContainsString('not-a-real-store', $tester->getDisplay());
     }
 }

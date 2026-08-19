@@ -103,6 +103,10 @@ final class CycleRecorderMiddlewareIntegrationTest extends TestCase
             {
                 return false;
             }
+
+            public function delete(CassetteId $id): void
+            {
+            }
         };
     }
 

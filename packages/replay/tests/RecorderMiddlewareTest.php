@@ -69,6 +69,10 @@ final class RecorderMiddlewareTest extends TestCase
             {
                 return false;
             }
+
+            public function delete(CassetteId $id): void
+            {
+            }
         };
     }
 
@@ -321,6 +325,10 @@ final class RecorderMiddlewareTest extends TestCase
             public function has(CassetteId $id): bool
             {
                 return false;
+            }
+
+            public function delete(CassetteId $id): void
+            {
             }
         };
         $middleware = new RecorderMiddleware($this->context($store), $store);

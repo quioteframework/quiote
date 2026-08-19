@@ -11,6 +11,7 @@ use Quiote\Plugin\Attribute\Plugin as PluginAttribute;
 use Quiote\Plugin\PluginInterface;
 use Quiote\Plugin\PluginRegistrar;
 use Quiote\Replay\Console\CassetteListCommand;
+use Quiote\Replay\Console\CassettePruneCommand;
 use Quiote\Replay\Console\CassetteShowCommand;
 use Quiote\Replay\Console\ReplayCommand;
 use Quiote\Replay\Recording\ActiveEffectLedger;
@@ -51,6 +52,9 @@ final class ReplayPlugin implements PluginInterface
         $registrar->configDefault('replay.store.path', 'var/cassettes');
         $registrar->configDefault('replay.tests_path', 'tests/Replay');
         $registrar->configDefault('replay.write', 'sync_on_error');
+        // Consumed by CassettePruneCommand's default --older-than when the store is file/pdo;
+        // meaningless on Azure, which prunes via a blob lifecycle rule instead (§12.7).
+        $registrar->configDefault('replay.retention_days', 14);
         $registrar->configDefault('replay.max_bytes', 2_097_152);
         $registrar->configDefault('replay.max_effects', 2000);
         $registrar->configDefault('replay.capture_body', true);
@@ -83,6 +87,7 @@ final class ReplayPlugin implements PluginInterface
 
         $registrar->command(CassetteListCommand::class);
         $registrar->command(CassetteShowCommand::class);
+        $registrar->command(CassettePruneCommand::class);
         $registrar->command(ReplayCommand::class);
 
         $registrar->stateReset('quioteframework/replay', static function (): void {

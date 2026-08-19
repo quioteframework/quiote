@@ -4,13 +4,23 @@ declare(strict_types=1);
 
 use PHPUnit\Framework\TestCase;
 use Quiote\Config\Config;
+use Quiote\ContextRegistry;
+use Quiote\Plugin\PluginManager;
 use Quiote\Replay\Cassette\Cassette;
 use Quiote\Replay\Cassette\CassetteCodec;
 use Quiote\Replay\Cassette\CassetteId;
 use Quiote\Replay\Console\CassetteShowCommand;
+use Quiote\Replay\ReplayPlugin;
 use Quiote\Replay\Store\FileCassetteStore;
 use Symfony\Component\Console\Tester\CommandTester;
 
+/**
+ * See {@see ReplayCommandTest}'s own docblock for why `ReplayPlugin` is
+ * registered and `ContextRegistry::shared()->clear()` is called here: the
+ * command resolves `CassetteStoreInterface` through `core.default_context`'s
+ * real, process-cached container, which the sandbox test app's own plugin
+ * list does not otherwise put it in.
+ */
 final class CassetteShowCommandTest extends TestCase
 {
     private string $dir;
@@ -25,6 +35,10 @@ final class CassetteShowCommandTest extends TestCase
         $this->originalStorePath = Config::getNullableString('replay.store.path');
         Config::set('replay.store', 'file', true, false);
         Config::set('replay.store.path', $this->dir, true, false);
+
+        PluginManager::add(new ReplayPlugin());
+        PluginManager::bootFromConfig();
+        ContextRegistry::shared()->clear();
     }
 
     protected function tearDown(): void
@@ -45,6 +59,8 @@ final class CassetteShowCommandTest extends TestCase
         } else {
             Config::remove('replay.store.path');
         }
+        PluginManager::reset();
+        ContextRegistry::shared()->clear();
         parent::tearDown();
     }
 

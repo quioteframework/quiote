@@ -114,6 +114,10 @@ final class RecorderMiddlewareIntegrationTest extends TestCase
             {
                 return false;
             }
+
+            public function delete(CassetteId $id): void
+            {
+            }
         };
     }
 

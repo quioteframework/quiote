@@ -98,6 +98,10 @@ final class DoctrineRecorderMiddlewareIntegrationTest extends TestCase
             {
                 return false;
             }
+
+            public function delete(CassetteId $id): void
+            {
+            }
         };
     }
 

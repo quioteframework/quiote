@@ -4,22 +4,21 @@ declare(strict_types=1);
 
 namespace Quiote\Replay\Console;
 
-use Quiote\Config\Config;
 use Quiote\Console\Command\AbstractAppCommand;
-use Quiote\Replay\Cassette\CassetteId;
-use Quiote\Replay\Store\FileCassetteStore;
+use Quiote\Replay\Store\ListableCassetteStoreInterface;
 use Quiote\Support\Compiler\Diagnostic;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
-use Throwable;
 
 /**
- * `cassette:list` -- enumerates the configured store (the file store's own
- * directory listing today; a non-file store gains this once it exists, per
- * `docs/RECORD_REPLAY_PLAN.md` §12.8).
+ * `cassette:list` -- enumerates the configured store, via whichever
+ * {@see ListableCassetteStoreInterface} `replay.store` resolves to (see
+ * {@see ResolvesCassetteStore}) -- the file store's own directory listing,
+ * or `quioteframework/replay-pdo`'s table, today; an object-store-backed one
+ * would use its own `listObjects()` instead (§12.8), not this interface.
  *
  * `--stale` (§9's console surface) is deliberately not offered yet: staleness
  * is a comparison against `meta.source_hash`, and no cassette this package
@@ -30,6 +29,9 @@ use Throwable;
 #[AsCommand(name: 'cassette:list', description: 'List cassettes in the configured replay store')]
 final class CassetteListCommand extends AbstractAppCommand
 {
+    use ResolvesCassetteStore;
+    use CollectsCassetteRows;
+
     protected function configure(): void
     {
         $this->configureAppOptions();
@@ -45,12 +47,17 @@ final class CassetteListCommand extends AbstractAppCommand
         $this->bootstrapApp($input);
         $io = new SymfonyStyle($input, $output);
 
-        $store = $this->resolveFileStore($io);
+        $store = $this->resolveCassetteStore($io);
         if ($store === null) {
             return self::FAILURE;
         }
+        if (!$store instanceof ListableCassetteStoreInterface) {
+            $io->error(sprintf('The configured cassette store (%s) cannot be listed.', $store::class));
 
-        [$rows, $diagnostics] = $this->collectRows($store);
+            return self::FAILURE;
+        }
+
+        [$rows, $diagnostics] = $this->collectCassetteRows($store);
 
         $since = $input->getOption('since');
         if (is_string($since) && $since !== '') {
@@ -92,57 +99,6 @@ final class CassetteListCommand extends AbstractAppCommand
         );
 
         return $this->exitCodeFor($diagnostics);
-    }
-
-    /**
-     * @return array{0: list<array{id: string, recorded_at: ?string, route: ?string, status: ?int, trigger: ?string}>, 1: list<Diagnostic>}
-     */
-    private function collectRows(FileCassetteStore $store): array
-    {
-        $rows = [];
-        $diagnostics = [];
-        foreach ($store->slugs() as $slug) {
-            try {
-                $cassette = $store->get(CassetteId::fromRaw($slug));
-            } catch (Throwable $e) {
-                $diagnostics[] = new Diagnostic(Diagnostic::SEVERITY_WARNING, 'CASSETTE_UNREADABLE', $e->getMessage(), $slug);
-                continue;
-            }
-            if ($cassette === null) {
-                continue;
-            }
-            $id = $cassette->meta['id'] ?? null;
-            $recordedAt = $cassette->meta['recorded_at'] ?? null;
-            $route = $cassette->resolved['route'] ?? null;
-            $status = $cassette->response['status'] ?? null;
-            $trigger = $cassette->meta['trigger'] ?? null;
-            $rows[] = [
-                'id' => is_string($id) ? $id : $slug,
-                'recorded_at' => is_string($recordedAt) ? $recordedAt : null,
-                'route' => is_string($route) ? $route : null,
-                'status' => is_int($status) ? $status : null,
-                'trigger' => is_string($trigger) ? $trigger : null,
-            ];
-        }
-
-        return [$rows, $diagnostics];
-    }
-
-    private function resolveFileStore(SymfonyStyle $io): ?FileCassetteStore
-    {
-        $storeAlias = Config::getString('replay.store', 'file');
-        if ($storeAlias !== 'file') {
-            $io->error(sprintf('cassette:list only supports the "file" store today; "replay.store" is "%s".', $storeAlias));
-
-            return null;
-        }
-        try {
-            return new FileCassetteStore(Config::getString('replay.store.path', 'var/cassettes'));
-        } catch (Throwable $e) {
-            $io->error($e->getMessage());
-
-            return null;
-        }
     }
 
     private static function matchesStatusFilter(?int $status, string $filter): bool

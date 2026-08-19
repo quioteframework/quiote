@@ -87,4 +87,8 @@ final class CassetteStoreRegistryFakeStore implements CassetteStoreInterface
     {
         return false;
     }
+
+    public function delete(CassetteId $id): void
+    {
+    }
 }

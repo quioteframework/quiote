@@ -11,6 +11,7 @@ use Quiote\DI\Container;
 use Quiote\Middleware\MiddlewareCatalog;
 use Quiote\Plugin\PluginManager;
 use Quiote\Replay\Console\CassetteListCommand;
+use Quiote\Replay\Console\CassettePruneCommand;
 use Quiote\Replay\Console\CassetteShowCommand;
 use Quiote\Replay\Console\ReplayCommand;
 use Quiote\Replay\Recording\RecorderMiddleware;
@@ -31,7 +32,8 @@ final class ReplayPluginTest extends TestCase
     /** @var list<string> */
     private const REPLAY_KEYS = [
         'replay.enabled', 'replay.record', 'replay.sample_rate', 'replay.trigger_header',
-        'replay.store', 'replay.store.path', 'replay.write', 'replay.max_bytes', 'replay.max_effects',
+        'replay.store', 'replay.store.path', 'replay.tests_path', 'replay.write', 'replay.retention_days',
+        'replay.max_bytes', 'replay.max_effects',
         'replay.capture_body', 'replay.capture_session', 'replay.capture_log',
         'replay.redact.headers', 'replay.redact.params', 'replay.redact.session', 'replay.redact.mode',
         'replay.allow_live',
@@ -57,7 +59,9 @@ final class ReplayPluginTest extends TestCase
         $this->assertSame('never', Config::getString('replay.record'));
         $this->assertSame('file', Config::getString('replay.store'));
         $this->assertSame('var/cassettes', Config::getString('replay.store.path'));
+        $this->assertSame('tests/Replay', Config::getString('replay.tests_path'));
         $this->assertSame('sync_on_error', Config::getString('replay.write'));
+        $this->assertSame(14, Config::getInt('replay.retention_days'));
         $this->assertSame(2_097_152, Config::getInt('replay.max_bytes'));
         $this->assertSame(2000, Config::getInt('replay.max_effects'));
         $this->assertTrue(Config::getBool('replay.capture_body'));
@@ -76,13 +80,14 @@ final class ReplayPluginTest extends TestCase
         $this->assertNotNull(MiddlewareCatalog::attributedFactory(RecorderMiddleware::class));
     }
 
-    public function testRegistersAllThreeConsoleCommands(): void
+    public function testRegistersAllFourConsoleCommands(): void
     {
         PluginManager::add(new ReplayPlugin());
         PluginManager::bootFromConfig();
 
         $this->assertContains(CassetteListCommand::class, PluginManager::contributedCommands());
         $this->assertContains(CassetteShowCommand::class, PluginManager::contributedCommands());
+        $this->assertContains(CassettePruneCommand::class, PluginManager::contributedCommands());
         $this->assertContains(ReplayCommand::class, PluginManager::contributedCommands());
     }
 

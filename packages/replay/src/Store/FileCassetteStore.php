@@ -23,7 +23,7 @@ use Quiote\Replay\Cassette\CassetteId;
  * directory, `chmod 0600`, then renamed into place, so a reader never
  * observes a partially written cassette.
  */
-final class FileCassetteStore implements CassetteStoreInterface
+final class FileCassetteStore implements ListableCassetteStoreInterface
 {
     private const FILE_SUFFIX = '.qcast';
 
@@ -92,6 +92,11 @@ final class FileCassetteStore implements CassetteStoreInterface
     public function has(CassetteId $id): bool
     {
         return is_file($this->fileFor($id));
+    }
+
+    public function delete(CassetteId $id): void
+    {
+        @unlink($this->fileFor($id));
     }
 
     /**

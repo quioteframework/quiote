@@ -108,7 +108,8 @@
 		"quioteframework/replay-propulsion": "^4.0",
 		"quioteframework/replay-doctrine": "^4.0",
 		"quioteframework/replay-eloquent": "^4.0",
-		"quioteframework/replay-cycle": "^4.0"
+		"quioteframework/replay-cycle": "^4.0",
+		"quioteframework/replay-pdo": "^4.0"
 	},
 	"suggest": {
 		"phpunit/phpunit": "Install phpunit if you want to run your tests",
@@ -160,7 +161,8 @@
 		"quioteframework/replay-propulsion": "Records Propulsion queries into the replay effect ledger, with bound-parameter/row redaction (Quiote\\Replay\\Adapter\\Propulsion\\*)",
 		"quioteframework/replay-doctrine": "Records Doctrine DBAL queries into the replay effect ledger, via a DBAL driver middleware (Quiote\\Replay\\Adapter\\Doctrine\\*)",
 		"quioteframework/replay-eloquent": "Records Eloquent queries into the replay effect ledger, via the QueryExecuted event (Quiote\\Replay\\Adapter\\Eloquent\\*)",
-		"quioteframework/replay-cycle": "Records Cycle queries into the replay effect ledger, via Cycle's own PSR-3 logger seam (Quiote\\Replay\\Adapter\\Cycle\\*)"
+		"quioteframework/replay-cycle": "Records Cycle queries into the replay effect ledger, via Cycle's own PSR-3 logger seam (Quiote\\Replay\\Adapter\\Cycle\\*)",
+		"quioteframework/replay-pdo": "Enables the 'pdo' cassette store, keeping cassettes in the app's own database instead of a pod's ephemeral filesystem (Quiote\\Replay\\Store\\Pdo\\*)"
 	},
 	"scripts": {
 		"test": "php -d apc.enable_cli=0 vendor/bin/phpunit --no-coverage",

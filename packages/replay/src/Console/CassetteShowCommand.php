@@ -4,13 +4,11 @@ declare(strict_types=1);
 
 namespace Quiote\Replay\Console;
 
-use Quiote\Config\Config;
 use Quiote\Console\Command\AbstractAppCommand;
 use Quiote\Replay\Cassette\Cassette;
 use Quiote\Replay\Cassette\CassetteCodec;
 use Quiote\Replay\Cassette\CassetteId;
 use Quiote\Replay\Cassette\Effect;
-use Quiote\Replay\Store\FileCassetteStore;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -29,6 +27,8 @@ use Throwable;
 #[AsCommand(name: 'cassette:show', description: 'Show one cassette from the configured replay store')]
 final class CassetteShowCommand extends AbstractAppCommand
 {
+    use ResolvesCassetteStore;
+
     protected function configure(): void
     {
         $this->configureAppOptions();
@@ -104,15 +104,12 @@ final class CassetteShowCommand extends AbstractAppCommand
 
     private function loadFromStore(string $id, SymfonyStyle $io): ?Cassette
     {
-        $storeAlias = Config::getString('replay.store', 'file');
-        if ($storeAlias !== 'file') {
-            $io->error(sprintf('cassette:show only supports the "file" store today; "replay.store" is "%s".', $storeAlias));
-
+        $store = $this->resolveCassetteStore($io);
+        if ($store === null) {
             return null;
         }
 
         try {
-            $store = new FileCassetteStore(Config::getString('replay.store.path', 'var/cassettes'));
             $cassette = $store->get(CassetteId::fromRaw($id));
         } catch (Throwable $e) {
             $io->error($e->getMessage());

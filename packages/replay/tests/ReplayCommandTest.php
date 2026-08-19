@@ -4,13 +4,28 @@ declare(strict_types=1);
 
 use PHPUnit\Framework\TestCase;
 use Quiote\Config\Config;
+use Quiote\ContextRegistry;
+use Quiote\Plugin\PluginManager;
 use Quiote\Replay\Cassette\Cassette;
 use Quiote\Replay\Cassette\CassetteCodec;
 use Quiote\Replay\Cassette\CassetteId;
 use Quiote\Replay\Console\ReplayCommand;
+use Quiote\Replay\ReplayPlugin;
 use Quiote\Replay\Store\FileCassetteStore;
 use Symfony\Component\Console\Tester\CommandTester;
 
+/**
+ * `Quiote\Replay\ReplayPlugin` is not part of the sandbox test app's own
+ * plugin list, so `Context::getInstance('web'|'testing')`'s real,
+ * process-cached container never has `CassetteStoreInterface` bound unless
+ * this test registers the plugin itself -- and, because a `Context` is
+ * built once per profile per process, that registration only takes effect
+ * on a *fresh* build. `ContextRegistry::shared()->clear()` ("for tests that
+ * need a clean process-level slate") forces that in setUp(); tearDown()
+ * undoes both so a later, unrelated test that resolves the same context
+ * gets the same unplugged rebuild it would have without this file ever
+ * having run.
+ */
 final class ReplayCommandTest extends TestCase
 {
     private string $dir;
@@ -32,6 +47,10 @@ final class ReplayCommandTest extends TestCase
         Config::set('replay.store', 'file', true, false);
         Config::set('replay.store.path', $this->dir, true, false);
         Config::set('replay.allow_live', false, true, false);
+
+        PluginManager::add(new ReplayPlugin());
+        PluginManager::bootFromConfig();
+        ContextRegistry::shared()->clear();
     }
 
     protected function tearDown(): void
@@ -62,6 +81,8 @@ final class ReplayCommandTest extends TestCase
         } else {
             Config::remove('replay.tests_path');
         }
+        PluginManager::reset();
+        ContextRegistry::shared()->clear();
         parent::tearDown();
     }
 
@@ -121,14 +142,19 @@ final class ReplayCommandTest extends TestCase
         $this->assertStringContainsString('No cassette found', $tester->getDisplay());
     }
 
-    public function testNonFileStoreConfigurationFails(): void
+    public function testUnregisteredStoreAliasFails(): void
     {
-        Config::set('replay.store', 'azure-blob', true, false);
+        Config::set('replay.store', 'not-a-real-store', true, false);
+        // The plugin registered in setUp() already bound a working CassetteStoreInterface
+        // service; rebuilding forces it to notice replay.store changed underneath it.
+        ContextRegistry::shared()->clear();
+
         $tester = new CommandTester(new ReplayCommand());
         $exitCode = $tester->execute(['id' => 'AAA']);
 
         $this->assertSame(1, $exitCode);
-        $this->assertStringContainsString('only supports the "file" store', $tester->getDisplay());
+        $this->assertStringContainsString('Could not resolve the configured cassette store', $tester->getDisplay());
+        $this->assertStringContainsString('not-a-real-store', $tester->getDisplay());
     }
 
     public function testRefusesWhenAllowLiveIsFalse(): void

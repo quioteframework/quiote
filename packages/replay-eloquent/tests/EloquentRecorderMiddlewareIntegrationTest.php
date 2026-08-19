@@ -97,6 +97,10 @@ final class EloquentRecorderMiddlewareIntegrationTest extends TestCase
             {
                 return false;
             }
+
+            public function delete(CassetteId $id): void
+            {
+            }
         };
     }
 

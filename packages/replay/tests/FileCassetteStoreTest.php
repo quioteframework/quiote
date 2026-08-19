@@ -111,6 +111,27 @@ final class FileCassetteStoreTest extends TestCase
         $this->assertSame('0600', substr(sprintf('%o', fileperms($files[0])), -4));
     }
 
+    public function testDeleteRemovesAStoredCassette(): void
+    {
+        $store = new FileCassetteStore($this->dir);
+        $id = CassetteId::fromRaw('CRX2050');
+        $store->put($id, $this->makeCassette('CRX2050'));
+
+        $store->delete($id);
+
+        $this->assertFalse($store->has($id));
+        $this->assertNull($store->get($id));
+    }
+
+    public function testDeleteOfAnUnknownIdIsNotAnError(): void
+    {
+        $store = new FileCassetteStore($this->dir);
+
+        $store->delete(CassetteId::fromRaw('never-stored'));
+
+        $this->addToAssertionCount(1);
+    }
+
     public function testSlugsListsEveryStoredCassette(): void
     {
         $store = new FileCassetteStore($this->dir);
