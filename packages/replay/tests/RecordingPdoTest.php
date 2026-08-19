@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use PHPUnit\Framework\TestCase;
+use Quiote\Replay\Cassette\DbResult;
 use Quiote\Replay\Cassette\EffectKind;
 use Quiote\Replay\Db\RecordingPdo;
 use Quiote\Replay\Replay\EffectLedger;
@@ -42,7 +43,10 @@ final class RecordingPdoTest extends TestCase
         $dbEffects = array_values(array_filter($ledger->all(), fn($e) => $e->kind === EffectKind::Db && str_starts_with($e->fingerprint, 'SELECT')));
         $this->assertCount(1, $dbEffects);
         $this->assertSame('SELECT id, name FROM t ORDER BY id', $dbEffects[0]->fingerprint);
-        $this->assertSame([['id' => 1, 'name' => 'alice'], ['id' => 2, 'name' => 'bob']], $dbEffects[0]->result);
+        $recorded = DbResult::fromResult($dbEffects[0]->result);
+        $this->assertNotNull($recorded);
+        $this->assertSame([['id' => 1, 'name' => 'alice'], ['id' => 2, 'name' => 'bob']], $recorded->rows);
+        $this->assertFalse($recorded->rowsTruncated);
         $this->assertSame('SELECT id, name FROM t ORDER BY id', $dbEffects[0]->call['sql']);
     }
 
@@ -87,7 +91,10 @@ final class RecordingPdoTest extends TestCase
         $this->assertSame(1, $affected);
         $updateEffects = array_values(array_filter($ledger->all(), fn($e) => str_starts_with($e->fingerprint, 'UPDATE')));
         $this->assertCount(1, $updateEffects);
-        $this->assertSame(1, $updateEffects[0]->result);
+        $recordedWrite = DbResult::fromResult($updateEffects[0]->result);
+        $this->assertNotNull($recordedWrite);
+        $this->assertSame(1, $recordedWrite->affectedRows);
+        $this->assertNull($recordedWrite->rows, 'A write captured no rows.');
     }
 
     public function testTwoSequentialIdenticalQueriesProduceTwoSeparateLedgerEntriesInOrder(): void
@@ -250,10 +257,10 @@ final class RecordingPdoTest extends TestCase
 
         $effects = array_values(array_filter($ledger->all(), static fn($e) => str_starts_with($e->fingerprint, 'SELECT id FROM big')));
         $this->assertCount(1, $effects);
-        $result = $effects[0]->result;
-        $this->assertIsArray($result);
-        $this->assertTrue($result['rows_truncated']);
-        $this->assertSame(3, $result['captured_row_count']);
+        $result = DbResult::fromResult($effects[0]->result);
+        $this->assertNotNull($result);
+        $this->assertTrue($result->rowsTruncated);
+        $this->assertCount(3, (array)$result->rows);
         // The caller still receives every row that was captured.
         $this->assertCount(3, $stmt->fetchAll(PDO::FETCH_ASSOC));
     }
@@ -268,10 +275,10 @@ final class RecordingPdoTest extends TestCase
         $pdo->query('SELECT id FROM exact ORDER BY id');
 
         $effects = array_values(array_filter($ledger->all(), static fn($e) => str_starts_with($e->fingerprint, 'SELECT id FROM exact')));
-        $result = $effects[0]->result;
-        $this->assertIsArray($result);
-        $this->assertArrayNotHasKey('rows_truncated', $result);
-        $this->assertCount(3, $result);
+        $result = DbResult::fromResult($effects[0]->result);
+        $this->assertNotNull($result);
+        $this->assertFalse($result->rowsTruncated);
+        $this->assertCount(3, (array)$result->rows);
     }
 
     public function testAQueryPrepareCannotHandleStillRunsUnrecordedRatherThanFailing(): void

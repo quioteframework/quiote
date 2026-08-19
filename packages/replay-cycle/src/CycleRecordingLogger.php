@@ -6,12 +6,14 @@ namespace Quiote\Replay\Adapter\Cycle;
 
 use Psr\Log\AbstractLogger;
 use Psr\Log\LogLevel;
+use Quiote\Replay\Cassette\DbResult;
 use Quiote\Replay\Cassette\EffectKind;
 use Quiote\Replay\Recording\ActiveEffectLedger;
 
 /**
  * Records one {@see EffectKind::Db} entry per successful query on a Cycle
- * (`cycle/database`) connection, via Cycle's own PSR-3 logger seam --
+ * (`cycle/database`) connection, and forwards every message to whatever logger the
+ * application already had, via Cycle's own PSR-3 logger seam --
  * `Cycle\Database\Driver\Driver::statement()` logs every query through
  * whatever `Psr\Log\LoggerInterface` was installed on it, at `info` on
  * success and `error`+`alert` on failure (read directly from
@@ -44,9 +46,29 @@ use Quiote\Replay\Recording\ActiveEffectLedger;
  */
 final class CycleRecordingLogger extends AbstractLogger
 {
+    /**
+     * @param \Psr\Log\LoggerInterface|null $inner A logger every message is forwarded to after
+     *        recording. `Cycle\Database\DatabaseManager::setLogger()` is a whole-value
+     *        assignment, so without this, installing the recorder silently ended whatever query
+     *        logging the application had.
+     */
+    public function __construct(private readonly ?\Psr\Log\LoggerInterface $inner = null)
+    {
+    }
+
+    /** A recording logger that also forwards to $existing, or a plain one when there is none. */
+    public static function wrapping(?\Psr\Log\LoggerInterface $existing): self
+    {
+        return new self($existing instanceof self ? null : $existing);
+    }
+
     #[\Override]
     public function log($level, string|\Stringable $message, array $context = []): void
     {
+        // Forwarded first and unconditionally: recording is the addition here, and a message the
+        // application wanted logged must not depend on whether this class chose to record it.
+        $this->inner?->log($level, $message, $context);
+
         if ($level !== LogLevel::INFO) {
             return;
         }
@@ -61,7 +83,10 @@ final class CycleRecordingLogger extends AbstractLogger
             EffectKind::Db,
             self::fingerprintOf($sql),
             ['sql' => $sql, 'parameters' => $parameters],
-            is_int($rowCount) ? $rowCount : null,
+            // Cycle's logger seam reports a row count but never the rows themselves, so this is
+            // "rows not observable, count known" rather than "no rows" -- a distinction a replay
+            // stub needs to refuse a read it cannot honestly answer.
+            DbResult::unobservedRows(is_int($rowCount) ? $rowCount : null)->toArray(),
             $durationMicros,
         );
     }

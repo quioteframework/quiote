@@ -6,6 +6,7 @@ namespace Quiote\Replay\Replay;
 
 use PDO;
 use PDOStatement;
+use Quiote\Replay\Cassette\DbResult;
 use Quiote\Replay\Cassette\EffectKind;
 use Quiote\Replay\Db\RecordingPdoStatement;
 
@@ -41,11 +42,12 @@ final class StubbedPdo extends PDO
         if ($effect === null) {
             throw new \RuntimeException(sprintf('StubbedPdo: no recorded database effect for SQL "%s".', $fingerprint));
         }
-        if (!is_int($effect->result)) {
+        $result = DbResult::fromResult($effect->result);
+        if ($result?->affectedRows === null) {
             throw new \RuntimeException(sprintf('StubbedPdo: recorded effect for SQL "%s" is not an exec() row count.', $fingerprint));
         }
 
-        return $effect->result;
+        return $result->affectedRows;
     }
 
     /** Narrows `\PDO::query()`'s native `PDOStatement|false` return type; see {@see exec()}. */

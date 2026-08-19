@@ -8,6 +8,7 @@ use Cycle\Database\Config\SQLiteDriverConfig;
 use Cycle\Database\DatabaseInterface;
 use Cycle\Database\DatabaseManager;
 use PHPUnit\Framework\TestCase;
+use Quiote\Replay\Cassette\DbResult;
 use Quiote\Replay\Cassette\EffectKind;
 use Quiote\Replay\Adapter\Cycle\CycleRecordingLogger;
 use Quiote\Replay\Recording\ActiveEffectLedger;
@@ -57,8 +58,13 @@ final class CycleRecordingLoggerTest extends TestCase
         ));
         $this->assertCount(1, $selects);
         // PDOStatement::rowCount() for a SELECT is driver-dependent (often 0 for
-        // sqlite) -- only that it is a captured int matters here, not its value.
-        $this->assertIsInt($selects[0]->result);
+        // sqlite) -- only that it is a captured int matters here, not its value. The rows
+        // themselves are never observable through Cycle's logger seam, which is recorded as
+        // null rather than as an empty list.
+        $recorded = DbResult::fromResult($selects[0]->result);
+        $this->assertNotNull($recorded);
+        $this->assertIsInt($recorded->affectedRows);
+        $this->assertNull($recorded->rows);
         $this->assertNotNull($selects[0]->durationMicros);
     }
 
@@ -74,7 +80,7 @@ final class CycleRecordingLoggerTest extends TestCase
         $this->assertSame(2, $affected);
         $inserts = array_values(array_filter($ledger->all(), static fn($e) => str_starts_with($e->fingerprint, 'INSERT')));
         $this->assertCount(1, $inserts);
-        $this->assertSame(2, $inserts[0]->result);
+        $this->assertSame(2, DbResult::fromResult($inserts[0]->result)?->affectedRows);
     }
 
     public function testTwoSequentialQueriesProduceTwoOrderedEffects(): void
@@ -153,5 +159,55 @@ final class CycleRecordingLoggerTest extends TestCase
         $this->assertCount(1, $second->all());
         $this->assertSame('SELECT 1', $first->all()[0]->call['sql']);
         $this->assertSame('SELECT 2', $second->all()[0]->call['sql']);
+    }
+
+    public function testTheRecordingLoggerForwardsEveryMessageToTheApplicationsOwnLogger(): void
+    {
+        // setLogger() is a whole-value assignment on Cycle's DatabaseManager, so installing the
+        // recorder must not silently end the application's own query logging.
+        $inner = new class extends \Psr\Log\AbstractLogger {
+            /** @var list<array{0: mixed, 1: string}> */
+            public array $seen = [];
+
+            /** @param array<mixed> $context */
+            public function log($level, string|\Stringable $message, array $context = []): void
+            {
+                $this->seen[] = [$level, (string)$message];
+            }
+        };
+        $ledger = new EffectLedger();
+        ActiveEffectLedger::set($ledger);
+        $logger = CycleRecordingLogger::wrapping($inner);
+
+        $logger->info('select 1', ['rowCount' => 1, 'elapsed' => 0.001]);
+        $logger->error('select bad', []);
+
+        $this->assertSame([['info', 'select 1'], ['error', 'select bad']], $inner->seen);
+        // And still records the successful query itself.
+        $this->assertCount(1, $ledger->all());
+    }
+
+    public function testWrappingAnotherRecordingLoggerDoesNotChainThem(): void
+    {
+        // A second connect() on the same manager would otherwise nest recorders and double every
+        // effect.
+        $first = CycleRecordingLogger::wrapping(null);
+        $second = CycleRecordingLogger::wrapping($first);
+        $ledger = new EffectLedger();
+        ActiveEffectLedger::set($ledger);
+
+        $second->info('select 1', ['rowCount' => 1, 'elapsed' => 0.001]);
+
+        $this->assertCount(1, $ledger->all());
+    }
+
+    public function testWithNoExistingLoggerNothingIsForwardedAndRecordingStillWorks(): void
+    {
+        $ledger = new EffectLedger();
+        ActiveEffectLedger::set($ledger);
+
+        CycleRecordingLogger::wrapping(null)->info('select 1', ['rowCount' => 1, 'elapsed' => 0.001]);
+
+        $this->assertCount(1, $ledger->all());
     }
 }

@@ -132,7 +132,7 @@ final class StubbedPdoTest extends TestCase
         $stmt = new StubbedPdoStatement($ledger, 'SELECT x');
 
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessageMatches('/neither a list of associative rows nor an affected-row count/');
+        $this->expectExceptionMessageMatches('/does not describe a database call at all/');
         $stmt->execute();
     }
 
@@ -147,7 +147,7 @@ final class StubbedPdoTest extends TestCase
         $stmt = new StubbedPdoStatement($ledger, 'SELECT x');
 
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessageMatches('/carries a null result/');
+        $this->expectExceptionMessageMatches('/captured no rows/');
         $stmt->execute();
     }
 

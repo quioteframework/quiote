@@ -6,6 +6,7 @@ namespace Quiote\Replay\Db;
 
 use PDO;
 use PDOStatement;
+use Quiote\Replay\Cassette\DbResult;
 use Quiote\Replay\Cassette\EffectKind;
 use Quiote\Replay\Replay\EffectLedger;
 use Quiote\Support\Clock\ClockInterface;
@@ -139,9 +140,7 @@ class RecordingPdoStatement extends PDOStatement
                 EffectKind::Db,
                 self::fingerprintFor($this->queryString, $effectiveParams),
                 ['sql' => $this->queryString, 'params' => $effectiveParams],
-                $truncated
-                    ? ['rows' => $this->associativeRows(), 'rows_truncated' => true, 'captured_row_count' => count($rows)]
-                    : $this->associativeRows(),
+                DbResult::rows($this->associativeRows(), $truncated)->toArray(),
                 $durationMicros,
             );
         } else {
@@ -150,7 +149,7 @@ class RecordingPdoStatement extends PDOStatement
                 EffectKind::Db,
                 self::fingerprintFor($this->queryString, $effectiveParams),
                 ['sql' => $this->queryString, 'params' => $effectiveParams],
-                $affected,
+                DbResult::affected($affected)->toArray(),
                 $durationMicros,
             );
         }

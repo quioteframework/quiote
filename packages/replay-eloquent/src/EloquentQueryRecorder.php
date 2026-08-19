@@ -6,6 +6,7 @@ namespace Quiote\Replay\Adapter\Eloquent;
 
 use Illuminate\Database\Connection;
 use Illuminate\Database\Events\QueryExecuted;
+use Quiote\Replay\Cassette\DbResult;
 use Quiote\Replay\Cassette\EffectKind;
 use Quiote\Replay\Recording\ActiveEffectLedger;
 
@@ -48,15 +49,47 @@ use Quiote\Replay\Recording\ActiveEffectLedger;
  */
 final class EloquentQueryRecorder
 {
+    /**
+     * Attaches the listener, once per connection.
+     *
+     * The guard matters because `connect()` can run more than once for one logical connection --
+     * a reconnect after a dropped socket is the case a long-running worker exists to handle -- and
+     * `Connection::listen()` appends unconditionally. Without it, every reconnect left one more
+     * listener and each query was recorded that many times into the ledger.
+     */
     public function attach(Connection $connection): void
     {
         if ($connection->getEventDispatcher() === null) {
             $connection->setEventDispatcher(new EloquentMinimalEventDispatcher());
         }
+        if (isset(self::$attached[spl_object_id($connection)])) {
+            return;
+        }
+        self::$attached[spl_object_id($connection)] = true;
 
         $connection->listen(function (QueryExecuted $event): void {
             $this->record($event);
         });
+    }
+
+    /**
+     * Connections already listened to, by object id.
+     *
+     * Keyed by identity rather than tracked on the connection, which is a third-party class this
+     * package must not decorate or annotate. `spl_object_id()` is only unique among live objects,
+     * so a recycled id could in principle skip an attach for a genuinely new connection; the
+     * consequence is one connection recording nothing, which is strictly safer than the duplicate
+     * recording it replaces, and a connection outliving the request that built it is the whole
+     * premise of the worker model this runs in.
+     *
+     * @var array<int, true>
+     */
+    private static array $attached = [];
+
+    /** Test isolation: forgets which connections have been attached to. */
+    public static function reset(): void
+    {
+        self::$attached = [];
     }
 
     private function record(QueryExecuted $event): void
@@ -72,7 +105,10 @@ final class EloquentQueryRecorder
                 'connection' => $event->connectionName,
                 'readWriteType' => $event->readWriteType,
             ],
-            null,
+            // Distinct from "the query returned no rows": this recorder's seam fires after the rows
+            // have already gone back to the caller, so there was never anything to capture. A
+            // replay stub can then say so instead of silently replaying every read as empty.
+            DbResult::unobservedRows()->toArray(),
             $durationMicros,
         );
     }

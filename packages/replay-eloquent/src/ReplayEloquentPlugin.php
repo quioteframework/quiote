@@ -30,5 +30,9 @@ final class ReplayEloquentPlugin implements PluginInterface
         $registrar->databaseDriver('eloquent', ReplayEloquentDatabase::class);
 
         EffectSourceRegistry::register(new EloquentEffectSource());
+
+        $registrar->stateReset('quioteframework/replay-eloquent', static function (): void {
+            EloquentQueryRecorder::reset();
+        });
     }
 }

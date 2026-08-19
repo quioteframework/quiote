@@ -7,6 +7,7 @@ use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\Exception\DriverException;
 use PHPUnit\Framework\TestCase;
+use Quiote\Replay\Cassette\DbResult;
 use Quiote\Replay\Cassette\EffectKind;
 use Quiote\Replay\Adapter\Doctrine\DoctrineRecordingMiddleware;
 use Quiote\Replay\Adapter\Doctrine\DoctrineSnapshotResult;
@@ -53,7 +54,7 @@ final class DoctrineRecordingMiddlewareTest extends TestCase
 
         $dbEffects = array_values(array_filter($ledger->all(), static fn($e) => $e->kind === EffectKind::Db && str_starts_with($e->fingerprint, 'SELECT')));
         $this->assertCount(1, $dbEffects);
-        $this->assertSame([['id' => 1, 'name' => 'a']], $dbEffects[0]->result);
+        $this->assertSame([['id' => 1, 'name' => 'a']], DbResult::fromResult($dbEffects[0]->result)?->rows);
     }
 
     public function testTheCallerSeesTheRealRowsAfterRecording(): void
@@ -84,7 +85,10 @@ final class DoctrineRecordingMiddlewareTest extends TestCase
         $this->assertSame(2, $affected);
         $dbEffects = array_values(array_filter($ledger->all(), static fn($e) => str_starts_with($e->fingerprint, 'INSERT')));
         $this->assertCount(1, $dbEffects);
-        $this->assertSame(2, $dbEffects[0]->result);
+        $recorded = DbResult::fromResult($dbEffects[0]->result);
+        $this->assertNotNull($recorded);
+        $this->assertSame(2, $recorded->affectedRows);
+        $this->assertNull($recorded->rows, 'A write captured no rows.');
     }
 
     public function testTwoSequentialQueriesProduceTwoOrderedEffects(): void
@@ -214,7 +218,7 @@ final class DoctrineRecordingMiddlewareTest extends TestCase
 
         // The ledger has already consumed the cursor, so only a snapshot can answer this.
         $this->assertSame([['id' => 7]], $result->fetchAllAssociative());
-        $this->assertSame([['id' => 7]], $ledger->all()[count($ledger->all()) - 1]->result);
+        $this->assertSame([['id' => 7]], DbResult::fromResult($ledger->all()[count($ledger->all()) - 1]->result)?->rows);
     }
 
     public function testAnEmptySelectReportsItsRealColumnCountWhileRecording(): void

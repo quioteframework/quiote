@@ -6,6 +6,7 @@ namespace Quiote\Replay\Replay;
 
 use PDO;
 use PDOStatement;
+use Quiote\Replay\Cassette\DbResult;
 use Quiote\Replay\Cassette\EffectKind;
 use Quiote\Replay\Db\PdoRowFormatting;
 use Quiote\Replay\Db\RecordingPdoStatement;
@@ -76,54 +77,29 @@ final class StubbedPdoStatement extends PDOStatement
         $this->rows = null;
         $this->affectedRows = null;
 
-        $result = self::rowsOf($effect->result);
-        if ($result !== null) {
-            $this->rows = $result;
-
-            return true;
+        $result = DbResult::fromResult($effect->result);
+        if ($result === null) {
+            throw new \RuntimeException(sprintf(
+                'StubbedPdo: the recorded effect for SQL "%s" carries a %s result, which does not describe a '
+                . 'database call at all. The cassette has most likely been edited.',
+                RecordingPdoStatement::fingerprintOf($this->sql),
+                get_debug_type($effect->result),
+            ));
         }
-        if (is_int($effect->result)) {
-            $this->affectedRows = $effect->result;
-
-            return true;
-        }
-
-        throw new \RuntimeException(sprintf(
-            'StubbedPdo: the recorded effect for SQL "%s" carries a %s result, which is neither a list of '
-            . 'associative rows nor an affected-row count. The cassette was written by a recorder whose '
-            . 'result shape this stub cannot read, or has been edited.',
-            RecordingPdoStatement::fingerprintOf($this->sql),
-            get_debug_type($effect->result),
-        ));
-    }
-
-    /**
-     * A recorded result as a list of associative rows, or null when it is not one.
-     *
-     * Validated rather than asserted. This used to narrow `$effect->result` with a bare `@var`
-     * after an `is_array()` test that cannot establish the shape, so a cassette whose rows are not
-     * arrays of arrays -- hand-edited, or written by a recorder with a different result shape --
-     * reached `formatRow()` and produced a raw `TypeError` instead of a cassette error. The
-     * annotation was also what kept that invisible to static analysis: it told the analyser the
-     * invariant held rather than making the code prove it.
-     *
-     * @return list<array<array-key, mixed>>|null
-     */
-    private static function rowsOf(mixed $result): ?array
-    {
-        if (!is_array($result) || !array_is_list($result)) {
-            return null;
+        if ($result->rows === null && $result->affectedRows === null) {
+            throw new \RuntimeException(sprintf(
+                'StubbedPdo: the recorded effect for SQL "%s" captured no rows -- the recorder that wrote this '
+                . 'cassette observes queries at a layer where the rows have already gone back to the caller '
+                . '(quioteframework/replay-{eloquent,cycle}), so there is nothing to replay this read from. '
+                . 'Re-record with a recorder that captures rows.',
+                RecordingPdoStatement::fingerprintOf($this->sql),
+            ));
         }
 
-        $rows = [];
-        foreach ($result as $row) {
-            if (!is_array($row)) {
-                return null;
-            }
-            $rows[] = $row;
-        }
+        $this->rows = $result->rows;
+        $this->affectedRows = $result->affectedRows;
 
-        return $rows;
+        return true;
     }
 
     /** Records a bound value, so {@see execute()} fingerprints what the recorder fingerprinted. */

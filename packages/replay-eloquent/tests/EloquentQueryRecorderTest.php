@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Database\Capsule\Manager as Capsule;
 use PHPUnit\Framework\TestCase;
+use Quiote\Replay\Cassette\DbResult;
 use Quiote\Replay\Cassette\EffectKind;
 use Quiote\Replay\Adapter\Eloquent\EloquentMinimalEventDispatcher;
 use Quiote\Replay\Adapter\Eloquent\EloquentQueryRecorder;
@@ -25,6 +26,7 @@ final class EloquentQueryRecorderTest extends TestCase
     protected function tearDown(): void
     {
         ActiveEffectLedger::reset();
+        EloquentQueryRecorder::reset();
     }
 
     private function connection(): \Illuminate\Database\Connection
@@ -68,8 +70,11 @@ final class EloquentQueryRecorderTest extends TestCase
         $this->assertSame('a', $value);
     }
 
-    public function testResultIsAlwaysNullSinceRowsAreNotObservableFromThisEvent(): void
+    public function testRowsAreRecordedAsUnobservableRatherThanAsEmpty(): void
     {
+        // This event fires after the rows have already gone back to the caller, so there is nothing
+        // to capture. Recording that as "no rows" would be a lie a replay stub could not tell from
+        // a query that genuinely returned nothing -- it would replay every read as empty.
         $ledger = new EffectLedger();
         $conn = $this->connection();
         (new EloquentQueryRecorder())->attach($conn);
@@ -81,7 +86,10 @@ final class EloquentQueryRecorderTest extends TestCase
 
         $selects = array_values(array_filter($ledger->all(), static fn($e) => str_starts_with($e->fingerprint, 'select')));
         $this->assertCount(1, $selects);
-        $this->assertNull($selects[0]->result);
+        $recorded = DbResult::fromResult($selects[0]->result);
+        $this->assertNotNull($recorded);
+        $this->assertNull($recorded->rows, 'null rows means "not observable", distinct from an empty list.');
+        $this->assertNull($recorded->affectedRows);
     }
 
     public function testTwoSequentialQueriesProduceTwoOrderedEffects(): void
@@ -172,5 +180,39 @@ final class EloquentQueryRecorderTest extends TestCase
         $this->assertCount(1, $second->all());
         $this->assertSame('select 1', $first->all()[0]->call['sql']);
         $this->assertSame('select 2', $second->all()[0]->call['sql']);
+    }
+
+    public function testAttachingTwiceToOneConnectionRecordsEachQueryOnce(): void
+    {
+        // connect() runs again on a reconnect -- the case a long-running worker exists to handle --
+        // and Connection::listen() appends unconditionally, so every reconnect used to leave one
+        // more listener and multiply every effect.
+        $ledger = new EffectLedger();
+        ActiveEffectLedger::set($ledger);
+        $connection = $this->connection();
+
+        (new EloquentQueryRecorder())->attach($connection);
+        (new EloquentQueryRecorder())->attach($connection);
+        (new EloquentQueryRecorder())->attach($connection);
+
+        $connection->select('select 1');
+
+        $this->assertCount(1, $ledger->all(), 'Three attaches must still record one effect per query.');
+    }
+
+    public function testTwoDistinctConnectionsAreEachAttachedTo(): void
+    {
+        $ledger = new EffectLedger();
+        ActiveEffectLedger::set($ledger);
+        $first = $this->connection();
+        $second = $this->connection();
+
+        (new EloquentQueryRecorder())->attach($first);
+        (new EloquentQueryRecorder())->attach($second);
+
+        $first->select('select 1');
+        $second->select('select 2');
+
+        $this->assertCount(2, $ledger->all());
     }
 }

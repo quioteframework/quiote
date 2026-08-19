@@ -8,6 +8,7 @@ use Doctrine\DBAL\Driver\Middleware\AbstractStatementMiddleware;
 use Doctrine\DBAL\Driver\Result;
 use Doctrine\DBAL\Driver\Statement;
 use Doctrine\DBAL\ParameterType;
+use Quiote\Replay\Cassette\DbResult;
 use Quiote\Replay\Cassette\EffectKind;
 use Quiote\Replay\Db\RecordingPdo;
 use Quiote\Replay\Db\RecordingPdoStatement;
@@ -83,12 +84,23 @@ final class DoctrineRecordingStatement extends AbstractStatementMiddleware
 
         $ledger->record(
             EffectKind::Db,
-            RecordingPdoStatement::fingerprintOf($this->sql),
+            // Parameter-aware, matching the PDO recorder: SQL alone cannot tell two executions of
+            // one prepared statement with different bound values apart.
+            RecordingPdoStatement::fingerprintFor($this->sql, $this->params),
             ['sql' => $this->sql, 'params' => $this->params],
-            $rows,
+            // A statement with no columns is a write, and its affected count is the only result it
+            // has. Recording the empty row list for it lost that count outright, so a replayed
+            // write reported zero rows affected regardless of what really happened.
+            ($columnCount > 0 ? DbResult::rows($rows) : DbResult::affected(self::asInt($affected)))->toArray(),
             RecordingPdo::durationMicros($this->clock, $start),
         );
 
         return new DoctrineSnapshotResult($rows, $affected, $columnCount);
+    }
+
+    /** DBAL's `rowCount()` is `int|numeric-string`; the ledger records a plain int. */
+    private static function asInt(int|string $affected): int
+    {
+        return is_int($affected) ? $affected : (int)$affected;
     }
 }

@@ -8,6 +8,7 @@ use Doctrine\DBAL\Driver\Connection;
 use Doctrine\DBAL\Driver\Middleware\AbstractConnectionMiddleware;
 use Doctrine\DBAL\Driver\Result;
 use Doctrine\DBAL\Driver\Statement;
+use Quiote\Replay\Cassette\DbResult;
 use Quiote\Replay\Cassette\EffectKind;
 use Quiote\Replay\Db\RecordingPdo;
 use Quiote\Replay\Db\RecordingPdoStatement;
@@ -66,7 +67,7 @@ final class DoctrineRecordingConnection extends AbstractConnectionMiddleware
             EffectKind::Db,
             RecordingPdoStatement::fingerprintOf($sql),
             ['sql' => $sql, 'params' => []],
-            $rows,
+            ($columnCount > 0 ? DbResult::rows($rows) : DbResult::affected(self::asInt($affected)))->toArray(),
             RecordingPdo::durationMicros($this->clock, $start),
         );
 
@@ -87,10 +88,16 @@ final class DoctrineRecordingConnection extends AbstractConnectionMiddleware
             EffectKind::Db,
             RecordingPdoStatement::fingerprintOf($sql),
             ['sql' => $sql, 'params' => []],
-            $result,
+            DbResult::affected(self::asInt($result))->toArray(),
             RecordingPdo::durationMicros($this->clock, $start),
         );
 
         return $result;
+    }
+
+    /** DBAL's `rowCount()`/`exec()` return `int|numeric-string`; the ledger records a plain int. */
+    private static function asInt(int|string $affected): int
+    {
+        return is_int($affected) ? $affected : (int)$affected;
     }
 }

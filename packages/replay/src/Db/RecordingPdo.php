@@ -7,6 +7,7 @@ namespace Quiote\Replay\Db;
 use PDO;
 use PDOStatement;
 use Quiote\Logging\Log;
+use Quiote\Replay\Cassette\DbResult;
 use Quiote\Replay\Cassette\EffectKind;
 use Quiote\Replay\Replay\EffectLedger;
 use Quiote\Support\Clock\ClockInterface;
@@ -64,7 +65,7 @@ final class RecordingPdo extends PDO
                 EffectKind::Db,
                 RecordingPdoStatement::fingerprintFor($statement),
                 ['sql' => $statement, 'params' => []],
-                $result,
+                DbResult::affected($result)->toArray(),
                 self::durationMicros($this->clock, $start),
             );
         }
