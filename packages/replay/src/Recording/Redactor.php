@@ -216,13 +216,30 @@ final readonly class Redactor
         return null;
     }
 
+    /**
+     * Replaces every character but the last four with an asterisk.
+     *
+     * Counted in characters, not bytes: keeping the last four *bytes* of a multi-byte value cuts
+     * into a character and leaves a string that is no longer valid UTF-8, which
+     * {@see \Quiote\Replay\Cassette\CassetteCodec::encodeRaw()} then refuses to encode --
+     * costing the whole cassette to mask one field.
+     *
+     * Note what this mode discloses by design: the exact length of the value and its last four
+     * characters. For a card number or a national identifier that is most of the identifying
+     * information, so `mask` is the weakest of the three modes and `drop` remains the default.
+     */
     private static function mask(string $value): string
     {
-        $length = strlen($value);
+        if (!mb_check_encoding($value, 'UTF-8')) {
+            // Nothing to keep a readable tail of, and no way to cut one that stays encodable.
+            return str_repeat('*', strlen($value));
+        }
+
+        $length = mb_strlen($value, 'UTF-8');
         if ($length <= 4) {
             return str_repeat('*', $length);
         }
 
-        return str_repeat('*', $length - 4) . substr($value, -4);
+        return str_repeat('*', $length - 4) . mb_substr($value, -4, null, 'UTF-8');
     }
 }

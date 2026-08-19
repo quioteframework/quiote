@@ -122,4 +122,51 @@ final class RedactorTest extends TestCase
         $this->assertIsString($encoded);
         $this->assertStringNotContainsString($secretValue, $encoded);
     }
+
+    public function testMaskModeCountsCharactersNotBytesSoTheResultStaysEncodable(): void
+    {
+        $redactor = $this->redactor(RedactionMode::Mask);
+
+        // Keeping the last four *bytes* of this value starts mid-character and leaves a string
+        // json_encode() refuses, which would cost the whole cassette to mask one field.
+        $masked = $redactor->redactParams(['token' => 'a€bc'])['token'];
+
+        $this->assertSame('****', $masked, 'Four characters or fewer are masked entirely.');
+        $this->assertTrue(mb_check_encoding((string)$masked, 'UTF-8'));
+        $this->assertNotSame('', json_encode(['token' => $masked], JSON_THROW_ON_ERROR));
+    }
+
+    public function testMaskModeKeepsTheLastFourCharactersOfAMultiByteValue(): void
+    {
+        $redactor = $this->redactor(RedactionMode::Mask);
+
+        $masked = $redactor->redactParams(['token' => 'pässwörd€'])['token'];
+
+        // 9 characters: five asterisks then the last four characters.
+        $this->assertSame('*****örd€', $masked);
+        $this->assertTrue(mb_check_encoding((string)$masked, 'UTF-8'));
+        $this->assertNotSame('', json_encode(['token' => $masked], JSON_THROW_ON_ERROR));
+    }
+
+    public function testMaskModeMasksANonUtf8ValueEntirelyRatherThanKeepingAnUnencodableTail(): void
+    {
+        $redactor = $this->redactor(RedactionMode::Mask);
+
+        $masked = $redactor->redactParams(['token' => "\xff\xfe\xfd\xfc\xfb\xfa"])['token'];
+
+        $this->assertSame('******', $masked);
+        $this->assertTrue(mb_check_encoding((string)$masked, 'UTF-8'));
+        $this->assertNotSame('', json_encode(['token' => $masked], JSON_THROW_ON_ERROR));
+    }
+
+    public function testHashModeOutputIsAlwaysEncodableRegardlessOfInput(): void
+    {
+        $redactor = $this->redactor(RedactionMode::Hash);
+
+        $hashed = $redactor->redactParams(['token' => "\xff binary \xfe"])['token'];
+
+        $this->assertIsString($hashed);
+        $this->assertMatchesRegularExpression('/^sha256:[0-9a-f]{64}$/', $hashed);
+        $this->assertNotSame('', json_encode(['token' => $hashed], JSON_THROW_ON_ERROR));
+    }
 }

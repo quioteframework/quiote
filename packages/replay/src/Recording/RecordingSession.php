@@ -170,6 +170,13 @@ final class RecordingSession
      * (possibly to nothing) and the section's `body.truncated` flag is set, rather than growing
      * the cassette unboundedly.
      *
+     * The cut is made with `mb_strcut()`, on a character boundary at or below the remaining
+     * byte budget -- not with `substr()`. A `utf8`-encoded body cut mid-character stops being
+     * valid UTF-8, and {@see \Quiote\Replay\Cassette\CassetteCodec::encodeRaw()} encodes with
+     * `JSON_THROW_ON_ERROR`, so the byte-wise cut turned the guard against an oversized request
+     * into total loss of the cassette. A `base64` body is pure ASCII, where the two are
+     * equivalent.
+     *
      * @param array<string, mixed> $section
      * @return array{0: array<string, mixed>, 1: bool}
      */
@@ -198,10 +205,13 @@ final class RecordingSession
             return [$section, false];
         }
 
-        $body['content'] = substr($content, 0, $remaining);
+        $cut = mb_strcut($content, 0, $remaining, 'UTF-8');
+        $body['content'] = $cut;
         $body['truncated'] = true;
         $section['body'] = $body;
-        $this->bytesUsed += $remaining;
+        // The actual retained length, not $remaining: mb_strcut() stops at the last whole
+        // character that fits, which can be several bytes short of the budget.
+        $this->bytesUsed += strlen($cut);
 
         return [$section, true];
     }
