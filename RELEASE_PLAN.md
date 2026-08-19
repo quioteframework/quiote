@@ -36,9 +36,15 @@ state and the decisions already made for *this* release.
 
 ## Still open
 
-- [ ] **Isolated replay mode** — in progress. Decides whether the replay tags go out
-      in this round at all; an RC implies feature-complete-and-hardening, and
-      isolated mode is the point of the feature.
+- [x] **Isolated replay mode** — landed in `6fc09d811`. `quiote replay` now defaults
+      to it, `--live` opts into the old behaviour behind `replay.allow_live`, and
+      `ReplayTestCase` replays in isolation so an emitted test for a recorded write is
+      safe on every CI build. Two caveats worth knowing before the RC goes out:
+      **only Doctrine can isolate the database** (its DBAL driver middleware is called
+      instead of the real statement; Eloquent's event, Cycle's logger and Propulsion's
+      observer all fire after the query has already run, so `IsolatedReplay` refuses
+      rather than silently hitting a real database), and the whole thing has still only
+      run against this repo's own suite — which is what `-RC1` says.
 - [ ] **`cloud-azure`: `4.1.0` or `4.1.0-RC1`?** Its bulk (blob/table client) is in
       production via `session-azure`, but its 3 post-backfill commits include
       `ed6b8e2a5`, which added the AAD/`az login` credential path — and that has

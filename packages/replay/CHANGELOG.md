@@ -18,6 +18,7 @@
 - *(replay)* Add --as-test/ReplayTestCase test emission from a cassette
 - *(replay)* Add PDO cassette store and cassette:prune
 - *(replay)* Add a cassette-index chain to resolve a bare id to a cassette
+- *(replay)* Build isolated replay mode, and make it the default
 
 ### 🐛 Bug Fixes
 
@@ -46,3 +47,4 @@
 
 - *(replay)* Remove internal plan-doc citations from code comments
 - *(replay)* Add changelogs for the eight replay packages
+- *(replay)* Make the replay packages 4.0.0-RC1, not 4.0.0

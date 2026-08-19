@@ -5,6 +5,7 @@
 - *(replay)* Wire DB effects into live requests via a generic EffectSource seam
 - *(replay)* Wire Doctrine/Eloquent/Cycle DB effects into live requests
 - *(replay)* Add PDO cassette store and cassette:prune
+- *(replay)* Build isolated replay mode, and make it the default
 
 ### 🐛 Bug Fixes
 
@@ -14,3 +15,4 @@
 ### 📚 Documentation
 
 - *(replay)* Add changelogs for the eight replay packages
+- *(replay)* Make the replay packages 4.0.0-RC1, not 4.0.0
