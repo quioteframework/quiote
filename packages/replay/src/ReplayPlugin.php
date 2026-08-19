@@ -49,6 +49,7 @@ final class ReplayPlugin implements PluginInterface
         $registrar->configDefault('replay.trigger_header', 'X-Quiote-Record');
         $registrar->configDefault('replay.store', 'file');
         $registrar->configDefault('replay.store.path', 'var/cassettes');
+        $registrar->configDefault('replay.tests_path', 'tests/Replay');
         $registrar->configDefault('replay.write', 'sync_on_error');
         $registrar->configDefault('replay.max_bytes', 2_097_152);
         $registrar->configDefault('replay.max_effects', 2000);

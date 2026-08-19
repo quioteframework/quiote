@@ -17,6 +17,8 @@ final class ReplayCommandTest extends TestCase
     private ?string $originalStore;
     private ?string $originalStorePath;
     private ?bool $originalAllowLive;
+    private ?string $originalAppDir;
+    private ?string $originalTestsPath;
 
     protected function setUp(): void
     {
@@ -25,6 +27,8 @@ final class ReplayCommandTest extends TestCase
         $this->originalStore = Config::getNullableString('replay.store');
         $this->originalStorePath = Config::getNullableString('replay.store.path');
         $this->originalAllowLive = Config::has('replay.allow_live') ? Config::getBool('replay.allow_live') : null;
+        $this->originalAppDir = Config::getNullableString('core.app_dir');
+        $this->originalTestsPath = Config::getNullableString('replay.tests_path');
         Config::set('replay.store', 'file', true, false);
         Config::set('replay.store.path', $this->dir, true, false);
         Config::set('replay.allow_live', false, true, false);
@@ -32,12 +36,7 @@ final class ReplayCommandTest extends TestCase
 
     protected function tearDown(): void
     {
-        if (is_dir($this->dir)) {
-            foreach (glob($this->dir . DIRECTORY_SEPARATOR . '*') ?: [] as $file) {
-                @unlink($file);
-            }
-            @rmdir($this->dir);
-        }
+        self::deleteRecursively($this->dir);
         if ($this->originalStore !== null) {
             Config::set('replay.store', $this->originalStore, true, false);
         } else {
@@ -53,7 +52,33 @@ final class ReplayCommandTest extends TestCase
         } else {
             Config::remove('replay.allow_live');
         }
+        if ($this->originalAppDir !== null) {
+            Config::set('core.app_dir', $this->originalAppDir, true, false);
+        } else {
+            Config::remove('core.app_dir');
+        }
+        if ($this->originalTestsPath !== null) {
+            Config::set('replay.tests_path', $this->originalTestsPath, true, false);
+        } else {
+            Config::remove('replay.tests_path');
+        }
         parent::tearDown();
+    }
+
+    private static function deleteRecursively(string $path): void
+    {
+        if (is_file($path) || is_link($path)) {
+            @unlink($path);
+
+            return;
+        }
+        if (!is_dir($path)) {
+            return;
+        }
+        foreach (glob($path . DIRECTORY_SEPARATOR . '*') ?: [] as $child) {
+            self::deleteRecursively($child);
+        }
+        @rmdir($path);
     }
 
     /**
@@ -165,5 +190,91 @@ final class ReplayCommandTest extends TestCase
         // The response was deliberately recorded wrong (status 999), so drift must be reported.
         $this->assertFalse($payload['clean']);
         $this->assertNotEmpty($payload['diagnostics']);
+    }
+
+    public function testAsTestEmitsACassetteCopyAndAGeneratedTestFile(): void
+    {
+        Config::set('replay.allow_live', true, true, false);
+        Config::set('core.app_dir', $this->dir . '/app', true, false);
+        $this->putCassette(
+            'AAA',
+            ['method' => 'GET', 'uri' => '/', 'headers' => [], 'cookies' => [], 'body' => ['encoding' => 'utf8', 'content' => '', 'truncated' => false], 'server' => []],
+            ['status' => 999, 'headers' => [], 'body' => ['encoding' => 'utf8', 'content' => '', 'truncated' => false]],
+            'testing',
+        );
+
+        $tester = new CommandTester(new ReplayCommand());
+        $tester->execute(['id' => 'AAA', '--as-test' => true]);
+
+        $testFile = $this->dir . '/app/tests/Replay/ReplayAAATest.php';
+        $cassetteFile = $this->dir . '/app/tests/Replay/cassettes/AAA.qcast';
+        $this->assertFileExists($testFile);
+        $this->assertFileExists($cassetteFile);
+        $this->assertStringContainsString('Emitted test: ' . $testFile, $tester->getDisplay());
+        $this->assertStringContainsString('Emitted cassette: ' . $cassetteFile, $tester->getDisplay());
+        $this->assertStringContainsString('final class ReplayAAATest extends ReplayTestCase', (string)file_get_contents($testFile));
+    }
+
+    public function testAsTestJsonIncludesTheEmittedPaths(): void
+    {
+        Config::set('replay.allow_live', true, true, false);
+        Config::set('core.app_dir', $this->dir . '/app', true, false);
+        $this->putCassette(
+            'AAA',
+            ['method' => 'GET', 'uri' => '/', 'headers' => [], 'cookies' => [], 'body' => ['encoding' => 'utf8', 'content' => '', 'truncated' => false], 'server' => []],
+            ['status' => 999, 'headers' => [], 'body' => ['encoding' => 'utf8', 'content' => '', 'truncated' => false]],
+            'testing',
+        );
+
+        $tester = new CommandTester(new ReplayCommand());
+        $tester->execute(['id' => 'AAA', '--as-test' => true, '--json' => true]);
+
+        $payload = $this->decodedJson($tester);
+        $this->assertArrayHasKey('emitted', $payload);
+        $emitted = $payload['emitted'];
+        $this->assertIsArray($emitted);
+        $this->assertSame($this->dir . '/app/tests/Replay/ReplayAAATest.php', $emitted['test']);
+        $this->assertSame($this->dir . '/app/tests/Replay/cassettes/AAA.qcast', $emitted['cassette']);
+    }
+
+    public function testWithoutAsTestNothingIsEmittedEvenWithExpectFixed(): void
+    {
+        Config::set('replay.allow_live', true, true, false);
+        Config::set('core.app_dir', $this->dir . '/app', true, false);
+        $this->putCassette(
+            'AAA',
+            ['method' => 'GET', 'uri' => '/', 'headers' => [], 'cookies' => [], 'body' => ['encoding' => 'utf8', 'content' => '', 'truncated' => false], 'server' => []],
+            ['status' => 999, 'headers' => [], 'body' => ['encoding' => 'utf8', 'content' => '', 'truncated' => false]],
+            'testing',
+        );
+
+        $tester = new CommandTester(new ReplayCommand());
+        $tester->execute(['id' => 'AAA', '--expect-fixed' => true]);
+
+        $this->assertDirectoryDoesNotExist($this->dir . '/app/tests');
+        $this->assertStringNotContainsString('Emitted test', $tester->getDisplay());
+    }
+
+    public function testAsTestExpectFixedEmitsTheIncompleteSkeleton(): void
+    {
+        Config::set('replay.allow_live', true, true, false);
+        Config::set('core.app_dir', $this->dir . '/app', true, false);
+        $this->putCassette(
+            'AAA',
+            ['method' => 'GET', 'uri' => '/', 'headers' => [], 'cookies' => [], 'body' => ['encoding' => 'utf8', 'content' => '', 'truncated' => false], 'server' => []],
+            ['status' => 500, 'headers' => [], 'body' => ['encoding' => 'utf8', 'content' => '', 'truncated' => false]],
+            'testing',
+        );
+
+        $tester = new CommandTester(new ReplayCommand());
+        // Not asserting the exit code: it reflects drift against whatever the sandbox app's real
+        // "testing" context actually returns for a bare GET /, which is orthogonal to whether
+        // emission itself succeeded.
+        $tester->execute(['id' => 'AAA', '--as-test' => true, '--expect-fixed' => true]);
+
+        $testFile = $this->dir . '/app/tests/Replay/ReplayAAATest.php';
+        $this->assertFileExists($testFile);
+        $this->assertStringContainsString('markTestIncomplete', (string)file_get_contents($testFile));
+        $this->assertStringNotContainsString('assertStatus', (string)file_get_contents($testFile));
     }
 }
