@@ -60,21 +60,70 @@ final class EffectLedgerTest extends TestCase
         $this->assertNull($ledger->match(EffectKind::Db, 'same-key'));
     }
 
-    public function testMatchFallsBackToSequencePositionWhenFingerprintDoesNotMatch(): void
+    public function testAnUnrecognizedFingerprintIsAMissRatherThanAnotherCallsResult(): void
     {
-        // Two db effects recorded in order; a replayed query with an
-        // unrecognized fingerprint still lands on the next unconsumed one of
-        // the same kind.
+        // Two db effects recorded in order. A replayed query whose fingerprint matches neither
+        // must not be handed 'row-a': that is a different call's result, and answering with it
+        // is indistinguishable from answering correctly. It is drift, and drift is reported.
         $effects = [
             new Effect(0, EffectKind::Db, 'select a', [], 'row-a'),
             new Effect(1, EffectKind::Db, 'select b', [], 'row-b'),
         ];
         $ledger = new EffectLedger($effects);
 
-        $matched = $ledger->match(EffectKind::Db, 'unrecognized-fingerprint');
+        $this->assertNull($ledger->match(EffectKind::Db, 'unrecognized-fingerprint'));
+        $this->assertSame(
+            [['kind' => EffectKind::Db, 'fingerprint' => 'unrecognized-fingerprint']],
+            $ledger->misses(),
+        );
+        $this->assertSame([], $ledger->fuzzyMatches());
+        // Nothing was consumed, so the recorded effects are still there for the calls they
+        // belong to -- the old fallback consumed seq 0 and cascaded the error onto 'select a'.
+        $this->assertCount(2, $ledger->unplayed());
+    }
+
+    public function testAFuzzyMatchIsAvailableOnRequestAndReportedAsApproximate(): void
+    {
+        $effects = [
+            new Effect(0, EffectKind::Db, 'select a', [], 'row-a'),
+            new Effect(1, EffectKind::Db, 'select b', [], 'row-b'),
+        ];
+        $ledger = new EffectLedger($effects);
+
+        $matched = $ledger->match(EffectKind::Db, 'unrecognized-fingerprint', allowFuzzy: true);
 
         $this->assertNotNull($matched);
         $this->assertSame('row-a', $matched->result);
+        $this->assertSame([], $ledger->misses());
+        $this->assertSame(
+            [['kind' => EffectKind::Db, 'fingerprint' => 'unrecognized-fingerprint', 'matched' => 'select a']],
+            $ledger->fuzzyMatches(),
+            'The answer came from a different fingerprint, and the report says so.',
+        );
+    }
+
+    public function testAnExactMatchIsNeverReportedAsFuzzy(): void
+    {
+        $ledger = new EffectLedger([new Effect(0, EffectKind::Db, 'select a', [], 'row-a')]);
+
+        $this->assertSame('row-a', $ledger->match(EffectKind::Db, 'select a')?->result);
+        $this->assertSame([], $ledger->fuzzyMatches());
+        $this->assertSame([], $ledger->misses());
+    }
+
+    public function testARefusedFuzzyMatchDoesNotCascadeOntoTheNextCall(): void
+    {
+        // The old fallback consumed seq 0 for the drifted call, so the subsequent legitimate
+        // 'select a' got seq 1's rows -- one drifted query corrupted every later match.
+        $effects = [
+            new Effect(0, EffectKind::Db, 'select a', [], 'row-a'),
+            new Effect(1, EffectKind::Db, 'select b', [], 'row-b'),
+        ];
+        $ledger = new EffectLedger($effects);
+
+        $this->assertNull($ledger->match(EffectKind::Db, 'select c'));
+        $this->assertSame('row-a', $ledger->match(EffectKind::Db, 'select a')?->result);
+        $this->assertSame('row-b', $ledger->match(EffectKind::Db, 'select b')?->result);
     }
 
     public function testTwoIdenticalCallsMatchInRecordedOrder(): void
