@@ -1,0 +1,34 @@
+{
+	"name": "quioteframework/replay-storage",
+	"description": "Object-store-backed cassette store for quioteframework/replay, built on the framework-free quioteframework/storage contracts (any ListableObjectStoreClientInterface -- Azure Blob, S3, GCS).",
+	"keywords": ["quiote", "replay", "record", "storage", "object-store"],
+	"homepage": "https://github.com/quioteframework/replay-storage",
+	"type": "library",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "Quiote Contributors",
+			"homepage": "https://github.com/quioteframework/quiote/graphs/contributors"
+		}
+	],
+	"support": {
+		"issues": "https://github.com/quioteframework/quiote/issues"
+	},
+	"require": {
+		"php": ">=8.5.0",
+		"quioteframework/quiote": "^4.0",
+		"quioteframework/replay": "^4.0",
+		"quioteframework/storage": "^4.0"
+	},
+	"autoload": {
+		"psr-4": {
+			"Quiote\\Replay\\Store\\Storage\\": "src/"
+		}
+	},
+	"extra": {
+		"branch-alias": {
+			"dev-main": "4.0.x-dev"
+		},
+		"quiote-monorepo-note": "Developed in-tree under quioteframework/quiote's packages/replay-storage/; split to this standalone repo via splitsh/lite on tag push. PRs go to the monorepo, not here."
+	}
+}

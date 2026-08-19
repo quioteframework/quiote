@@ -60,6 +60,8 @@
             <directory>packages/replay-eloquent/tests</directory>
             <directory>packages/replay-cycle/tests</directory>
             <directory>packages/replay-pdo/tests</directory>
+            <directory>packages/replay-storage/tests</directory>
+            <directory>packages/replay-azure/tests</directory>
             <directory>packages/session-gcs/tests</directory>
             <directory>packages/queue/tests</directory>
             <directory>packages/queue-db/tests</directory>
@@ -155,6 +157,8 @@
             <directory>packages/replay-eloquent/src</directory>
             <directory>packages/replay-cycle/src</directory>
             <directory>packages/replay-pdo/src</directory>
+            <directory>packages/replay-storage/src</directory>
+            <directory>packages/replay-azure/src</directory>
         </include>
         <exclude>
         <directory>Quiote/translation/data</directory>

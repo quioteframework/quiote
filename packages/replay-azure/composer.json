@@ -1,0 +1,35 @@
+{
+	"name": "quioteframework/replay-azure",
+	"description": "Azure Blob Storage cassette store for quioteframework/replay: the production target for docs/RECORD_REPLAY_PLAN.md's AKS/Log Analytics deployment topology.",
+	"keywords": ["quiote", "replay", "record", "azure", "blob"],
+	"homepage": "https://github.com/quioteframework/replay-azure",
+	"type": "library",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "Quiote Contributors",
+			"homepage": "https://github.com/quioteframework/quiote/graphs/contributors"
+		}
+	],
+	"support": {
+		"issues": "https://github.com/quioteframework/quiote/issues"
+	},
+	"require": {
+		"php": ">=8.5.0",
+		"quioteframework/quiote": "^4.0",
+		"quioteframework/replay": "^4.0",
+		"quioteframework/replay-storage": "^4.0",
+		"quioteframework/cloud-azure": "^4.0"
+	},
+	"autoload": {
+		"psr-4": {
+			"Quiote\\Replay\\Store\\Azure\\": "src/"
+		}
+	},
+	"extra": {
+		"branch-alias": {
+			"dev-main": "4.0.x-dev"
+		},
+		"quiote-monorepo-note": "Developed in-tree under quioteframework/quiote's packages/replay-azure/; split to this standalone repo via splitsh/lite on tag push. PRs go to the monorepo, not here."
+	}
+}
