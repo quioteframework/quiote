@@ -182,4 +182,57 @@ final class CassetteListCommandTest extends TestCase
         $this->assertStringContainsString('Could not resolve the configured cassette store', $tester->getDisplay());
         $this->assertStringContainsString('not-a-real-store', $tester->getDisplay());
     }
+
+    public function testSinceComparesInstantsNotStrings(): void
+    {
+        // recorded_at is formatted in PHP's default timezone rather than forced to UTC, so two
+        // cassettes across an offset difference filter wrong under a string comparison even though
+        // both are valid ISO-8601. 08:30+02:00 is 06:30 UTC, which is before the 07:00Z cutoff --
+        // a string compare keeps it, because "2026-01-02T08:30" sorts after "2026-01-02T07:00".
+        $this->putCassette('EARLY', 200, 'a', '2026-01-02T08:30:00+02:00');
+        $this->putCassette('LATER', 200, 'b', '2026-01-02T09:00:00+00:00');
+
+        $tester = new CommandTester(new CassetteListCommand());
+        $tester->execute(['--since' => '2026-01-02T07:00:00+00:00', '--json' => true]);
+
+        $payload = $this->decodedJson($tester);
+        $this->assertIsArray($payload['cassettes']);
+        $this->assertSame(['LATER'], array_column($payload['cassettes'], 'id'));
+    }
+
+    public function testSortingComparesInstantsNotStrings(): void
+    {
+        // 23:00-05:00 is 04:00Z the next day, so it is the newer of the two despite sorting
+        // earlier as a string.
+        $this->putCassette('OLDER', 200, 'a', '2026-01-03T01:00:00+00:00');
+        $this->putCassette('NEWER', 200, 'b', '2026-01-02T23:00:00-05:00');
+
+        $tester = new CommandTester(new CassetteListCommand());
+        $tester->execute(['--json' => true]);
+
+        $payload = $this->decodedJson($tester);
+        $this->assertIsArray($payload['cassettes']);
+        $this->assertSame(['NEWER', 'OLDER'], array_column($payload['cassettes'], 'id'), 'Newest first.');
+    }
+
+    public function testAnUnparseableSinceValueIsReportedRatherThanSilentlyMatchingNothing(): void
+    {
+        $this->putCassette('ONE', 200, 'a', '2026-01-02T09:00:00+00:00');
+
+        $tester = new CommandTester(new CassetteListCommand());
+        $exitCode = $tester->execute(['--since' => 'not-a-timestamp']);
+
+        $this->assertSame(1, $exitCode);
+        $this->assertStringContainsString('Could not parse --since', $tester->getDisplay());
+    }
+
+    public function testARelativeSinceExpressionIsRefusedRatherThanQuietlyAccepted(): void
+    {
+        // strtotime() would take "tomorrow" happily; --since documents an ISO-8601 timestamp.
+        $this->putCassette('ONE', 200, 'a', '2026-01-02T09:00:00+00:00');
+
+        $tester = new CommandTester(new CassetteListCommand());
+
+        $this->assertSame(1, $tester->execute(['--since' => 'tomorrow']));
+    }
 }

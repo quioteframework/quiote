@@ -118,10 +118,17 @@ final class PrefixScanIndexFakeClient implements ListableObjectStoreClientInterf
         throw new \LogicException('not used by this test');
     }
 
+    /** @var list<string> Keys head() was asked about, so a test can assert how many round trips it took. */
+    public array $headCalls = [];
+
     #[\Override]
     public function head(string $key): ?ObjectMetadata
     {
-        throw new \LogicException('not used by this test');
+        $this->headCalls[] = $key;
+
+        return isset($this->objects[$key])
+            ? new ObjectMetadata(strlen($this->objects[$key]), null, null)
+            : null;
     }
 
     #[\Override]

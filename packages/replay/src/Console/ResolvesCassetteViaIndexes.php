@@ -59,6 +59,20 @@ trait ResolvesCassetteViaIndexes
             return ['cassette' => $cassette, 'source' => 'the local cache', 'cached_path' => null];
         }
 
+        // An exact key is what the option documents itself as -- "bypassing id-based resolution" --
+        // so it goes straight to the index chain. Trying the configured store first meant the
+        // object store walked its whole lookback window with a head() per hour before reaching a
+        // key the caller had already supplied exactly.
+        if ($hints->key !== null && $hints->key !== '') {
+            $resolved = $this->resolveViaIndexChain($io, $id, $hints);
+            if ($resolved === null) {
+                return null;
+            }
+            [$cassette, $source] = $resolved;
+
+            return $this->cached($io, $localStore, $id, $cassette, $source, $localPathOverride);
+        }
+
         $configuredStore = $this->resolveCassetteStore($io);
         if ($configuredStore === null) {
             return null;
@@ -80,6 +94,23 @@ trait ResolvesCassetteViaIndexes
             [$cassette, $source] = $resolved;
         }
 
+        return $this->cached($io, $localStore, $id, $cassette, $source, $localPathOverride);
+    }
+
+    /**
+     * Writes the resolved cassette into the local cache and describes where it landed. A cache
+     * write that fails is a warning, not a failure: the cassette is in hand either way.
+     *
+     * @return array{cassette: Cassette, source: string, cached_path: ?string}
+     */
+    private function cached(
+        SymfonyStyle $io,
+        FileCassetteStore $localStore,
+        CassetteId $id,
+        Cassette $cassette,
+        string $source,
+        ?string $localPathOverride,
+    ): array {
         try {
             $localStore->put($id, $cassette);
         } catch (Throwable $e) {

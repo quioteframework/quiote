@@ -292,4 +292,71 @@ final class ObjectStoreCassetteStoreTest extends TestCase
         $this->assertSame(Level::Error, $sink->captured[0]->level);
         $this->assertSame(500, $sink->captured[0]->properties['cassette_status']);
     }
+
+    public function testDeleteRemovesEveryCopyAcrossHourPartitions(): void
+    {
+        // One slug can legitimately sit in several hour partitions: put() keys by the cassette's
+        // own recorded hour, so a re-recorded correlation id writes a second object. Stopping at
+        // the first hit meant prune reported a deletion while older copies survived.
+        $clock = new FrozenClock(strtotime('2026-08-18T09:12:44+00:00'));
+        [$client, $store] = $this->store($clock, lookbackHours: 6);
+        $id = CassetteId::fromRaw('CRX2050');
+
+        $store->put($id, $this->cassette(['id' => 'CRX2050', 'recorded_at' => '2026-08-18T09:12:44+00:00']));
+        $store->put($id, $this->cassette(['id' => 'CRX2050', 'recorded_at' => '2026-08-18T06:30:00+00:00']));
+        $this->assertCount(2, $client->objects, 'Guard: two distinct hour partitions.');
+
+        $store->delete($id);
+
+        $this->assertSame([], $client->objects);
+        $this->assertFalse($store->has($id));
+    }
+
+    public function testAListingTeachesTheStoreWhereEachCassetteIsSoLookupsStopProbing(): void
+    {
+        $clock = new FrozenClock(strtotime('2026-08-18T09:12:44+00:00'));
+        [$client, $store] = $this->store($clock, lookbackHours: 48);
+        $id = CassetteId::fromRaw('OLD1');
+        // Recorded 40 hours ago: inside the window, but 40 head() calls deep into the probe.
+        $store->put($id, $this->cassette(['id' => 'OLD1', 'recorded_at' => '2026-08-16T17:12:44+00:00']));
+
+        $store->slugs();
+        $client->headCalls = [];
+        $this->assertNotNull($store->get($id));
+
+        // One head() -- the key the listing already reported -- rather than 41.
+        $this->assertCount(1, $client->headCalls);
+    }
+
+    public function testAStaleKeyHintFallsThroughToTheProbeRatherThanClaimingAMiss(): void
+    {
+        // The hint says where to look, never that something is there.
+        $clock = new FrozenClock(strtotime('2026-08-18T09:12:44+00:00'));
+        [$client, $store] = $this->store($clock, lookbackHours: 6);
+        $id = CassetteId::fromRaw('MOVED');
+        $store->put($id, $this->cassette(['id' => 'MOVED', 'recorded_at' => '2026-08-18T06:30:00+00:00']));
+        $store->slugs();
+
+        // Re-recorded into a different hour, and the old object removed: the hint is now wrong.
+        $client->objects = [];
+        $store->put($id, $this->cassette(['id' => 'MOVED', 'recorded_at' => '2026-08-18T09:12:44+00:00']));
+
+        $this->assertNotNull($store->get($id));
+    }
+
+    public function testARelativeRecordedAtIsNotUsedToPartitionTheKey(): void
+    {
+        // recorded_at is untrusted cassette content, and DateTimeImmutable takes "+100 years" as
+        // readily as an instant -- which partitioned the cassette into an hour the backward probe
+        // can never reach.
+        $clock = new FrozenClock(strtotime('2026-08-18T09:12:44+00:00'));
+        [, $store] = $this->store($clock, lookbackHours: 6);
+        $id = CassetteId::fromRaw('RELATIVE');
+
+        $store->put($id, $this->cassette(['id' => 'RELATIVE', 'recorded_at' => '+100 years']));
+
+        // Falls back to the write time, so it is still findable.
+        $this->assertTrue($store->has($id));
+        $this->assertNotNull($store->get($id));
+    }
 }

@@ -93,20 +93,19 @@ final readonly class PrefixScanIndex implements CassetteIndexInterface
         return $prefixes;
     }
 
+    /**
+     * One `head()` on the key this hour would hold the cassette under, rather than a paginated
+     * listing of the hour compared by basename.
+     *
+     * The key is fully determined by the slug and the hour -- {@see CassetteKeyScheme::keyFor()}
+     * builds it -- so enumerating the bucket to find a name already known was work with no
+     * information in it. A busy hour could be thousands of objects across several pages; it is now
+     * one request, and a whole day's scan is 24 rather than 24 paginated listings.
+     */
     private function findKeyInHour(string $hourPrefix, CassetteId $id): ?string
     {
-        $wanted = $id->slug . '.qcast';
-        $continuationToken = null;
-        do {
-            $listing = $this->client->listObjects($hourPrefix, continuationToken: $continuationToken);
-            foreach ($listing->objects as $object) {
-                if (basename($object->key) === $wanted) {
-                    return $object->key;
-                }
-            }
-            $continuationToken = $listing->nextContinuationToken;
-        } while ($continuationToken !== null);
+        $key = $hourPrefix . $id->slug . '.qcast';
 
-        return null;
+        return $this->client->head($key) !== null ? $key : null;
     }
 }

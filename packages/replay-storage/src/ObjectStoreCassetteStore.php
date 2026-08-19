@@ -9,6 +9,7 @@ use Quiote\Logging\Log;
 use Quiote\Replay\Cassette\Cassette;
 use Quiote\Replay\Cassette\CassetteCodec;
 use Quiote\Replay\Cassette\CassetteId;
+use Quiote\Replay\Cassette\RecordedAt;
 use Quiote\Replay\Store\ListableCassetteStoreInterface;
 use Quiote\Storage\ListableObjectStoreClientInterface;
 use Quiote\Support\Clock\ClockInterface;
@@ -45,6 +46,25 @@ use Quiote\Support\Clock\SystemClock;
  */
 final class ObjectStoreCassetteStore implements ListableCassetteStoreInterface
 {
+    /**
+     * Keys learned from a {@see slugs()} listing, by slug, tried first by {@see candidateKeys()}.
+     *
+     * A hint about *where* to look, never a claim that something is there: existence is still
+     * checked with `head()`, so a hint for an object since deleted costs one wasted round trip and
+     * falls through to the probe. Populated only from a listing, which is the case that actually
+     * costs -- `cassette:list` decodes every cassette it lists, and each of those lookups otherwise
+     * re-probed the whole lookback window even though the listing had just said exactly where the
+     * object was. For the default 48-hour window and 200 cassettes that was on the order of ten
+     * thousand `head()` calls on top of the listing.
+     *
+     * Not populated from `put()`: the recorder writing a cassette and the CLI reading one are
+     * different processes, so a hint learned there saves nothing real -- and it would make `has()`
+     * answer for a cassette outside the lookback window this store documents as its limit.
+     *
+     * @var array<string, string>
+     */
+    private array $knownKeys = [];
+
     public function __construct(
         private readonly ListableObjectStoreClientInterface $client,
         private readonly CassetteKeyScheme $keyScheme,
@@ -83,11 +103,20 @@ final class ObjectStoreCassetteStore implements ListableCassetteStoreInterface
         return $this->probeForKey($id) !== null;
     }
 
+    /**
+     * Deletes every copy, not just the newest.
+     *
+     * `put()` keys by the cassette's own recorded hour, so one slug can legitimately exist in
+     * several hour partitions -- a re-recorded correlation id, or a cassette fetched from elsewhere
+     * and stored again. Stopping at the first hit meant `cassette:prune` reported a deletion while
+     * older copies survived indefinitely, which is the one thing a prune must not do.
+     */
     public function delete(CassetteId $id): void
     {
-        $key = $this->probeForKey($id);
-        if ($key !== null) {
-            $this->client->delete($key);
+        foreach ($this->candidateKeys($id) as $key) {
+            if ($this->client->head($key) !== null) {
+                $this->client->delete($key);
+            }
         }
     }
 
@@ -107,7 +136,14 @@ final class ObjectStoreCassetteStore implements ListableCassetteStoreInterface
             do {
                 $listing = $this->client->listObjects($prefix, continuationToken: $continuationToken);
                 foreach ($listing->objects as $object) {
-                    $slugs[] = self::slugFromKey($object->key);
+                    $slug = self::slugFromKey($object->key);
+                    $slugs[] = $slug;
+                    // The listing already knows where each cassette is, so remembering it lets a
+                    // following get()/has() skip the backward probe entirely. Without this,
+                    // `cassette:list` against a store holding N cassettes cost N x lookbackHours
+                    // head() round trips on top of the listing itself -- for the default 48-hour
+                    // window and 200 cassettes, on the order of ten thousand requests.
+                    $this->knownKeys[$slug] ??= $object->key;
                 }
                 $continuationToken = $listing->nextContinuationToken;
             } while ($continuationToken !== null);
@@ -122,15 +158,37 @@ final class ObjectStoreCassetteStore implements ListableCassetteStoreInterface
     /** Walks backward hour by hour from now, checking each hour's deterministic key with head(). */
     private function probeForKey(CassetteId $id): ?string
     {
-        $now = $this->clock->now();
-        for ($hoursAgo = 0; $hoursAgo <= $this->lookbackHours; $hoursAgo++) {
-            $candidate = $this->keyScheme->keyFor($id, $now->modify("-{$hoursAgo} hours"), $now);
+        foreach ($this->candidateKeys($id) as $candidate) {
             if ($this->client->head($candidate) !== null) {
                 return $candidate;
             }
         }
 
         return null;
+    }
+
+    /**
+     * Every key this cassette could be under, a listing-learned key first and then newest hour
+     * backward.
+     *
+     * @return list<string>
+     */
+    private function candidateKeys(CassetteId $id): array
+    {
+        $now = $this->clock->now();
+        $keys = [];
+        for ($hoursAgo = 0; $hoursAgo <= $this->lookbackHours; $hoursAgo++) {
+            $keys[] = $this->keyScheme->keyFor($id, $now->modify("-{$hoursAgo} hours"), $now);
+        }
+
+        $hint = $this->knownKeys[$id->slug] ?? null;
+        if ($hint === null) {
+            return $keys;
+        }
+
+        // Tried first and then dropped from the walk, so a hint inside the lookback window actually
+        // saves the hours before it rather than being reached in its own turn.
+        return [$hint, ...array_values(array_filter($keys, static fn(string $key): bool => $key !== $hint))];
     }
 
     private static function slugFromKey(string $key): string
@@ -140,16 +198,15 @@ final class ObjectStoreCassetteStore implements ListableCassetteStoreInterface
         return str_ends_with($basename, '.qcast') ? substr($basename, 0, -strlen('.qcast')) : $basename;
     }
 
+    /**
+     * A cassette's `recorded_at` as an instant, via {@see RecordedAt} -- which refuses a relative
+     * expression, since `recorded_at` is untrusted cassette content and `"+100 years"` partitioned
+     * a cassette into an hour the backward probe can never reach. Falling back to the write time is
+     * at worst an hour out and always findable.
+     */
     private static function parseRecordedAt(mixed $value): ?DateTimeImmutable
     {
-        if (!is_string($value) || $value === '') {
-            return null;
-        }
-        try {
-            return new DateTimeImmutable($value);
-        } catch (\Exception) {
-            return null;
-        }
+        return is_string($value) ? RecordedAt::parse($value) : null;
     }
 
     /**

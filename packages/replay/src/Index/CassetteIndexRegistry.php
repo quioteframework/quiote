@@ -28,10 +28,32 @@ final class CassetteIndexRegistry
         self::$factories[] = $factory;
     }
 
-    /** @return list<CassetteIndexInterface> */
+    /**
+     * Builds every registered index, and turns one that cannot be constructed into an index that
+     * declines with its reason rather than letting it take the others down.
+     *
+     * The eager `array_map` this replaces meant a single misconfigured factory aborted the whole
+     * chain before any index existed -- and the shipped Azure configuration hit exactly that: the
+     * Log Analytics index borrows `replay.store.azure.auth`, whose default `shared_key` cannot
+     * authenticate an AAD-only API, so `AzureTokenProviderFactory` correctly threw and an
+     * `--key` or `--date` that would have resolved fine never got the chance. That also defeated
+     * {@see CassetteIndexChain}, which is deliberately built to record a broken index's failure and
+     * fall through to the next one.
+     *
+     * @return list<CassetteIndexInterface>
+     */
     public static function build(Container $container): array
     {
-        return array_map(static fn(\Closure $factory): CassetteIndexInterface => $factory($container), self::$factories);
+        $indexes = [];
+        foreach (self::$factories as $factory) {
+            try {
+                $indexes[] = $factory($container);
+            } catch (\Throwable $e) {
+                $indexes[] = new UnavailableIndex($e);
+            }
+        }
+
+        return $indexes;
     }
 
     public static function reset(): void

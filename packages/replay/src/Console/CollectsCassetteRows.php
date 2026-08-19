@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Quiote\Replay\Console;
 
 use Quiote\Replay\Cassette\CassetteId;
+use Quiote\Replay\Cassette\RecordedAt;
 use Quiote\Replay\Store\ListableCassetteStoreInterface;
 use Quiote\Support\Compiler\Diagnostic;
 use Throwable;
@@ -50,5 +51,15 @@ trait CollectsCassetteRows
         }
 
         return [$rows, $diagnostics];
+    }
+
+    /**
+     * A `recorded_at` string as a comparable timestamp, via {@see RecordedAt} -- the one
+     * implementation `cassette:list`, `cassette:prune` and the object-store key scheme all share,
+     * so they cannot disagree about what a cassette's timestamp is or which ones are absolute.
+     */
+    private static function recordedAtTimestamp(?string $recordedAt): ?int
+    {
+        return RecordedAt::timestamp($recordedAt);
     }
 }

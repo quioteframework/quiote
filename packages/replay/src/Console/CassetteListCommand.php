@@ -61,7 +61,19 @@ final class CassetteListCommand extends AbstractAppCommand
 
         $since = $input->getOption('since');
         if (is_string($since) && $since !== '') {
-            $rows = array_values(array_filter($rows, static fn(array $row): bool => $row['recorded_at'] !== null && $row['recorded_at'] >= $since));
+            $sinceTimestamp = self::recordedAtTimestamp($since);
+            if ($sinceTimestamp === null) {
+                $io->error(sprintf('Could not parse --since value "%s" as an ISO-8601 timestamp.', $since));
+
+                return self::FAILURE;
+            }
+            // Compared as instants, not as strings -- see recordedAtTimestamp() for why the string
+            // comparison this replaces was wrong.
+            $rows = array_values(array_filter($rows, static function (array $row) use ($sinceTimestamp): bool {
+                $recorded = self::recordedAtTimestamp($row['recorded_at']);
+
+                return $recorded !== null && $recorded >= $sinceTimestamp;
+            }));
         }
         $statusFilter = $input->getOption('status');
         if (is_string($statusFilter) && $statusFilter !== '') {
@@ -72,7 +84,11 @@ final class CassetteListCommand extends AbstractAppCommand
             $rows = array_values(array_filter($rows, static fn(array $row): bool => $row['route'] === $routeFilter));
         }
 
-        usort($rows, static fn(array $a, array $b): int => ($b['recorded_at'] ?? '') <=> ($a['recorded_at'] ?? ''));
+        usort(
+            $rows,
+            static fn(array $a, array $b): int => (self::recordedAtTimestamp($b['recorded_at']) ?? 0)
+                <=> (self::recordedAtTimestamp($a['recorded_at']) ?? 0),
+        );
 
         if ($input->getOption('json')) {
             $output->writeln(json_encode([

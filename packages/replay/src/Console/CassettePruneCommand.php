@@ -169,20 +169,17 @@ final class CassettePruneCommand extends AbstractAppCommand
         return (int)$option;
     }
 
-    private static function recordedAtTimestamp(?string $recordedAt): ?int
-    {
-        if ($recordedAt === null) {
-            return null;
-        }
-        $timestamp = strtotime($recordedAt);
-
-        return $timestamp === false ? null : $timestamp;
-    }
-
-    /** A plain non-negative integer followed by one of s/m/h/d, e.g. "30d". Null when unparseable. */
+    /**
+     * A plain non-negative integer followed by one of s/m/h/d, e.g. "30d". Null when unparseable.
+     *
+     * The digit count is bounded because the multiplication below overflows to a float past
+     * `PHP_INT_MAX`, and this method is declared `?int` under `strict_types` -- so an absurd
+     * `--older-than=99999999999999999999d` raised a `TypeError` rather than a usage error. Nine
+     * digits of days is a little over two million years, which is past any retention policy.
+     */
     private static function parseDuration(string $value): ?int
     {
-        if (preg_match('/^(\d+)(s|m|h|d)$/', trim($value), $matches) !== 1) {
+        if (preg_match('/^(\d{1,9})(s|m|h|d)$/', trim($value), $matches) !== 1) {
             return null;
         }
         $amount = (int)$matches[1];

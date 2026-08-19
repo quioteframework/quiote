@@ -41,17 +41,29 @@ final class RequestReconstructor
         $server = is_array($data['server'] ?? null) ? $data['server'] : [];
         $cookies = is_array($data['cookies'] ?? null) ? $data['cookies'] : [];
 
-        $request = new ServerRequest(
-            $method,
-            $uri,
-            self::stringListHeaders($data['headers'] ?? null),
-            self::decodeBody($data['body'] ?? null),
-            $protocol,
-            $server,
-        );
-        $request = $request->withCookieParams($cookies);
+        // PSR-7 validates the method, URI, header names and header values it is given, and every
+        // one of those comes out of the cassette. Wrapped here so a malformed cassette is reported
+        // as one: ReplayCommand catches this via ReplayException and says so, where an escaping
+        // InvalidArgumentException was caught by its generic handler and reported as
+        // 'Could not resolve context "..."' -- pointing the reader at the wrong subsystem entirely.
+        try {
+            $request = new ServerRequest(
+                $method,
+                $uri,
+                self::stringListHeaders($data['headers'] ?? null),
+                self::decodeBody($data['body'] ?? null),
+                $protocol,
+                $server,
+            );
+            $request = $request->withCookieParams($cookies);
 
-        return WebRequest::fromPsr($request);
+            return WebRequest::fromPsr($request);
+        } catch (\InvalidArgumentException $e) {
+            throw new ReplayException(sprintf(
+                'Cassette carries a request PSR-7 will not accept (%s). The cassette is corrupt or has been edited.',
+                $e->getMessage(),
+            ), 0, $e);
+        }
     }
 
     /** @return array<string, list<string>> */
