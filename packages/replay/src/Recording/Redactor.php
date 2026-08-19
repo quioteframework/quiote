@@ -24,12 +24,15 @@ final readonly class Redactor
      * @param list<string> $deniedHeaders lower-cased header names
      * @param list<string> $deniedParams lower-cased param/cookie field names
      * @param list<string> $deniedSessionKeys lower-cased session key names
+     * @param string $hashSalt Prefixed to a value before hashing in {@see RedactionMode::Hash}.
+     *        Empty means unsalted -- see {@see apply()} for why that is not the default.
      */
     public function __construct(
         private array $deniedHeaders,
         private array $deniedParams,
         private array $deniedSessionKeys,
         private RedactionMode $mode = RedactionMode::Drop,
+        private string $hashSalt = '',
     ) {
     }
 
@@ -50,6 +53,7 @@ final readonly class Redactor
             ])),
             self::lowercasedList(Config::getStringList('replay.redact.session', ['_csrf', 'auth.token'])),
             RedactionMode::fromConfigValue(Config::getString('replay.redact.mode', 'drop')),
+            Config::getString('replay.redact.hash_salt', ''),
         );
     }
 
@@ -185,6 +189,22 @@ final readonly class Redactor
         return $result;
     }
 
+    /**
+     * `Hash` mode salts the value before digesting it, from `replay.redact.hash_salt`.
+     *
+     * An unsalted SHA-256 is not a redaction for a low-entropy secret, and the shipped
+     * `replay.redact.params` default denies exactly the low-entropy fields: a three-digit `cvv`
+     * falls to 1000 guesses, a `ssn` or a `card` to a table anyone can precompute. Salting keeps
+     * what the mode is for -- digests that stay equal across cassettes, so the same value can be
+     * correlated between two recordings -- while removing the offline lookup. The salt has to be
+     * stable for that correlation to survive across processes, which is why it is configuration
+     * rather than generated per cassette.
+     *
+     * It defaults to empty, and therefore unsalted: silently deriving one from an unrelated app
+     * secret would make cassettes recorded either side of a key rotation incomparable for no
+     * stated reason. Setting it is the deployment's call, and `drop` -- which discloses nothing --
+     * remains the default mode.
+     */
     private function apply(mixed $value): string
     {
         if ($this->mode === RedactionMode::Drop) {
@@ -197,7 +217,7 @@ final readonly class Redactor
         }
 
         return $this->mode === RedactionMode::Hash
-            ? 'sha256:' . hash('sha256', $stringValue)
+            ? 'sha256:' . hash('sha256', $this->hashSalt . $stringValue)
             : self::mask($stringValue);
     }
 

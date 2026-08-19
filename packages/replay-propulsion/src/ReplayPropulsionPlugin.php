@@ -9,7 +9,6 @@ use Quiote\Plugin\Attribute\Plugin as PluginAttribute;
 use Quiote\Plugin\PluginInterface;
 use Quiote\Plugin\PluginRegistrar;
 use Quiote\Replay\Recording\EffectSourceRegistry;
-use Quiote\Replay\Recording\Redactor;
 
 /**
  * Wires Propulsion's own query observer seam into `quioteframework/replay`'s
@@ -29,7 +28,11 @@ final class ReplayPropulsionPlugin implements PluginInterface
     {
         // Registered exactly once, here at boot, never per-request -- see
         // PropulsionQueryRecorder's own docblock for why.
-        Propulsion::addQueryObserver(new PropulsionQueryRecorder(Redactor::fromConfig()));
+        // No Redactor is resolved here: register() runs during plugin boot, potentially before an
+        // application's own replay.redact.* config is loaded, and a Redactor built now would
+        // silently carry the hardcoded defaults for the life of the process. The recorder resolves
+        // one per query instead -- see PropulsionQueryRecorder::__construct().
+        Propulsion::addQueryObserver(new PropulsionQueryRecorder());
         EffectSourceRegistry::register(new PropulsionEffectSource());
 
         $registrar->stateReset('quioteframework/replay-propulsion', static function (): void {

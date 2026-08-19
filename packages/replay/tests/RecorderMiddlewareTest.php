@@ -31,6 +31,7 @@ final class RecorderMiddlewareTest extends TestCase
         'replay.enabled', 'replay.record', 'replay.sample_rate', 'replay.trigger_header',
         'replay.max_bytes', 'replay.max_effects', 'replay.capture_body', 'replay.capture_session',
         'replay.redact.headers', 'replay.redact.params', 'replay.redact.session', 'replay.redact.mode',
+        'replay.redact.env', 'replay.redact.hash_salt',
     ];
 
     protected function tearDown(): void
@@ -471,6 +472,93 @@ final class RecorderMiddlewareTest extends TestCase
         $this->assertIsArray($headers);
         $this->assertIsArray($headers['Set-Cookie']);
         $this->assertSame('sha256:' . hash('sha256', 'QSESSID=abc'), $headers['Set-Cookie'][0]);
+    }
+
+    public function testAnExceptionTraceCarriesNoArgumentValues(): void
+    {
+        // PHP's getTraceAsString() embeds each frame's scalar arguments, so a connection failure
+        // records the database password and any exception thrown below a function that took a
+        // token records the token -- in the one cassette section replay.redact.* cannot reach.
+        $this->enable('always');
+        $store = $this->spyStore();
+        $middleware = new RecorderMiddleware($this->context($store), $store);
+        $handler = new class implements RequestHandlerInterface {
+            public function handle(ServerRequestInterface $request): ResponseInterface
+            {
+                self::connect('mysql:host=db', 'app_user', 'hunter2-the-real-password');
+            }
+
+            private static function connect(string $dsn, string $user, string $password): never
+            {
+                throw new RuntimeException('connection refused');
+            }
+        };
+
+        try {
+            $middleware->process(new ServerRequest('GET', '/'), $handler);
+            $this->fail('Expected the handler to throw.');
+        } catch (RuntimeException) {
+            // expected
+        }
+
+        $this->assertCount(1, $store->put);
+        $exception = $store->put[0][1]->exception;
+        $this->assertIsArray($exception);
+        $trace = $exception['trace'];
+        $this->assertIsArray($trace);
+        $encoded = json_encode($trace);
+        $this->assertIsString($encoded);
+
+        $this->assertStringNotContainsString('hunter2-the-real-password', $encoded);
+        $this->assertStringNotContainsString('app_user', $encoded);
+        // Still useful for debugging: class, function, file and line all survive.
+        $this->assertStringContainsString('connect()', $encoded);
+        $this->assertStringContainsString('{main}', $encoded);
+        $this->assertSame('connection refused', $exception['message']);
+    }
+
+    public function testAnExceptionTraceStillNamesEveryFrame(): void
+    {
+        $this->enable('always');
+        $store = $this->spyStore();
+        $middleware = new RecorderMiddleware($this->context($store), $store);
+        $handler = new class implements RequestHandlerInterface {
+            public function handle(ServerRequestInterface $request): ResponseInterface
+            {
+                throw new RuntimeException('boom');
+            }
+        };
+
+        try {
+            $middleware->process(new ServerRequest('GET', '/'), $handler);
+        } catch (RuntimeException) {
+            // expected
+        }
+
+        $exception = $store->put[0][1]->exception;
+        $this->assertIsArray($exception);
+        $trace = $exception['trace'];
+        $this->assertIsArray($trace);
+        $this->assertNotSame([], $trace);
+        $firstFrame = $trace[0];
+        $this->assertIsString($firstFrame);
+        $this->assertMatchesRegularExpression('/^#0 .+\(\d+\): .*handle\(\)$/', $firstFrame);
+    }
+
+    public function testTruncationFlagsAreReportedInMeta(): void
+    {
+        $this->enable('always');
+        Config::set('replay.max_bytes', 4, true, false);
+        $store = $this->spyStore();
+        $middleware = new RecorderMiddleware($this->context($store), $store);
+        $factory = new Psr17Factory();
+        $request = (new ServerRequest('POST', '/'))->withBody($factory->createStream('0123456789'));
+
+        $middleware->process($request, $this->handler(new Response(200)));
+
+        $meta = $store->put[0][1]->meta;
+        $this->assertTrue($meta['request_body_truncated']);
+        $this->assertFalse($meta['effects_truncated']);
     }
 
     public function testNoRecordSkeletonStillCarriesNoResponseHeadersAtAll(): void

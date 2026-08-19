@@ -77,8 +77,22 @@ final class PropulsionQueryRecorder implements RowCapturingQueryObserver
 {
     private const MAX_CAPTURED_ROWS = 100;
 
-    public function __construct(private readonly Redactor $redactor)
+    /**
+     * @param (\Closure(): Redactor)|null $redactorFactory Resolves the {@see Redactor} per query.
+     *        A factory rather than an instance because this recorder is constructed once, at
+     *        plugin registration, and `Redactor::fromConfig()` reads `replay.redact.*` at the
+     *        moment it is called: freezing one in at boot meant an application's own denylist,
+     *        not necessarily loaded that early, was silently replaced by the hardcoded defaults
+     *        with no error to notice. `RecorderMiddleware` builds a fresh one per request for the
+     *        same reason. Null uses `Redactor::fromConfig()`.
+     */
+    public function __construct(private readonly ?\Closure $redactorFactory = null)
     {
+    }
+
+    private function redactor(): Redactor
+    {
+        return $this->redactorFactory !== null ? ($this->redactorFactory)() : Redactor::fromConfig();
     }
 
     public function queryStarted(QueryExecution $execution): void
@@ -137,9 +151,10 @@ final class PropulsionQueryRecorder implements RowCapturingQueryObserver
 
         $durationSeconds = $execution->getDurationSeconds();
 
+        $redactor = $this->redactor();
         $result = ['row_count' => $execution->getRowCount()];
         if ($rows !== null) {
-            $result['rows'] = array_map(fn(mixed $row): mixed => is_array($row) ? $this->redactor->redactRowValues($columns, $row) : $row, $rows);
+            $result['rows'] = array_map(static fn(mixed $row): mixed => is_array($row) ? $redactor->redactRowValues($columns, $row) : $row, $rows);
             $result['columns'] = $columns;
             $result['truncated'] = $truncated;
         }
@@ -150,7 +165,7 @@ final class PropulsionQueryRecorder implements RowCapturingQueryObserver
             [
                 'sql' => $execution->sql,
                 'source' => $execution->source,
-                'bound_params' => $this->redactBoundParams($execution->boundParams),
+                'bound_params' => self::redactBoundParams($redactor, $execution->boundParams),
             ],
             $result,
             $durationSeconds === null ? null : max(0, (int)round($durationSeconds * 1_000_000)),
@@ -161,12 +176,12 @@ final class PropulsionQueryRecorder implements RowCapturingQueryObserver
      * @param array<int|string, BoundParameter> $boundParams
      * @return array<int|string, array{value: mixed, table: ?string, column: ?string}>
      */
-    private function redactBoundParams(array $boundParams): array
+    private static function redactBoundParams(Redactor $redactor, array $boundParams): array
     {
         $result = [];
         foreach ($boundParams as $placeholder => $param) {
             $result[$placeholder] = [
-                'value' => $this->redactor->redactColumnValue($param->column, $param->value),
+                'value' => $redactor->redactColumnValue($param->column, $param->value),
                 'table' => $param->table,
                 'column' => $param->column,
             ];

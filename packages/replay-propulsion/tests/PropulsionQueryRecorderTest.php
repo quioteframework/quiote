@@ -64,7 +64,7 @@ final class PropulsionQueryRecorderTest extends TestCase
     private function recordingLedger(?Redactor $redactor = null): EffectLedger
     {
         $ledger = new EffectLedger();
-        Propulsion::addQueryObserver(new PropulsionQueryRecorder($redactor ?? new Redactor([], [], [])));
+        Propulsion::addQueryObserver(new PropulsionQueryRecorder(static fn(): Redactor => $redactor ?? new Redactor([], [], [])));
         Propulsion::setCorrelationId(self::CORRELATION_ID);
         EffectLedgerRegistry::register(self::CORRELATION_ID, $ledger);
 
@@ -256,7 +256,7 @@ final class PropulsionQueryRecorderTest extends TestCase
         // Registered, but no correlation id was ever set and no ledger is registered for one --
         // this is the "nothing is recording this request" branch every real, non-sampled request
         // takes.
-        Propulsion::addQueryObserver(new PropulsionQueryRecorder(new Redactor([], [], [])));
+        Propulsion::addQueryObserver(new PropulsionQueryRecorder(static fn(): Redactor => new Redactor([], [], [])));
 
         $conn = $this->connect();
         $conn->exec('CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT NOT NULL)');

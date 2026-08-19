@@ -52,7 +52,7 @@ final class RecorderMiddlewareIntegrationTest extends TestCase
         Propulsion::close();
         Propulsion::clearQueryObservers();
         (new ReflectionProperty(PropulsionDatabase::class, 'appliedConfiguration'))->setValue(null, null);
-        Propulsion::addQueryObserver(new PropulsionQueryRecorder(new Redactor([], [], [])));
+        Propulsion::addQueryObserver(new PropulsionQueryRecorder(static fn(): Redactor => new Redactor([], [], [])));
         EffectSourceRegistry::register(new PropulsionEffectSource());
 
         Config::set('replay.enabled', true, true, false);

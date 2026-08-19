@@ -295,7 +295,7 @@ final class RecorderMiddleware implements MiddlewareInterface, ResetInterface
                 'message' => $exception->getMessage(),
                 'file' => $exception->getFile(),
                 'line' => $exception->getLine(),
-                'trace' => explode("\n", $exception->getTraceAsString()),
+                'trace' => self::frameList($exception),
             ]);
         }
 
@@ -369,6 +369,44 @@ final class RecorderMiddleware implements MiddlewareInterface, ResetInterface
             exception: $session->exception(),
             log: null,
         );
+    }
+
+    /**
+     * The exception's stack as one line per frame, built from `getTrace()` rather than
+     * `getTraceAsString()`.
+     *
+     * PHP's trace-as-string embeds each frame's scalar argument values, so a connection failure
+     * records `PDO->__construct('mysql:...', 'user', 'hunter2')` and any exception thrown below a
+     * function that took a token records the token -- in the one cassette section nothing in
+     * `replay.redact.*` can reach, and the section most likely to be present, since the `error`
+     * trigger exists to capture exactly these requests. Class, function, file and line are what
+     * makes a trace useful for debugging; the arguments are what makes it a credential leak.
+     *
+     * @return list<string>
+     */
+    private static function frameList(Throwable $exception): array
+    {
+        $frames = [];
+        foreach ($exception->getTrace() as $index => $frame) {
+            $class = is_string($frame['class'] ?? null) ? $frame['class'] : '';
+            $type = is_string($frame['type'] ?? null) ? $frame['type'] : '';
+            $function = $frame['function'];
+            $file = is_string($frame['file'] ?? null) ? $frame['file'] : '[internal function]';
+            $line = is_int($frame['line'] ?? null) ? $frame['line'] : 0;
+
+            $frames[] = sprintf(
+                '#%d %s(%d): %s%s%s()',
+                $index,
+                $file,
+                $line,
+                $class,
+                $type,
+                $function,
+            );
+        }
+        $frames[] = sprintf('#%d {main}', count($frames));
+
+        return $frames;
     }
 
     /** @return array<string, mixed> */

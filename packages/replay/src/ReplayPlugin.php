@@ -77,6 +77,11 @@ final class ReplayPlugin implements PluginInterface
             'auth', 'dsn', 'connection_string', 'connectionstring', 'salt', 'cert',
         ]);
         $registrar->configDefault('replay.redact.mode', 'drop');
+        // Salts replay.redact.mode=hash. Empty means unsalted, which is not a redaction for a
+        // low-entropy value: the shipped redact.params default denies cvv/ssn/card, and an
+        // unsalted digest of a three-digit number falls to a thousand guesses. Set it where hash
+        // mode is used -- see Redactor::apply().
+        $registrar->configDefault('replay.redact.hash_salt', '');
         // Off by default everywhere: replay always runs in ReplayEngine's one mode today (no
         // effect stubbing exists, so replaying really re-performs a request's side effects) --
         // see ReplayEngine's own docblock.

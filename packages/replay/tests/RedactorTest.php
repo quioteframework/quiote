@@ -159,6 +159,43 @@ final class RedactorTest extends TestCase
         $this->assertNotSame('', json_encode(['token' => $masked], JSON_THROW_ON_ERROR));
     }
 
+    public function testHashModeSaltsTheDigestSoALowEntropyValueIsNotBruteForceable(): void
+    {
+        // The shipped redact.params default denies cvv/ssn/card -- values with keyspaces small
+        // enough that an unsalted digest is a lookup, not a redaction.
+        $unsalted = new Redactor([], ['cvv'], [], RedactionMode::Hash);
+        $salted = new Redactor([], ['cvv'], [], RedactionMode::Hash, 'deployment-salt');
+
+        $unsaltedDigest = $unsalted->redactParams(['cvv' => '123'])['cvv'];
+        $saltedDigest = $salted->redactParams(['cvv' => '123'])['cvv'];
+
+        $this->assertSame('sha256:' . hash('sha256', '123'), $unsaltedDigest);
+        $this->assertNotSame($unsaltedDigest, $saltedDigest);
+
+        // Counting to 1000 recovers the unsalted plaintext and cannot recover the salted one.
+        $recovered = null;
+        for ($i = 0; $i < 1000; $i++) {
+            if ('sha256:' . hash('sha256', sprintf('%03d', $i)) === $saltedDigest) {
+                $recovered = $i;
+                break;
+            }
+        }
+        $this->assertNull($recovered, 'A salted digest must not fall to an unsalted sweep.');
+    }
+
+    public function testTheSameSaltProducesTheSameDigestSoValuesStayCorrelatableAcrossCassettes(): void
+    {
+        // What hash mode is for: telling "the same value appeared in both recordings" without
+        // storing it. That requires a stable salt, which is why it is configuration.
+        $first = new Redactor([], ['token'], [], RedactionMode::Hash, 'stable');
+        $second = new Redactor([], ['token'], [], RedactionMode::Hash, 'stable');
+
+        $this->assertSame(
+            $first->redactParams(['token' => 'abc'])['token'],
+            $second->redactParams(['token' => 'abc'])['token'],
+        );
+    }
+
     public function testHashModeOutputIsAlwaysEncodableRegardlessOfInput(): void
     {
         $redactor = $this->redactor(RedactionMode::Hash);
