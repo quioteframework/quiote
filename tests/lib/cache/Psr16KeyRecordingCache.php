@@ -52,7 +52,7 @@ final class Psr16KeyRecordingCache implements CacheInterface
     public function get(string $key, mixed $default = null): mixed
     {
         $this->record($key);
-        return $this->values[$key] ?? $default;
+        return array_key_exists($key, $this->values) ? $this->values[$key] : $default;
     }
 
     public function set(string $key, mixed $value, null|int|\DateInterval $ttl = null): bool
