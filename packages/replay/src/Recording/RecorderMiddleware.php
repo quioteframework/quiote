@@ -35,9 +35,9 @@ use Symfony\Contracts\Service\ResetInterface;
 use Throwable;
 
 /**
- * Captures the request/response/resolved/session/exception detail described
- * by `docs/RECORD_REPLAY_PLAN.md` §5, and writes a {@see Cassette} for
- * whichever requests {@see SamplingPolicy} keeps.
+ * Captures the request/response/resolved/session/exception detail for a
+ * request and writes a {@see Cassette} for whichever requests
+ * {@see SamplingPolicy} keeps.
  *
  * Registered `phase: 'bootstrap', priority: 1100` -- between `StealthMiddleware`
  * (1200) and `ErrorHandlingMiddleware` (1000) -- so it observes the *rendered*
@@ -103,8 +103,8 @@ final class RecorderMiddleware implements MiddlewareInterface, ResetInterface
             ? SamplingPolicy::fromConfigValue(Config::getString('replay.record', 'never'))
             : SamplingPolicy::Never;
         if ($policy === SamplingPolicy::Never) {
-            // One enum comparison, no buffer, no allocation -- the overhead budget in
-            // docs/RECORD_REPLAY_PLAN.md §5.4 for the default configuration.
+            // One enum comparison, no buffer, no allocation -- the overhead budget for the
+            // default configuration.
             return $handler->handle($request);
         }
 
@@ -307,7 +307,7 @@ final class RecorderMiddleware implements MiddlewareInterface, ResetInterface
         } catch (Throwable $e) {
             // The cassette is dropped rather than retried forever, and the loss is stated --
             // never the cassette body itself, which is exactly the payload a log sink must not
-            // carry (docs/RECORD_REPLAY_PLAN.md §12.6).
+            // carry.
             Log::for($this)->error(sprintf(
                 'Failed to store cassette "%s": %s',
                 $id->slug,
@@ -320,10 +320,10 @@ final class RecorderMiddleware implements MiddlewareInterface, ResetInterface
     {
         $request = $session->request() ?? [];
         if ($noRecord) {
-            // Request capture happens at entry (§5.3), before the action -- and therefore
-            // #[NoRecord] -- is knowable. The metadata skeleton the plan promises for a
-            // non-recordable action is enforced here instead: method/uri only, no
-            // headers/cookies/body/uploads/server, regardless of what was already buffered.
+            // Request capture happens at entry, before the action -- and therefore #[NoRecord] --
+            // is knowable. A non-recordable action gets only a metadata skeleton: method/uri
+            // only, no headers/cookies/body/uploads/server, regardless of what was already
+            // buffered.
             $request = ['method' => $request['method'] ?? null, 'uri' => $request['uri'] ?? null];
         }
 
@@ -344,10 +344,11 @@ final class RecorderMiddleware implements MiddlewareInterface, ResetInterface
                 'trace_id' => null,
                 'span_id' => null,
                 'trigger' => $policy->value,
-                // §6.3's own precedent: "a cassette that recorded no DB effects because its
-                // adapter is not yet instrumented says so in meta". True when at least one
-                // driver-specific EffectSource is registered (e.g. quioteframework/replay-propulsion
-                // installed and its plugin booted), false otherwise.
+                // A cassette that recorded no DB effects because its adapter is not instrumented
+                // says so in meta, rather than looking indistinguishable from "genuinely no DB
+                // activity". True when at least one driver-specific EffectSource is registered
+                // (e.g. quioteframework/replay-propulsion installed and its plugin booted), false
+                // otherwise.
                 'effects_instrumented' => $effectsInstrumented,
             ],
             request: $request,
@@ -421,8 +422,7 @@ final class RecorderMiddleware implements MiddlewareInterface, ResetInterface
      * exists. Both `session.before` and `session.after` in the resulting cassette therefore
      * carry the same end-of-request snapshot rather than a genuine before/after diff, since
      * nothing in this step captures the bag at request entry either (that would need a
-     * ledger-triggered lazy read per §5.3, which has nothing to trigger it while no live
-     * DB/HTTP/cache/queue/env observer is wired into the request).
+     * ledger-triggered lazy read, which has nothing to trigger it in this middleware alone).
      *
      * @return array<string, mixed>|null
      */

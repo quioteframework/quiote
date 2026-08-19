@@ -8,9 +8,9 @@ use Quiote\Replay\Cassette\EffectKind;
 use Quiote\Replay\Replay\EffectLedger;
 
 /**
- * Per §6 of the record/replay determinism plan: an EffectLedger is written
- * to by recording (append-only, assigning sequence numbers) and read from by
- * replay (fingerprint-then-sequence matching, with match/miss accounting).
+ * An EffectLedger is written to by recording (append-only, assigning
+ * sequence numbers) and read from by replay (fingerprint-then-sequence
+ * matching, with match/miss accounting).
  */
 final class EffectLedgerTest extends TestCase
 {
@@ -64,7 +64,7 @@ final class EffectLedgerTest extends TestCase
     {
         // Two db effects recorded in order; a replayed query with an
         // unrecognized fingerprint still lands on the next unconsumed one of
-        // the same kind, per §7.2.
+        // the same kind.
         $effects = [
             new Effect(0, EffectKind::Db, 'select a', [], 'row-a'),
             new Effect(1, EffectKind::Db, 'select b', [], 'row-b'),

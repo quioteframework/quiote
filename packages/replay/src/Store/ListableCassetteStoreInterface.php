@@ -9,10 +9,11 @@ namespace Quiote\Replay\Store;
  * holds. Separate from the base contract for the same reason
  * {@see \Quiote\Storage\ListableObjectStoreClientInterface} is separate from
  * {@see \Quiote\Storage\ObjectStoreClientInterface}: `cassette:list` and
- * `cassette:prune` need this, but a store that cannot list (an
- * object-store-backed one, per `docs/RECORD_REPLAY_PLAN.md` §12.8 -- it uses
- * `ListableObjectStoreClientInterface`'s own prefix-scan listing instead)
- * should not have to implement a method it cannot honour.
+ * `cassette:prune` need this, but a store that genuinely cannot list
+ * (a pure key-value backend with no enumeration API at all) should not have
+ * to implement a method it cannot honour. Every store this package or its
+ * driver packages ship today (file, PDO, object-store-backed) does implement
+ * it, each over its own underlying listing mechanism.
  */
 interface ListableCassetteStoreInterface extends CassetteStoreInterface
 {

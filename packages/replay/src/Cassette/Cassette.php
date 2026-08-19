@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace Quiote\Replay\Cassette;
 
 /**
- * The full record of one request, as described by
- * `docs/RECORD_REPLAY_PLAN.md` §4.1. `meta`, `request` and `response` are the
+ * The full record of one request. `meta`, `request` and `response` are the
  * only sections a cassette must carry; every other section is optional and
  * empty/null when not captured, so a minimal cassette stays small.
  *

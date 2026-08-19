@@ -12,15 +12,14 @@ use Quiote\Support\Compiler\EmittedArtifact;
 
 /**
  * Turns one {@see Cassette} into a `Quiote\Support\Compiler\EmittedArtifact` --
- * PHP source for a {@see ReplayTestCase} subclass -- per
- * `docs/RECORD_REPLAY_PLAN.md` §8. This class only generates source text;
- * writing it (and the cassette copy it references) to disk is the caller's
- * job, via `Quiote\Support\Compiler\FilesystemArtifactWriter`, the same
- * generator/writer split `Quiote\Validator\Compiler\ValidatorCompiler` already
- * follows.
+ * PHP source for a {@see ReplayTestCase} subclass. This class only generates
+ * source text; writing it (and the cassette copy it references) to disk is
+ * the caller's job, via `Quiote\Support\Compiler\FilesystemArtifactWriter`,
+ * the same generator/writer split `Quiote\Validator\Compiler\ValidatorCompiler`
+ * already follows.
  *
- * Scaffolds exactly what §8 states, no more: `assertStatus()` always,
- * `assertJsonEquals()` for a JSON response body, `assertSee()` on the
+ * Scaffolds a deliberately narrow assertion set, no more: `assertStatus()`
+ * always, `assertJsonEquals()` for a JSON response body, `assertSee()` on the
  * exception message for an error cassette, `assertHeader('Location', ...)`
  * for a redirect. A DB write or enqueued-job effect is called out as a plain
  * comment naming the SQL/fingerprint -- not as commented-out *code* calling

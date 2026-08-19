@@ -14,10 +14,10 @@ use RuntimeException;
  * {@see \Quiote\Queue\QueueDriverRegistry}/{@see \Quiote\Database\DatabaseDriverRegistry}
  * exactly.
  *
- * Only `file` ships here. `azure-blob`/`s3`/`gcs`/`pdo` register their own
- * alias from their own plugin once those stores exist (per
- * `docs/RECORD_REPLAY_PLAN.md` §15 items 6/9), with zero change to this
- * class.
+ * Only `file` ships here. `azure-blob` and `pdo` register their own alias
+ * from their own plugin (`quioteframework/replay-azure`,
+ * `quioteframework/replay-pdo`), with zero change to this class; `s3`/`gcs`
+ * would do the same from their own plugin once one exists.
  */
 final class CassetteStoreRegistry
 {

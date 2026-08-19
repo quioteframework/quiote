@@ -59,7 +59,7 @@ final class ReplayPlugin implements PluginInterface
         $registrar->configDefault('replay.tests_path', 'tests/Replay');
         $registrar->configDefault('replay.write', 'sync_on_error');
         // Consumed by CassettePruneCommand's default --older-than when the store is file/pdo;
-        // meaningless on Azure, which prunes via a blob lifecycle rule instead (§12.7).
+        // meaningless on Azure, which prunes via a blob lifecycle rule instead.
         $registrar->configDefault('replay.retention_days', 14);
         $registrar->configDefault('replay.max_bytes', 2_097_152);
         $registrar->configDefault('replay.max_effects', 2000);

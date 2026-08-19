@@ -14,8 +14,8 @@ use Quiote\Replay\Cassette\EffectKind;
  * {@see record()}; a ledger for replay is constructed from a cassette's
  * stored effects and only ever calls {@see match()}.
  *
- * Match/miss accounting (§7.2 of the record/replay plan) falls out of two
- * queries answerable at any point during replay: {@see misses()} is every
+ * Match/miss accounting falls out of two queries answerable at any point
+ * during replay: {@see misses()} is every
  * call replay asked for that had no recorded counterpart -- the code now
  * does something it did not do when recorded -- and {@see unplayed()} is
  * every recorded effect nothing asked for -- the code no longer does

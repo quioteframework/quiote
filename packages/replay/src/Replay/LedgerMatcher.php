@@ -8,9 +8,9 @@ use Quiote\Replay\Cassette\Effect;
 use Quiote\Replay\Cassette\EffectKind;
 
 /**
- * The fingerprint-then-sequence matching algorithm described in the
- * record/replay plan §7.2: a replayed call is matched against the first
- * not-yet-consumed effect of the same {@see EffectKind} whose fingerprint is
+ * The fingerprint-then-sequence matching algorithm: a replayed call is
+ * matched against the first not-yet-consumed effect of the same
+ * {@see EffectKind} whose fingerprint is
  * identical, and only when no fingerprint matches does it fall back to the
  * next not-yet-consumed effect of that kind regardless of fingerprint -- so
  * two identical queries recorded back to back are still matched in the order

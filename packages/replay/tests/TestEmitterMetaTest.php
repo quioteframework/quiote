@@ -18,11 +18,11 @@ use Quiote\Replay\Store\FileCassetteStore;
 use Quiote\Replay\Testing\TestEmitter;
 
 /**
- * The meta-test `docs/RECORD_REPLAY_PLAN.md` §14 calls for: emits a real
- * test from a real cassette, `require`s the generated file, and actually
- * runs the emitted case -- proving the generator's output is not merely
- * syntactically valid PHP (already covered by {@see TestEmitterTest}) but a
- * test that genuinely passes when the recorded response still matches.
+ * A meta-test: emits a real test from a real cassette, `require`s the
+ * generated file, and actually runs the emitted case -- proving the
+ * generator's output is not merely syntactically valid PHP (already covered
+ * by {@see TestEmitterTest}) but a test that genuinely passes when the
+ * recorded response still matches.
  */
 final class TestEmitterMetaTest extends TestCase
 {

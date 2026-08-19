@@ -16,8 +16,7 @@ use Quiote\Support\Clock\SystemClock;
  * and appends one {@see EffectKind::Queue} entry per {@see push()} to an
  * injected {@see EffectLedger}, then returns exactly as the real driver did.
  *
- * Scoped to `push()` only, per the record/replay plan's own framing --
- * `reserve()`/`ack()`/`release()`/`discard()` on
+ * Scoped to `push()` only: `reserve()`/`ack()`/`release()`/`discard()` on
  * {@see \Quiote\Queue\PollableQueueDriverInterface} belong to an
  * out-of-process worker polling the backlog later, not to the request that
  * enqueued the job, and are not observed here.

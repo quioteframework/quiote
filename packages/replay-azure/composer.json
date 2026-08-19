@@ -1,6 +1,6 @@
 {
 	"name": "quioteframework/replay-azure",
-	"description": "Azure Blob Storage cassette store for quioteframework/replay: the production target for docs/RECORD_REPLAY_PLAN.md's AKS/Log Analytics deployment topology.",
+	"description": "Azure Blob Storage cassette store for quioteframework/replay: the production target for an AKS + Azure Blob + Log Analytics deployment.",
 	"keywords": ["quiote", "replay", "record", "azure", "blob"],
 	"homepage": "https://github.com/quioteframework/replay-azure",
 	"type": "library",

@@ -16,8 +16,8 @@ use Quiote\Replay\Http\HttpFingerprint;
  * The isolated-replay counterpart to
  * {@see \Quiote\Replay\Http\RecordingHttpTransport}: never opens a socket,
  * never resolves a hostname, never touches the real network under any
- * circumstance (record/replay plan §7.1 -- "In isolated mode there is no
- * transport at all"). Answers every `sendRequest()` from an injected
+ * circumstance -- in isolated mode there is no transport at all. Answers
+ * every `sendRequest()` from an injected
  * {@see EffectLedger}, matching on the same {@see HttpFingerprint} scheme the
  * recorder used, and builds a real PSR-7 response from the recorded
  * status/headers/body via the injected PSR-17 factories.

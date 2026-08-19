@@ -8,16 +8,15 @@ use Quiote\Config\Config;
 use Stringable;
 
 /**
- * Header/cookie/param/session/body scrubbing per `docs/RECORD_REPLAY_PLAN.md`
- * §11. Applied at capture time, inside {@see RecordingSession}'s record
- * methods -- never deferred to serialization, so a denied value never enters
- * process memory in an unredacted form that a later dump could leak.
+ * Header/cookie/param/session/body scrubbing. Applied at capture time,
+ * inside {@see RecordingSession}'s record methods -- never deferred to
+ * serialization, so a denied value never enters process memory in an
+ * unredacted form that a later dump could leak.
  *
  * Cookie names are matched against the same denylist as params: a cookie
  * carrying a session/auth token (`token`, `secret`, ...) is exactly as
  * sensitive as a request parameter by the same name, and the config surface
- * (`docs/RECORD_REPLAY_PLAN.md` §10) has no separate `replay.redact.cookies`
- * key.
+ * has no separate `replay.redact.cookies` key.
  */
 final readonly class Redactor
 {

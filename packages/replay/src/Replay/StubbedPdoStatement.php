@@ -20,7 +20,7 @@ use Quiote\Replay\Db\RecordingPdoStatement;
  * A ledger miss -- the SQL has no recorded counterpart, or every recorded
  * effect for it has already been consumed -- raises rather than returning an
  * empty/invented result: inventing a result would fabricate a passing test,
- * which is exactly what isolated replay must not do (record/replay plan §7.1).
+ * which is exactly what isolated replay must not do.
  *
  * Deliberately unsupported, same as the recording side: `fetchColumn()`,
  * `bindColumn()`, `getColumnMeta()`, LOB streaming, and any fetch mode beyond

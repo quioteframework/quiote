@@ -10,22 +10,22 @@ use Quiote\Replay\Cassette\Cassette;
 use Throwable;
 
 /**
- * Drives one cassette through the real pipeline and reports drift, per
- * `docs/RECORD_REPLAY_PLAN.md` §7 -- scoped down from that section's own
- * `isolated`/`live` split, though: `isolated` mode (§7.1) means every
- * ledger-backed subsystem is stubbed, and no effect-recorder is wired into
- * a live request yet (§15 item 2's own scoping note). There is nothing to
- * stub, so every replay this engine runs is unavoidably what §7.1 calls
- * `live` -- it really re-performs the request's side effects against
- * whatever the app is actually configured with. A `ReplayMode` enum
- * distinguishing the two is deliberately not added here: it would have
- * nothing to switch on until effect stubbing exists.
+ * Drives one cassette through the real pipeline and reports drift. An
+ * `isolated` replay mode -- every ledger-backed subsystem stubbed from the
+ * recorded effects instead of really performed -- is conceivable, but
+ * dispatching a replay through the real pipeline has no mechanism today to
+ * substitute the `Stubbed*` implementations for a live request's actual
+ * PDO/HTTP-client/cache/queue/env services. There is nothing to stub, so
+ * every replay this engine runs is unavoidably `live` -- it really
+ * re-performs the request's side effects against whatever the app is
+ * actually configured with. A `ReplayMode` enum distinguishing the two is
+ * deliberately not added here: it would have nothing to switch on until
+ * that stub-wiring exists.
  *
- * Because of that, the two safety rules §7.1 states for `live` mode are
- * enforced here rather than deferred with the rest of that section:
- * replay refuses to run at all unless `replay.allow_live` is `true`
- * (default `false`), and refuses a non-idempotent method (anything but
- * GET/HEAD/OPTIONS/PUT/DELETE) without `$force`.
+ * Because of that, the two safety rules a `live` mode needs are enforced
+ * here directly: replay refuses to run at all unless `replay.allow_live` is
+ * `true` (default `false`), and refuses a non-idempotent method (anything
+ * but GET/HEAD/OPTIONS/PUT/DELETE) without `$force`.
  */
 final class ReplayEngine
 {

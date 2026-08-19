@@ -8,15 +8,17 @@ use Quiote\Replay\Cassette\Effect;
 use Quiote\Replay\Replay\EffectLedger;
 
 /**
- * The in-flight buffer for one request, per `docs/RECORD_REPLAY_PLAN.md`
- * §5.4: bounded by `replay.max_bytes` and `replay.max_effects`, so a request
- * with an unusually large body or an unusually long effect ledger produces a
- * cassette that says it was truncated rather than growing without bound.
+ * The in-flight buffer for one request: bounded by `replay.max_bytes` and
+ * `replay.max_effects`, so a request with an unusually large body or an
+ * unusually long effect ledger produces a cassette that says it was
+ * truncated rather than growing without bound.
  *
- * Holds an {@see EffectLedger} for whatever's wired to append to it (empty
- * for a request recorded before the live DB/HTTP/cache/queue/env observers
- * are wired into the app's own service stack -- a distinct integration task,
- * see the plan's §15 item 2 scoping note).
+ * Holds an {@see EffectLedger} for whatever's wired to append to it -- DB
+ * effects are wired into a live request automatically by whichever
+ * `quioteframework/replay-{propulsion,doctrine,eloquent,cycle}` plugin is
+ * installed; cache/queue/env effects still need the app to substitute the
+ * matching `Recording*` decorator for its own cache/queue/env binding by
+ * hand.
  */
 final class RecordingSession
 {

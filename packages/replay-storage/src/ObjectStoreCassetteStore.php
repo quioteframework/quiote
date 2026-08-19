@@ -16,10 +16,10 @@ use Quiote\Support\Clock\SystemClock;
 
 /**
  * A {@see ListableCassetteStoreInterface} over any
- * {@see ListableObjectStoreClientInterface} -- Azure Blob, S3 or GCS, per
- * `docs/RECORD_REPLAY_PLAN.md` §12.1: a pod's filesystem does not survive a
- * restart/eviction/scale-down, which is disproportionately likely to be
- * exactly when the interesting request happened.
+ * {@see ListableObjectStoreClientInterface} -- Azure Blob, S3 or GCS. A pod's
+ * filesystem does not survive a restart/eviction/scale-down, which is
+ * disproportionately likely to be exactly when the interesting request
+ * happened.
  *
  * `put()` writes to the deterministic, date-partitioned key
  * {@see CassetteKeyScheme} derives from the cassette's own `recorded_at`.
@@ -32,10 +32,10 @@ use Quiote\Support\Clock\SystemClock;
  * each hour's deterministic key with a cheap `head()` rather than listing.
  * This makes the base `CassetteStoreInterface` contract honestly work with
  * no further machinery -- slower than an index-assisted lookup for an old
- * cassette, but correct -- and `docs/RECORD_REPLAY_PLAN.md` §12.4's
- * `CassetteIndexInterface` (an explicit key/date hint, or a Log Analytics
- * query) is the *faster* path for exactly the case this probe is slow at,
- * not a requirement for the store to function at all.
+ * cassette, but correct -- and {@see \Quiote\Replay\Index\CassetteIndexInterface}
+ * (an explicit key/date hint, or a Log Analytics query) is the *faster* path
+ * for exactly the case this probe is slow at, not a requirement for the
+ * store to function at all.
  *
  * A stated, deliberate limitation, not a silent one: `slugs()` only
  * enumerates the same `$lookbackHours` window `get()`/`has()`/`delete()`
@@ -153,10 +153,10 @@ final class ObjectStoreCassetteStore implements ListableCassetteStoreInterface
     }
 
     /**
-     * The §12.3 pointer log line: "the log line is the index". Carries a pointer and nothing
-     * else -- no headers, no body, no parameters -- so it stays safe in a log sink with a wider
-     * audience than the cassette container itself. Logged at error when the trigger was an
-     * error, so it lands in the same query surface the failure itself does; otherwise at info.
+     * The pointer log line: the log line is the index. Carries a pointer and nothing else -- no
+     * headers, no body, no parameters -- so it stays safe in a log sink with a wider audience
+     * than the cassette container itself. Logged at error when the trigger was an error, so it
+     * lands in the same query surface the failure itself does; otherwise at info.
      */
     private function logPointer(CassetteId $id, Cassette $cassette, string $key, int $bytes): void
     {

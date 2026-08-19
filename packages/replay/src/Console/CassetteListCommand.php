@@ -18,13 +18,13 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * {@see ListableCassetteStoreInterface} `replay.store` resolves to (see
  * {@see ResolvesCassetteStore}) -- the file store's own directory listing,
  * or `quioteframework/replay-pdo`'s table, today; an object-store-backed one
- * would use its own `listObjects()` instead (§12.8), not this interface.
+ * would use its own `listObjects()` instead, not this interface.
  *
- * `--stale` (§9's console surface) is deliberately not offered yet: staleness
- * is a comparison against `meta.source_hash`, and no cassette this package
- * writes carries one yet (that needs `AppIntrospectionCompiler`'s hashing,
- * out of scope for this step) -- a flag that could never filter anything
- * meaningfully would be worse than no flag.
+ * `--stale` is deliberately not offered yet: staleness is a comparison
+ * against `meta.source_hash`, and no cassette this package writes carries
+ * one yet (that needs `AppIntrospectionCompiler`'s hashing, out of scope for
+ * this step) -- a flag that could never filter anything meaningfully would
+ * be worse than no flag.
  */
 #[AsCommand(name: 'cassette:list', description: 'List cassettes in the configured replay store')]
 final class CassetteListCommand extends AbstractAppCommand

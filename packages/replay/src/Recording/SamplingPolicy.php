@@ -8,9 +8,9 @@ use Quiote\Support\Random\RandomnessInterface;
 use RuntimeException;
 
 /**
- * Which requests {@see RecorderMiddleware} keeps a cassette for, per
- * `docs/RECORD_REPLAY_PLAN.md` §5.2. `Never` is the default so installing
- * the package changes nothing until `replay.record` is set.
+ * Which requests {@see RecorderMiddleware} keeps a cassette for. `Never` is
+ * the default so installing the package changes nothing until
+ * `replay.record` is set.
  */
 enum SamplingPolicy: string
 {

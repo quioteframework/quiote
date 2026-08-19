@@ -17,18 +17,16 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
- * `cassette:prune [--older-than=30d] [--keep=500]` -- per
- * `docs/RECORD_REPLAY_PLAN.md` §12.7, this is "unnecessary" on Azure (a blob
- * lifecycle rule does it without anything running in the cluster) and kept
- * "for the file and PDO stores" instead, via whichever
+ * `cassette:prune [--older-than=30d] [--keep=500]` -- unnecessary on Azure (a
+ * blob lifecycle rule does it without anything running in the cluster), so
+ * this exists for the file and PDO stores instead, via whichever
  * {@see ListableCassetteStoreInterface} `replay.store` resolves to.
  *
  * `--older-than` and `--keep` compose rather than one overriding the other:
  * a cassette is deleted if it is older than the cutoff *or* falls outside
  * the newest `--keep` cassettes (by `recorded_at`, newest first) --
  * whichever rule is given. Neither given defaults to `--older-than`
- * computed from `replay.retention_days` (default 14), matching §10's own
- * documented default for this exact purpose. A cassette with no
+ * computed from `replay.retention_days` (default 14). A cassette with no
  * `recorded_at` (a `#[NoRecord]` skeleton, or one that predates that field)
  * is never matched by `--older-than` -- there is nothing to compare -- but
  * can still be pruned by `--keep`.

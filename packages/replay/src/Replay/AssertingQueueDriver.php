@@ -14,9 +14,8 @@ use Quiote\Replay\Queue\RecordingQueueDriver;
  * The isolated-replay counterpart to
  * {@see \Quiote\Replay\Queue\RecordingQueueDriver}: never pushes to a real
  * backend -- isolated replay has none -- and instead captures every
- * {@see push()} call so an emitted test can assert against it afterward, per
- * the record/replay plan: "the emitted test can then assert 'this request
- * enqueued exactly this job'."
+ * {@see push()} call so an emitted test can assert against it afterward --
+ * "this request enqueued exactly this job."
  *
  * Deliberately exposes a plain, non-throwing {@see wasJobPushed()} query and
  * a raw {@see pushedJobs()} accessor rather than a throwing `assert*()`

@@ -13,11 +13,9 @@ use Quiote\Replay\Cassette\CassetteId;
 use Quiote\Replay\Store\ListableCassetteStoreInterface;
 
 /**
- * A PDO-backed {@see ListableCassetteStoreInterface}, per
- * `docs/RECORD_REPLAY_PLAN.md` §12.1's own reasoning applied to a non-Azure
- * deployment: a pod's filesystem does not survive a restart/eviction, so a
- * team without an object-store backend keeps cassettes in the database it
- * already has instead.
+ * A PDO-backed {@see ListableCassetteStoreInterface}: a pod's filesystem does
+ * not survive a restart/eviction, so a team without an object-store backend
+ * keeps cassettes in the database it already has instead.
  *
  * Portable across PostgreSQL and SQLite only (`INSERT ... ON CONFLICT`,
  * matching {@see \Quiote\Security\RateLimit\PdoRateLimiterStorage}'s and

@@ -7,8 +7,8 @@ use Quiote\Replay\Cassette\CassetteId;
 use Quiote\Support\CorrelationId;
 
 /**
- * Per `docs/RECORD_REPLAY_PLAN.md` §11: a cassette id is untrusted input, and
- * `CorrelationId::sanitize()` passes `/`, `.` and `..` straight through --
+ * A cassette id is untrusted input, and `CorrelationId::sanitize()` passes
+ * `/`, `.` and `..` straight through --
  * verified against its real source in {@see CassetteIdTest::testEveryDangerousRawValueIsVerifiedAgainstRealCorrelationIdSanitize()}
  * rather than assumed. `CassetteId` is what must reduce that to a safe slug.
  */

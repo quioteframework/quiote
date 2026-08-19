@@ -9,8 +9,8 @@ use Quiote\Support\CorrelationId;
 /**
  * A cassette's id, and the safe filesystem/object-store key derived from it.
  *
- * Per `docs/RECORD_REPLAY_PLAN.md` §11: a cassette id is untrusted input --
- * {@see CorrelationId::sanitize()} strips control bytes and caps length, but
+ * A cassette id is untrusted input -- {@see CorrelationId::sanitize()} strips
+ * control bytes and caps length, but
  * passes `/`, `.` and `..` straight through, verified against its source. A
  * caller who controls the correlation header therefore controls where a
  * cassette is written unless the id is reduced to a safe slug before it ever

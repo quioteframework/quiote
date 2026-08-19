@@ -19,10 +19,9 @@ use Throwable;
  * Before this, `cassette:list`/`cassette:show`/`replay` each hardcoded a
  * `new FileCassetteStore(...)` and refused to run at all when `replay.store`
  * named anything else -- correct as far as it went (no other store existed
- * yet), but the console surface promised in
- * `docs/RECORD_REPLAY_PLAN.md` §9 was never actually store-agnostic, and a
- * genuinely non-file store (`quioteframework/replay-pdo`, per §15 item 9)
- * would have had no way to make these commands work at all.
+ * yet), but the console surface was never actually store-agnostic, and a
+ * genuinely non-file store (`quioteframework/replay-pdo`) would have had no
+ * way to make these commands work at all.
  *
  * Resolved against `core.default_context`, not a per-command `--context`
  * option: `replay.store`/`replay.store.*` are global app config, not

@@ -8,11 +8,10 @@ use Psr\Http\Message\ResponseInterface;
 use Quiote\Support\Compiler\Diagnostic;
 
 /**
- * Diffs a fresh replay response against a cassette's recorded one, per
- * `docs/RECORD_REPLAY_PLAN.md` §7.2: "drift as a feature" -- every
- * difference is reported through {@see Diagnostic}, never silently
- * smoothed over. No existing diffing helper exists anywhere in the
- * codebase for this; this is the first one.
+ * Diffs a fresh replay response against a cassette's recorded one: drift as
+ * a feature -- every difference is reported through {@see Diagnostic},
+ * never silently smoothed over. No existing diffing helper exists anywhere
+ * in the codebase for this; this is the first one.
  *
  * Status and body mismatches are {@see Diagnostic::SEVERITY_ERROR} (the
  * response a client would actually see changed); header differences are

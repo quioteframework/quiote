@@ -12,10 +12,9 @@ use Quiote\Replay\Cassette\CassetteCodec;
 use Quiote\Replay\Cassette\CassetteId;
 
 /**
- * Development-default store, per `docs/RECORD_REPLAY_PLAN.md` §12.1: never
- * the right choice in production (an AKS pod's filesystem disappears on
- * restart/eviction/scale-down), but a zero-dependency default that makes the
- * feature usable immediately.
+ * Development-default store: never the right choice in production (an AKS
+ * pod's filesystem disappears on restart/eviction/scale-down), but a
+ * zero-dependency default that makes the feature usable immediately.
  *
  * Modeled on {@see \Quiote\Session\FileSessionPersistence}'s pattern:
  * directory created `0700` at construction (refusing to proceed rather than
@@ -101,7 +100,7 @@ final class FileCassetteStore implements ListableCassetteStoreInterface
 
     /**
      * Every cassette id currently in the store, for `cassette:list` -- the
-     * file store's stand-in for a real object-store `listObjects()` (§12.8).
+     * file store's stand-in for a real object-store `listObjects()`.
      *
      * @return list<string> slugs, not raw ids -- the file store never learns a cassette's
      *         raw id without decoding it.

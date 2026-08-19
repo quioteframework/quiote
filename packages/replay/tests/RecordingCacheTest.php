@@ -131,9 +131,9 @@ final class RecordingCacheTest extends TestCase
     }
 
     /**
-     * The key correctness property from the plan: a cache hit changes what a
-     * request does, so two get() calls on the same key returning different
-     * values must be recorded as two distinct ordered effects, not collapsed.
+     * The key correctness property: a cache hit changes what a request does,
+     * so two get() calls on the same key returning different values must be
+     * recorded as two distinct ordered effects, not collapsed.
      */
     public function testTwoSequentialGetCallsOnTheSameKeyWithDifferentOutcomesRecordTwoOrderedEffects(): void
     {

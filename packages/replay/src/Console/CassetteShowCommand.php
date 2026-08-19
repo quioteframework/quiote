@@ -19,10 +19,9 @@ use Throwable;
 
 /**
  * `cassette:show <id>` -- decodes one cassette and prints the requested
- * projection. Request/response bodies are excerpted (length + sha256, per
- * `docs/RECORD_REPLAY_PLAN.md` §13.4's projection default) unless
- * `--include-bodies` is passed, so a 2 MiB cassette does not become 2 MiB of
- * terminal output by accident.
+ * projection. Request/response bodies are excerpted (length + sha256 by
+ * default) unless `--include-bodies` is passed, so a 2 MiB cassette does not
+ * become 2 MiB of terminal output by accident.
  */
 #[AsCommand(name: 'cassette:show', description: 'Show one cassette from the configured replay store')]
 final class CassetteShowCommand extends AbstractAppCommand

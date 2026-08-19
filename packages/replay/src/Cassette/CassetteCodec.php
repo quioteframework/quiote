@@ -7,17 +7,16 @@ namespace Quiote\Replay\Cassette;
 use JsonException;
 
 /**
- * Encodes/decodes a {@see Cassette} to/from its `.qcast` container, per
- * `docs/RECORD_REPLAY_PLAN.md` §4.4: canonical JSON, gzipped by default so
- * bodies and ledgers compress well, with a raw (plain JSON) path for
- * inspection.
+ * Encodes/decodes a {@see Cassette} to/from its `.qcast` container: canonical
+ * JSON, gzipped by default so bodies and ledgers compress well, with a raw
+ * (plain JSON) path for inspection.
  *
- * `_schema_version` is checked per §4.3: this codec understands exactly one
- * version. A newer version is refused outright, naming the version it
- * needs -- no silent best-effort parsing. There is no older version yet, so
- * the "load an old version through a documented forward-reader" branch that
- * section describes has nothing to implement; when a version 2 exists, that
- * branch is added here rather than assumed in advance.
+ * `_schema_version` is checked: this codec understands exactly one version. A
+ * newer version is refused outright, naming the version it needs -- no
+ * silent best-effort parsing. There is no older version yet, so the "load an
+ * old version through a documented forward-reader" branch has nothing to
+ * implement; when a version 2 exists, that branch is added here rather than
+ * assumed in advance.
  */
 final class CassetteCodec
 {
