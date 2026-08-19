@@ -6,7 +6,9 @@ use PHPUnit\Framework\TestCase;
 use Quiote\Replay\Cassette\Effect;
 use Quiote\Replay\Cassette\EffectKind;
 use Quiote\Replay\Replay\EffectLedger;
+use Quiote\Replay\Db\RecordingPdoStatement;
 use Quiote\Replay\Replay\StubbedPdo;
+use Quiote\Replay\Replay\StubbedPdoStatement;
 
 final class StubbedPdoTest extends TestCase
 {
@@ -106,14 +108,67 @@ final class StubbedPdoTest extends TestCase
         $pdo->exec('DELETE FROM t');
     }
 
-    public function testFetchColumnIsUnsupported(): void
+    public function testFetchColumnIsAnsweredFromTheRecordedRows(): void
     {
-        $ledger = new EffectLedger([new Effect(0, EffectKind::Db, 'SELECT id FROM t', [], [['id' => 1]])]);
-        $stmt = (new StubbedPdo($ledger))->prepare('SELECT id FROM t');
+        // Matches RecordingPdoStatement, which also answers it now: a stub that refuses what the
+        // recorder accepts cannot replay code the recorder observed.
+        $ledger = new EffectLedger([
+            new Effect(0, EffectKind::Db, 'SELECT COUNT(*) FROM t', ['sql' => 'SELECT COUNT(*) FROM t'], [['c' => 7]]),
+        ]);
+        $stmt = new StubbedPdoStatement($ledger, 'SELECT COUNT(*) FROM t');
         $stmt->execute();
 
+        $this->assertSame(7, $stmt->fetchColumn());
+        $this->assertFalse($stmt->fetchColumn(), 'exhausted');
+    }
+
+    public function testAMalformedRecordedResultRaisesACassetteErrorNotATypeError(): void
+    {
+        // A cassette written by a recorder with a different result shape, or edited by hand. This
+        // used to reach formatRow() through an unchecked @var and produce a raw TypeError.
+        $ledger = new EffectLedger([
+            new Effect(0, EffectKind::Db, 'SELECT x', ['sql' => 'SELECT x'], [1, 2, 3]),
+        ]);
+        $stmt = new StubbedPdoStatement($ledger, 'SELECT x');
+
         $this->expectException(RuntimeException::class);
-        $stmt->fetchColumn();
+        $this->expectExceptionMessageMatches('/neither a list of associative rows nor an affected-row count/');
+        $stmt->execute();
+    }
+
+    public function testANullRecordedResultRaisesACassetteError(): void
+    {
+        // The shape quioteframework/replay-eloquent produces: its recorder cannot see rows at all,
+        // so a cassette from it has nothing for this stub to answer with. Saying so beats silently
+        // replaying every query as zero rows.
+        $ledger = new EffectLedger([
+            new Effect(0, EffectKind::Db, 'SELECT x', ['sql' => 'SELECT x'], null),
+        ]);
+        $stmt = new StubbedPdoStatement($ledger, 'SELECT x');
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/carries a null result/');
+        $stmt->execute();
+    }
+
+    public function testBoundParametersParticipateInTheFingerprint(): void
+    {
+        $ledger = new EffectLedger([
+            new Effect(0, EffectKind::Db, RecordingPdoStatement::fingerprintFor('SELECT n FROM t WHERE id = ?', [1 => 1]), ['sql' => 'SELECT n FROM t WHERE id = ?'], [['n' => 'one']]),
+            new Effect(1, EffectKind::Db, RecordingPdoStatement::fingerprintFor('SELECT n FROM t WHERE id = ?', [1 => 2]), ['sql' => 'SELECT n FROM t WHERE id = ?'], [['n' => 'two']]),
+        ]);
+
+        // Asked for in the opposite order to the recording: only a parameter-aware fingerprint
+        // gets each execution its own recorded rows.
+        $second = new StubbedPdoStatement($ledger, 'SELECT n FROM t WHERE id = ?');
+        $second->bindValue(1, 2);
+        $second->execute();
+        $this->assertSame([['n' => 'two']], $second->fetchAll(PDO::FETCH_ASSOC));
+
+        $first = new StubbedPdoStatement($ledger, 'SELECT n FROM t WHERE id = ?');
+        $first->bindValue(1, 1);
+        $first->execute();
+        $this->assertSame([['n' => 'one']], $first->fetchAll(PDO::FETCH_ASSOC));
     }
 
     public function testFetchingBeforeExecuteRaises(): void
