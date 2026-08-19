@@ -1,4 +1,4 @@
-## [4.0.0] - 2026-08-19
+## [4.0.0-RC1] - 2026-08-19
 
 ### 🚀 Features
 
@@ -9,3 +9,7 @@
 ### 🐛 Bug Fixes
 
 - *(replay)* Give a db effect's result one shape, and make the adapters compose
+
+### 📚 Documentation
+
+- *(replay)* Add changelogs for the eight replay packages

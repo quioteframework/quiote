@@ -1,4 +1,4 @@
-## [4.0.0] - 2026-08-19
+## [4.0.0-RC1] - 2026-08-19
 
 ### 🚀 Features
 
@@ -8,3 +8,7 @@
 ### 🐛 Bug Fixes
 
 - *(replay)* Close the three remaining secret-leak paths in recording
+
+### 📚 Documentation
+
+- *(replay)* Add changelogs for the eight replay packages

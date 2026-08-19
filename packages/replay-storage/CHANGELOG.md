@@ -1,4 +1,4 @@
-## [4.0.0] - 2026-08-19
+## [4.0.0-RC1] - 2026-08-19
 
 ### 🚀 Features
 
@@ -13,3 +13,4 @@
 ### 📚 Documentation
 
 - *(replay)* Remove internal plan-doc citations from code comments
+- *(replay)* Add changelogs for the eight replay packages
