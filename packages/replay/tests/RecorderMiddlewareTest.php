@@ -418,6 +418,84 @@ final class RecorderMiddlewareTest extends TestCase
 
         $this->assertCount(1, $source->deactivations);
     }
+
+    public function testResponseSetCookieIsRedacted(): void
+    {
+        $this->enable('always');
+        $store = $this->spyStore();
+        $middleware = new RecorderMiddleware($this->context($store), $store);
+        $response = (new Response(200))
+            ->withHeader('Set-Cookie', 'QSESSID=deadbeefsecret; HttpOnly; Secure')
+            ->withHeader('Content-Type', 'text/html');
+
+        $middleware->process(new ServerRequest('GET', '/'), $this->handler($response));
+
+        $this->assertCount(1, $store->put);
+        $headers = $store->put[0][1]->response['headers'];
+        $this->assertIsArray($headers);
+        $this->assertSame(['[REDACTED]'], $headers['Set-Cookie']);
+        // A header not on the denylist is untouched: redaction is scoped, not blanket.
+        $this->assertSame(['text/html'], $headers['Content-Type']);
+    }
+
+    public function testResponseHeaderRedactionHonoursTheConfiguredDenylist(): void
+    {
+        $this->enable('always');
+        Config::set('replay.redact.headers', ['x-internal-token'], true, false);
+        $store = $this->spyStore();
+        $middleware = new RecorderMiddleware($this->context($store), $store);
+        $response = (new Response(200))
+            ->withHeader('X-Internal-Token', 'tok_live_123')
+            ->withHeader('Set-Cookie', 'QSESSID=abc');
+
+        $middleware->process(new ServerRequest('GET', '/'), $this->handler($response));
+
+        $headers = $store->put[0][1]->response['headers'];
+        $this->assertIsArray($headers);
+        $this->assertSame(['[REDACTED]'], $headers['X-Internal-Token']);
+        // Replacing the denylist replaces it wholesale -- set-cookie is no longer on it.
+        $this->assertSame(['QSESSID=abc'], $headers['Set-Cookie']);
+    }
+
+    public function testResponseHeaderRedactionUsesTheConfiguredMode(): void
+    {
+        $this->enable('always');
+        Config::set('replay.redact.mode', 'hash', true, false);
+        $store = $this->spyStore();
+        $middleware = new RecorderMiddleware($this->context($store), $store);
+        $response = (new Response(200))->withHeader('Set-Cookie', 'QSESSID=abc');
+
+        $middleware->process(new ServerRequest('GET', '/'), $this->handler($response));
+
+        $headers = $store->put[0][1]->response['headers'];
+        $this->assertIsArray($headers);
+        $this->assertIsArray($headers['Set-Cookie']);
+        $this->assertSame('sha256:' . hash('sha256', 'QSESSID=abc'), $headers['Set-Cookie'][0]);
+    }
+
+    public function testNoRecordSkeletonStillCarriesNoResponseHeadersAtAll(): void
+    {
+        $this->enable('always');
+        $store = $this->spyStore();
+        $descriptor = new ActionDescriptor('Payments', 'Charge', 'execute', 'html', true);
+        $published = (new ServerRequest('GET', '/pay'))->withAttribute(ActionDescriptor::class, $descriptor);
+        $controller = new class extends Controller {
+            #[\Override]
+            public function createActionInstance($moduleName, $actionName): Action
+            {
+                return new RecorderMiddlewareTestNoRecordAction();
+            }
+        };
+        $middleware = new RecorderMiddleware(
+            $this->context($store, $this->requestStatePublishing($published), $controller),
+            $store,
+        );
+
+        $middleware->process(new ServerRequest('GET', '/pay'), $this->handler((new Response(200))->withHeader('Set-Cookie', 'QSESSID=abc')));
+
+        $this->assertCount(1, $store->put);
+        $this->assertSame([], $store->put[0][1]->response['headers']);
+    }
 }
 
 #[NoRecord]

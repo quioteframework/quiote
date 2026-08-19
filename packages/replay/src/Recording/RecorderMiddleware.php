@@ -284,7 +284,7 @@ final class RecorderMiddleware implements MiddlewareInterface, ResetInterface
         }
 
         if ($response !== null) {
-            $session->setResponse($noRecord ? self::skeletonResponse($response->getStatusCode()) : $this->captureResponse($response));
+            $session->setResponse($noRecord ? self::skeletonResponse($response->getStatusCode()) : $this->captureResponse($response, $redactor));
         } else {
             $session->setResponse(self::skeletonResponse(500));
         }
@@ -405,12 +405,20 @@ final class RecorderMiddleware implements MiddlewareInterface, ResetInterface
         ];
     }
 
-    /** @return array<string, mixed> */
-    private function captureResponse(ResponseInterface $response): array
+    /**
+     * Response headers go through the same `replay.redact.headers` denylist the request's do.
+     * `set-cookie` is on that denylist by default and can only ever appear on a response, so
+     * skipping redaction here would leave the one header the shipped default most clearly
+     * intends to scrub -- a session id, a rotated auth cookie, a remember-me token -- stored in
+     * the cassette verbatim.
+     *
+     * @return array<string, mixed>
+     */
+    private function captureResponse(ResponseInterface $response, Redactor $redactor): array
     {
         return [
             'status' => $response->getStatusCode(),
-            'headers' => $response->getHeaders(),
+            'headers' => $redactor->redactHeaders($response->getHeaders()),
             'body' => self::encodeBody((string)$response->getBody()),
             'stray_output' => '',
         ];
