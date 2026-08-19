@@ -7,15 +7,12 @@ namespace Quiote\Replay\Console;
 use Quiote\Config\Config;
 use Quiote\Console\Command\AbstractAppCommand;
 use Quiote\Context;
-use Quiote\Replay\Cassette\Cassette;
 use Quiote\Replay\Cassette\CassetteId;
 use Quiote\Replay\Index\IndexHints;
 use Quiote\Replay\Replay\ReplayEngine;
 use Quiote\Replay\Replay\ReplayException;
-use Quiote\Replay\Store\FileCassetteStore;
-use Quiote\Replay\Testing\TestEmitter;
+use Quiote\Replay\Testing\ReplayTestEmission;
 use Quiote\Support\Compiler\Diagnostic;
-use Quiote\Support\Compiler\FilesystemArtifactWriter;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -124,7 +121,7 @@ final class ReplayCommand extends AbstractAppCommand
         $emitted = null;
         if ($input->getOption('as-test')) {
             try {
-                $emitted = $this->emitTest($id, $cassette, (bool)$input->getOption('expect-fixed'));
+                $emitted = ReplayTestEmission::emit($id, $cassette, (bool)$input->getOption('expect-fixed'));
             } catch (Throwable $e) {
                 $io->error(sprintf('Could not emit test: %s', $e->getMessage()));
 
@@ -174,26 +171,5 @@ final class ReplayCommand extends AbstractAppCommand
         }
 
         return $result->drift->hasErrors() ? self::FAILURE : self::SUCCESS;
-    }
-
-    /**
-     * Writes the cassette to `{replay.tests_path}/cassettes/{slug}.qcast` and the generated test
-     * to `{replay.tests_path}/Replay{slug}Test.php`, both under `core.app_dir`.
-     *
-     * @return array{test: string, cassette: string}
-     */
-    private function emitTest(CassetteId $id, Cassette $cassette, bool $expectFixed): array
-    {
-        $testsDir = rtrim(Config::getString('core.app_dir', ''), '/\\')
-            . '/' . trim(Config::getString('replay.tests_path', 'tests/Replay'), '/\\');
-        $cassettesDir = $testsDir . '/cassettes';
-
-        (new FileCassetteStore($cassettesDir))->put($id, $cassette);
-
-        $artifact = (new TestEmitter())->emit($cassette, $id, $expectFixed);
-        $testPath = $testsDir . '/' . basename($artifact->targetHint);
-        (new FilesystemArtifactWriter())->write($artifact, $testPath);
-
-        return ['test' => $testPath, 'cassette' => $cassettesDir . '/' . $id->slug . '.qcast'];
     }
 }

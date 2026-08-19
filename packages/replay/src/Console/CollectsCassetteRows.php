@@ -20,7 +20,7 @@ trait CollectsCassetteRows
     /**
      * @return array{0: list<array{id: string, slug: string, recorded_at: ?string, route: ?string, status: ?int, trigger: ?string}>, 1: list<Diagnostic>}
      */
-    private function collectCassetteRows(ListableCassetteStoreInterface $store): array
+    private static function collectCassetteRows(ListableCassetteStoreInterface $store): array
     {
         $rows = [];
         $diagnostics = [];
