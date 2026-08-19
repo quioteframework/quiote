@@ -9,8 +9,7 @@ use DateTimeZone;
 use Quiote\Replay\Cassette\CassetteId;
 
 /**
- * Derives an object-store key from a cassette id and the hour it was
- * recorded in, per `docs/RECORD_REPLAY_PLAN.md` §12.2:
+ * Derives an object-store key from a cassette id and the hour it was recorded in:
  *
  *   {prefix}/{env}/{yyyy}/{mm}/{dd}/{hh}/{id}.qcast
  *
@@ -48,14 +47,25 @@ final readonly class CassetteKeyScheme
     {
         $utc = $dt->setTimezone(new DateTimeZone('UTC'));
 
+        return $this->dayPrefix($utc) . $utc->format('H') . '/';
+    }
+
+    /**
+     * The key prefix for every cassette recorded during $dt's UTC calendar day -- one level up
+     * from {@see hourPrefix()}, for a delimited `listObjects()` call that enumerates that day's
+     * hour buckets as common prefixes rather than every object in it.
+     */
+    public function dayPrefix(DateTimeImmutable $dt): string
+    {
+        $utc = $dt->setTimezone(new DateTimeZone('UTC'));
+
         return sprintf(
-            '%s/%s/%s/%s/%s/%s/',
+            '%s/%s/%s/%s/%s/',
             trim($this->prefix, '/'),
             $this->env,
             $utc->format('Y'),
             $utc->format('m'),
             $utc->format('d'),
-            $utc->format('H'),
         );
     }
 }

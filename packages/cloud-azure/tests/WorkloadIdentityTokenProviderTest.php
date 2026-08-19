@@ -85,6 +85,17 @@ final class WorkloadIdentityTokenProviderTest extends TestCase
         $provider->getToken();
     }
 
+    public function testGetTokenRequestsACustomScopeWhenGiven(): void
+    {
+        $http = new FakeAadTokenTransport(200, ['access_token' => 'aad-token', 'expires_in' => 3600]);
+        $provider = new WorkloadIdentityTokenProvider($http, 'tenant-1', 'client-1', $this->tokenFile, scope: 'https://api.loganalytics.io/.default');
+
+        $provider->getToken();
+
+        $body = (string) $http->requests[0]->getBody();
+        $this->assertStringContainsString('scope=https%3A%2F%2Fapi.loganalytics.io%2F.default', $body);
+    }
+
     public function testFromEnvironmentThrowsWhenTheWebhookVariablesAreAbsent(): void
     {
         $http = new FakeAadTokenTransport(200, ['access_token' => 'aad-token', 'expires_in' => 3600]);

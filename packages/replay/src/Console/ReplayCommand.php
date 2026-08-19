@@ -9,6 +9,7 @@ use Quiote\Console\Command\AbstractAppCommand;
 use Quiote\Context;
 use Quiote\Replay\Cassette\Cassette;
 use Quiote\Replay\Cassette\CassetteId;
+use Quiote\Replay\Index\IndexHints;
 use Quiote\Replay\Replay\ReplayEngine;
 use Quiote\Replay\Replay\ReplayException;
 use Quiote\Replay\Store\FileCassetteStore;
@@ -24,22 +25,18 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 use Throwable;
 
 /**
- * `quiote replay <id>` -- re-runs a recorded cassette against the real
- * pipeline and reports drift (§7.2), and, with `--as-test`, emits a
- * committed regression test from it (§8). The cassette is looked up through
- * whichever store `replay.store` resolves to (see {@see ResolvesCassetteStore}
- * -- file, or `quioteframework/replay-pdo`'s table, today). `--save`/`--live`
- * from §9's full signature are still not offered: `--save` belongs
- * specifically to the fetch-from-a-remote-*object*-store-and-cache-locally
- * flow (§12.4 -- Azure/S3/GCS, none of which exist yet; a PDO store has
- * nothing to "download", it is queried directly), and `--live` is not
- * offered either -- see {@see ReplayEngine}'s docblock for why there is
- * currently only one mode to run in.
+ * `quiote replay <id>` -- re-runs a recorded cassette against the real pipeline and reports drift,
+ * and, with `--as-test`, emits a committed regression test from it. The cassette is resolved via
+ * {@see ResolvesCassetteViaIndexes}: the local cache, then whichever store `replay.store` names,
+ * then -- given `--key`/`--date`/`--hour`, or none at all if a `log-analytics` index is configured
+ * -- the cassette-index chain. `--save` fetches and caches the cassette without replaying it, the
+ * same operation `quiote cassette:fetch` performs under its own name. `--live` is not offered --
+ * see {@see ReplayEngine}'s docblock for why there is currently only one mode to run in.
  */
 #[AsCommand(name: 'replay', description: 'Re-run a recorded cassette against the live app and report drift')]
 final class ReplayCommand extends AbstractAppCommand
 {
-    use ResolvesCassetteStore;
+    use ResolvesCassetteViaIndexes;
 
     protected function configure(): void
     {
@@ -48,6 +45,10 @@ final class ReplayCommand extends AbstractAppCommand
             ->addArgument('id', InputArgument::REQUIRED, 'The cassette id')
             ->addOption('context', null, InputOption::VALUE_REQUIRED, 'Context to replay against (defaults to the cassette\'s own recorded context, else core.default_context)')
             ->addOption('force', null, InputOption::VALUE_NONE, 'Allow replaying a non-idempotent (e.g. POST) request')
+            ->addOption('save', null, InputOption::VALUE_NONE, 'Fetch and cache the cassette locally without replaying it')
+            ->addOption('key', null, InputOption::VALUE_REQUIRED, 'An exact store key pasted from a pointer log line, bypassing id-based resolution')
+            ->addOption('date', null, InputOption::VALUE_REQUIRED, 'A YYYY-MM-DD hint narrowing a prefix scan to one day')
+            ->addOption('hour', null, InputOption::VALUE_REQUIRED, 'An 00-23 hint narrowing a prefix scan to one hour of --date')
             ->addOption('as-test', null, InputOption::VALUE_NONE, 'Emit a committed regression test (replay.tests_path, default tests/Replay/) alongside a copy of the cassette')
             ->addOption('expect-fixed', null, InputOption::VALUE_NONE, 'With --as-test, emit an inverted skeleton (markTestIncomplete) for the intended, fixed behaviour instead of asserting the recorded response')
             ->addOption('json', null, InputOption::VALUE_NONE, 'Output as JSON');
@@ -65,23 +66,35 @@ final class ReplayCommand extends AbstractAppCommand
             return self::FAILURE;
         }
 
-        $sourceStore = $this->resolveCassetteStore($io);
-        if ($sourceStore === null) {
-            return self::FAILURE;
-        }
-
         $id = CassetteId::fromRaw($idArgument);
-        try {
-            $cassette = $sourceStore->get($id);
-        } catch (Throwable $e) {
-            $io->error($e->getMessage());
+        $hints = new IndexHints(
+            key: self::stringOption($input, 'key'),
+            date: self::stringOption($input, 'date'),
+            hour: self::stringOption($input, 'hour'),
+        );
 
+        $fetched = $this->fetchCassette($io, $id, $hints);
+        if ($fetched === null) {
             return self::FAILURE;
         }
-        if ($cassette === null) {
-            $io->error(sprintf('No cassette found for id "%s".', $idArgument));
+        $cassette = $fetched['cassette'];
 
-            return self::FAILURE;
+        if ($input->getOption('save')) {
+            if ($input->getOption('json')) {
+                $output->writeln(json_encode([
+                    'id' => $idArgument,
+                    'source' => $fetched['source'],
+                    'cached_path' => $fetched['cached_path'],
+                ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) ?: '{}');
+
+                return self::SUCCESS;
+            }
+            $io->success(sprintf('Fetched cassette "%s" from %s.', $idArgument, $fetched['source']));
+            if ($fetched['cached_path'] !== null) {
+                $io->writeln(sprintf('Cached at: %s', $fetched['cached_path']));
+            }
+
+            return self::SUCCESS;
         }
 
         $contextOption = $input->getOption('context');
@@ -165,9 +178,7 @@ final class ReplayCommand extends AbstractAppCommand
 
     /**
      * Writes the cassette to `{replay.tests_path}/cassettes/{slug}.qcast` and the generated test
-     * to `{replay.tests_path}/Replay{slug}Test.php`, both under `core.app_dir` -- §17 item 5's own
-     * open question ("tests/Replay/ in the app, or a configurable path") resolved here as
-     * configurable, defaulting to the path §8's own example uses.
+     * to `{replay.tests_path}/Replay{slug}Test.php`, both under `core.app_dir`.
      *
      * @return array{test: string, cassette: string}
      */

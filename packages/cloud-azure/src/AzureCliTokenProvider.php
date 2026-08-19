@@ -16,7 +16,6 @@ namespace Quiote\Storage\Azure;
  */
 final class AzureCliTokenProvider implements AzureTokenProvider
 {
-    private const string RESOURCE = 'https://storage.azure.com/';
     private const int CACHE_TTL_SECONDS = 240;
 
     private ?string $cachedToken = null;
@@ -24,6 +23,7 @@ final class AzureCliTokenProvider implements AzureTokenProvider
 
     public function __construct(
         private readonly AzureCliProcessRunner $processRunner = new ProcOpenAzureCliProcessRunner(),
+        private readonly string $resource = self::STORAGE_RESOURCE,
     ) {
     }
 
@@ -35,7 +35,7 @@ final class AzureCliTokenProvider implements AzureTokenProvider
             return $this->cachedToken;
         }
 
-        $output = $this->processRunner->run(['az', 'account', 'get-access-token', '--resource', self::RESOURCE, '--output', 'json']);
+        $output = $this->processRunner->run(['az', 'account', 'get-access-token', '--resource', $this->resource, '--output', 'json']);
 
         try {
             $payload = json_decode($output, true, flags: JSON_THROW_ON_ERROR);

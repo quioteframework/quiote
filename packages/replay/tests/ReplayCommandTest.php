@@ -31,6 +31,7 @@ final class ReplayCommandTest extends TestCase
     private string $dir;
     private ?string $originalStore;
     private ?string $originalStorePath;
+    private ?string $originalLocalPath;
     private ?bool $originalAllowLive;
     private ?string $originalAppDir;
     private ?string $originalTestsPath;
@@ -41,11 +42,17 @@ final class ReplayCommandTest extends TestCase
         $this->dir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'quiote-replay-cmd-' . bin2hex(random_bytes(6));
         $this->originalStore = Config::getNullableString('replay.store');
         $this->originalStorePath = Config::getNullableString('replay.store.path');
+        $this->originalLocalPath = Config::getNullableString('replay.local_path');
         $this->originalAllowLive = Config::has('replay.allow_live') ? Config::getBool('replay.allow_live') : null;
         $this->originalAppDir = Config::getNullableString('core.app_dir');
         $this->originalTestsPath = Config::getNullableString('replay.tests_path');
         Config::set('replay.store', 'file', true, false);
         Config::set('replay.store.path', $this->dir, true, false);
+        // Scoped to the same disposable temp dir as replay.store.path -- otherwise
+        // fetchCassette()'s local-cache check would read/write whatever core.app_dir/var/cassettes
+        // happens to resolve to (unset here, or leaked from an earlier test), which is exactly the
+        // kind of cross-test state leak that makes a suite flaky.
+        Config::set('replay.local_path', $this->dir, true, false);
         Config::set('replay.allow_live', false, true, false);
 
         PluginManager::add(new ReplayPlugin());
@@ -65,6 +72,11 @@ final class ReplayCommandTest extends TestCase
             Config::set('replay.store.path', $this->originalStorePath, true, false);
         } else {
             Config::remove('replay.store.path');
+        }
+        if ($this->originalLocalPath !== null) {
+            Config::set('replay.local_path', $this->originalLocalPath, true, false);
+        } else {
+            Config::remove('replay.local_path');
         }
         if ($this->originalAllowLive !== null) {
             Config::set('replay.allow_live', $this->originalAllowLive, true, false);
@@ -139,7 +151,7 @@ final class ReplayCommandTest extends TestCase
         $exitCode = $tester->execute(['id' => 'does-not-exist']);
 
         $this->assertSame(1, $exitCode);
-        $this->assertStringContainsString('No cassette found', $tester->getDisplay());
+        $this->assertStringContainsString('No index could resolve cassette', $tester->getDisplay());
     }
 
     public function testUnregisteredStoreAliasFails(): void

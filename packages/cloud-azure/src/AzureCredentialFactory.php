@@ -30,35 +30,10 @@ final class AzureCredentialFactory
     public static function fromConfig(array $config, ClientInterface $httpClient, Psr17Factory $psr17 = new Psr17Factory(), LoggerInterface $logger = new NullLogger()): AzureCredential
     {
         $auth = $config['auth'] ?? 'shared_key';
-
-        return match ($auth) {
-            'shared_key' => new SharedKeyCredential($config['account_key'] ?? ''),
-            'workload_identity' => new BearerCredential(WorkloadIdentityTokenProvider::fromEnvironment($httpClient, $psr17)),
-            'cli' => new BearerCredential(new AzureCliTokenProvider()),
-            'chain' => new BearerCredential(new ChainedTokenProvider(self::chainProviders($httpClient, $psr17, $logger), $logger)),
-            default => throw new AzureStorageException("Unknown Azure auth strategy \"{$auth}\", expected shared_key, workload_identity, cli or chain."),
-        };
-    }
-
-    /**
-     * Workload identity's environment variables are only present inside an annotated AKS pod, so
-     * outside one `fromEnvironment()` throws at construction time rather than at
-     * {@see AzureTokenProvider::getToken()}, too early for {@see ChainedTokenProvider} to fall
-     * through to the CLI on its own. Skipping the provider here, before it is ever added to the
-     * chain, is what makes `chain` usable both in-cluster and on a developer's machine.
-     *
-     * @return non-empty-list<AzureTokenProvider>
-     */
-    private static function chainProviders(ClientInterface $httpClient, Psr17Factory $psr17, LoggerInterface $logger): array
-    {
-        $providers = [];
-        try {
-            $providers[] = WorkloadIdentityTokenProvider::fromEnvironment($httpClient, $psr17);
-        } catch (AzureStorageException $e) {
-            $logger->debug("Workload identity is not available, the chain will rely on the CLI provider: {$e->getMessage()}");
+        if ($auth === 'shared_key') {
+            return new SharedKeyCredential($config['account_key'] ?? '');
         }
-        $providers[] = new AzureCliTokenProvider();
 
-        return $providers;
+        return new BearerCredential(AzureTokenProviderFactory::fromConfig($config, $httpClient, AzureTokenProvider::STORAGE_RESOURCE, $psr17, $logger));
     }
 }

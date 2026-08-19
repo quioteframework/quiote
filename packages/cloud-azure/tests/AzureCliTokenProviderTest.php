@@ -55,6 +55,15 @@ final class AzureCliTokenProviderTest extends TestCase
         $this->expectException(AzureStorageException::class);
         $provider->getToken();
     }
+
+    public function testGetTokenRequestsATokenForACustomResourceWhenGiven(): void
+    {
+        $runner = new FakeAzureCliProcessRunner(json_encode(['accessToken' => 'log-analytics-token'], JSON_THROW_ON_ERROR));
+        $provider = new AzureCliTokenProvider($runner, resource: 'https://api.loganalytics.io/');
+
+        $this->assertSame('log-analytics-token', $provider->getToken());
+        $this->assertSame(['az', 'account', 'get-access-token', '--resource', 'https://api.loganalytics.io/', '--output', 'json'], $runner->lastCommand);
+    }
 }
 
 final class FakeAzureCliProcessRunner implements AzureCliProcessRunner

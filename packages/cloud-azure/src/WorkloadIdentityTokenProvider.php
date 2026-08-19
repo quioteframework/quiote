@@ -22,7 +22,6 @@ use Psr\Http\Client\ClientInterface;
  */
 final class WorkloadIdentityTokenProvider implements AzureTokenProvider
 {
-    private const string SCOPE = 'https://storage.azure.com/.default';
     private const int EXPIRY_SAFETY_MARGIN_SECONDS = 60;
 
     private ?string $cachedToken = null;
@@ -35,6 +34,7 @@ final class WorkloadIdentityTokenProvider implements AzureTokenProvider
         private readonly string $federatedTokenFile,
         private readonly string $authorityHost = 'https://login.microsoftonline.com/',
         private readonly Psr17Factory $psr17 = new Psr17Factory(),
+        private readonly string $scope = self::STORAGE_RESOURCE . '.default',
     ) {
     }
 
@@ -42,7 +42,7 @@ final class WorkloadIdentityTokenProvider implements AzureTokenProvider
      * @throws AzureStorageException If any of the four AKS workload identity variables is
      *         missing from the environment.
      */
-    public static function fromEnvironment(ClientInterface $httpClient, Psr17Factory $psr17 = new Psr17Factory()): self
+    public static function fromEnvironment(ClientInterface $httpClient, Psr17Factory $psr17 = new Psr17Factory(), string $scope = self::STORAGE_RESOURCE . '.default'): self
     {
         $tenantId = getenv('AZURE_TENANT_ID');
         $clientId = getenv('AZURE_CLIENT_ID');
@@ -56,7 +56,7 @@ final class WorkloadIdentityTokenProvider implements AzureTokenProvider
         }
         $authorityHost = getenv('AZURE_AUTHORITY_HOST');
 
-        return new self($httpClient, $tenantId, $clientId, $tokenFile, $authorityHost !== false ? $authorityHost : 'https://login.microsoftonline.com/', $psr17);
+        return new self($httpClient, $tenantId, $clientId, $tokenFile, $authorityHost !== false ? $authorityHost : 'https://login.microsoftonline.com/', $psr17, $scope);
     }
 
     /** @inheritDoc */
@@ -77,7 +77,7 @@ final class WorkloadIdentityTokenProvider implements AzureTokenProvider
             'grant_type' => 'client_credentials',
             'client_assertion_type' => 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
             'client_assertion' => trim($assertion),
-            'scope' => self::SCOPE,
+            'scope' => $this->scope,
         ]);
 
         $tokenEndpoint = rtrim($this->authorityHost, '/') . "/{$this->tenantId}/oauth2/v2.0/token";

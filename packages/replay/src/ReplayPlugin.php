@@ -10,10 +10,12 @@ use Quiote\DI\Container;
 use Quiote\Plugin\Attribute\Plugin as PluginAttribute;
 use Quiote\Plugin\PluginInterface;
 use Quiote\Plugin\PluginRegistrar;
+use Quiote\Replay\Console\CassetteFetchCommand;
 use Quiote\Replay\Console\CassetteListCommand;
 use Quiote\Replay\Console\CassettePruneCommand;
 use Quiote\Replay\Console\CassetteShowCommand;
 use Quiote\Replay\Console\ReplayCommand;
+use Quiote\Replay\Index\CassetteIndexRegistry;
 use Quiote\Replay\Recording\ActiveEffectLedger;
 use Quiote\Replay\Recording\EffectLedgerRegistry;
 use Quiote\Replay\Recording\EffectSourceRegistry;
@@ -50,6 +52,10 @@ final class ReplayPlugin implements PluginInterface
         $registrar->configDefault('replay.trigger_header', 'X-Quiote-Record');
         $registrar->configDefault('replay.store', 'file');
         $registrar->configDefault('replay.store.path', 'var/cassettes');
+        // Where cassette:fetch/replay --save cache a cassette resolved via the store or an
+        // index, so a repeat lookup for the same id needs no network -- deliberately separate
+        // from replay.store.path, which is the file store's own storage location.
+        $registrar->configDefault('replay.local_path', 'var/cassettes');
         $registrar->configDefault('replay.tests_path', 'tests/Replay');
         $registrar->configDefault('replay.write', 'sync_on_error');
         // Consumed by CassettePruneCommand's default --older-than when the store is file/pdo;
@@ -88,10 +94,12 @@ final class ReplayPlugin implements PluginInterface
         $registrar->command(CassetteListCommand::class);
         $registrar->command(CassetteShowCommand::class);
         $registrar->command(CassettePruneCommand::class);
+        $registrar->command(CassetteFetchCommand::class);
         $registrar->command(ReplayCommand::class);
 
         $registrar->stateReset('quioteframework/replay', static function (): void {
             CassetteStoreRegistry::reset();
+            CassetteIndexRegistry::reset();
             EffectLedgerRegistry::reset();
             EffectSourceRegistry::reset();
             ActiveEffectLedger::reset();
