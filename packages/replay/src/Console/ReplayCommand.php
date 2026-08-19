@@ -11,6 +11,7 @@ use Quiote\Replay\Cassette\CassetteId;
 use Quiote\Replay\Index\IndexHints;
 use Quiote\Replay\Replay\ReplayEngine;
 use Quiote\Replay\Replay\ReplayException;
+use Quiote\Replay\Replay\ReplayMode;
 use Quiote\Replay\Testing\ReplayTestEmission;
 use Quiote\Support\Compiler\Diagnostic;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -22,7 +23,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 use Throwable;
 
 /**
- * `quiote replay <id>` -- re-runs a recorded cassette against the real pipeline and reports drift,
+ * `quiote replay <id>` -- re-runs a recorded cassette and reports drift,
  * and, with `--as-test`, emits a committed regression test from it. The cassette is resolved via
  * {@see ResolvesCassetteViaIndexes}: the local cache, then whichever store `replay.store` names,
  * then -- given `--key`/`--date`/`--hour`, or none at all if a `log-analytics` index is configured
@@ -41,7 +42,8 @@ final class ReplayCommand extends AbstractAppCommand
         $this
             ->addArgument('id', InputArgument::REQUIRED, 'The cassette id')
             ->addOption('context', null, InputOption::VALUE_REQUIRED, 'Context to replay against (defaults to the cassette\'s own recorded context, else core.default_context)')
-            ->addOption('force', null, InputOption::VALUE_NONE, 'Allow replaying a non-idempotent (e.g. POST) request')
+            ->addOption('live', null, InputOption::VALUE_NONE, 'Dispatch against the real, configured collaborators instead of replaying in isolation -- really re-performs the request\'s side effects, and needs replay.allow_live')
+            ->addOption('force', null, InputOption::VALUE_NONE, 'With --live, allow replaying a non-safe (e.g. POST) request')
             ->addOption('save', null, InputOption::VALUE_NONE, 'Fetch and cache the cassette locally without replaying it')
             ->addOption('key', null, InputOption::VALUE_REQUIRED, 'An exact store key pasted from a pointer log line, bypassing id-based resolution')
             ->addOption('date', null, InputOption::VALUE_REQUIRED, 'A YYYY-MM-DD hint narrowing a prefix scan to one day')
@@ -104,7 +106,12 @@ final class ReplayCommand extends AbstractAppCommand
 
         try {
             $context = Context::getInstance($contextName);
-            $result = (new ReplayEngine())->replay($context, $cassette, (bool)$input->getOption('force'));
+            $result = (new ReplayEngine())->replay(
+                $context,
+                $cassette,
+                (bool)$input->getOption('force'),
+                $input->getOption('live') ? ReplayMode::Live : ReplayMode::Isolated,
+            );
         } catch (ReplayException $e) {
             $io->error($e->getMessage());
 
@@ -145,7 +152,8 @@ final class ReplayCommand extends AbstractAppCommand
         }
 
         $io->writeln(sprintf(
-            'Replayed status: %d (recorded: %s)',
+            'Replayed %s: status %d (recorded: %s)',
+            $input->getOption('live') ? 'live' : 'in isolation',
             $result->response->getStatusCode(),
             is_int($recordedStatus) ? (string)$recordedStatus : '?',
         ));
@@ -153,17 +161,7 @@ final class ReplayCommand extends AbstractAppCommand
         if ($emitted !== null) {
             $io->writeln(sprintf('Emitted test: %s', $emitted['test']));
             $io->writeln(sprintf('Emitted cassette: %s', $emitted['cassette']));
-            $recordedMethod = $cassette->request['method'] ?? null;
-            if (is_string($recordedMethod) && !ReplayEngine::isSafeMethod($recordedMethod)) {
-                // Said at emit time, not left for CI to discover: the generated test dispatches a
-                // write on every run, and ReplayTestCase refuses that until a suite opts in.
-                $io->warning(sprintf(
-                    'The emitted test replays a %s request, which re-performs its writes on every run. '
-                    . 'It will refuse to run until replay.tests_allow_live=true is set for the suite, and '
-                    . 'that is only safe where the test environment is disposable.',
-                    strtoupper($recordedMethod),
-                ));
-            }
+
         }
 
         if ($result->drift->isClean()) {

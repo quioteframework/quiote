@@ -52,6 +52,10 @@ final class DoctrineRecordingConnection extends AbstractConnectionMiddleware
     public function query(string $sql): Result
     {
         $ledger = ActiveEffectLedger::get();
+        if ($ledger !== null && $ledger->isReplaying()) {
+            return LedgerServedResult::forSql($ledger, $sql, []);
+        }
+
         $start = $this->clock->monotonic();
         $real = parent::query($sql);
 
@@ -81,6 +85,11 @@ final class DoctrineRecordingConnection extends AbstractConnectionMiddleware
     #[\Override]
     public function exec(string $sql): int|string
     {
+        $ledger = ActiveEffectLedger::get();
+        if ($ledger !== null && $ledger->isReplaying()) {
+            return LedgerServedResult::affectedRowsForSql($ledger, $sql);
+        }
+
         $start = $this->clock->monotonic();
         $result = parent::exec($sql);
 

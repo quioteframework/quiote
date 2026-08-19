@@ -8,6 +8,7 @@ use Doctrine\DBAL\Driver\Middleware\AbstractStatementMiddleware;
 use Doctrine\DBAL\Driver\Result;
 use Doctrine\DBAL\Driver\Statement;
 use Doctrine\DBAL\ParameterType;
+use Quiote\Replay\Adapter\Doctrine\LedgerServedResult;
 use Quiote\Replay\Cassette\DbResult;
 use Quiote\Replay\Cassette\EffectKind;
 use Quiote\Replay\Db\RecordingPdo;
@@ -71,6 +72,16 @@ final class DoctrineRecordingStatement extends AbstractStatementMiddleware
     public function execute(): Result
     {
         $ledger = ActiveEffectLedger::get();
+
+        // Before parent::execute(), and that ordering is the whole of isolated replay: a replaying
+        // ledger means this statement must not reach the connection at all, so the recorded rows are
+        // served instead. DBAL's driver middleware is a decorator called *instead of* the real
+        // statement, which is what makes this possible here and impossible through an
+        // after-the-fact seam like Eloquent's QueryExecuted event -- see IsolatesFromLedger.
+        if ($ledger !== null && $ledger->isReplaying()) {
+            return LedgerServedResult::forSql($ledger, $this->sql, $this->params);
+        }
+
         $start = $this->clock->monotonic();
         $real = parent::execute();
 

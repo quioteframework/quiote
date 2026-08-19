@@ -169,24 +169,24 @@ final class ReplayCommandTest extends TestCase
         $this->assertStringContainsString('not-a-real-store', $tester->getDisplay());
     }
 
-    public function testRefusesWhenAllowLiveIsFalse(): void
+    public function testLiveRefusesWhenAllowLiveIsFalse(): void
     {
         $this->putCassette('AAA', ['method' => 'GET', 'uri' => '/'], ['status' => 200]);
 
         $tester = new CommandTester(new ReplayCommand());
-        $exitCode = $tester->execute(['id' => 'AAA', '--context' => 'testing']);
+        $exitCode = $tester->execute(['id' => 'AAA', '--context' => 'testing', '--live' => true]);
 
         $this->assertSame(1, $exitCode);
         $this->assertStringContainsString('allow_live', $tester->getDisplay());
     }
 
-    public function testRefusesANonIdempotentMethodWithoutForce(): void
+    public function testLiveRefusesANonSafeMethodWithoutForce(): void
     {
         Config::set('replay.allow_live', true, true, false);
         $this->putCassette('AAA', ['method' => 'POST', 'uri' => '/orders'], ['status' => 200]);
 
         $tester = new CommandTester(new ReplayCommand());
-        $exitCode = $tester->execute(['id' => 'AAA', '--context' => 'testing']);
+        $exitCode = $tester->execute(['id' => 'AAA', '--context' => 'testing', '--live' => true]);
 
         $this->assertSame(1, $exitCode);
         $this->assertStringContainsString('--force', $tester->getDisplay());

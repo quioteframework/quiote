@@ -141,10 +141,12 @@ final class ReplayTestCaseTest extends ReplayTestCase
             ->assertJson(['method' => 'POST']);
     }
 
-    public function testANonSafeMethodIsRefusedUnlessTheSuiteOptsIn(): void
+    public function testANonSafeMethodReplaysSafelyInIsolationWithNoOptIn(): void
     {
-        // The gate exists because an emitted test runs unattended on every CI run: without it,
-        // `--as-test` on a recorded POST produced a test that re-performed that write forever.
+        // The point of isolated mode, and the inverse of what this asserted before: an emitted test
+        // for a recorded DELETE is safe to run unattended on every CI build, because nothing is
+        // performed. It previously refused outright, because the only mode available re-performed
+        // the write for real.
         $this->replaceStackWithEcho();
         $path = $this->cassetteFile([
             'method' => 'DELETE',
@@ -155,13 +157,10 @@ final class ReplayTestCaseTest extends ReplayTestCase
             'server' => [],
         ]);
 
-        $this->expectException(ReplayException::class);
-        $this->expectExceptionMessageMatches('/Refusing to replay the DELETE request/');
-        $this->expectExceptionMessageMatches('/replay\.tests_allow_live/');
-        $this->replay($path);
+        $this->replay($path)->assertOk();
     }
 
-    public function testEveryNonSafeMethodIsRefusedByDefault(): void
+    public function testEveryNonSafeMethodReplaysInIsolation(): void
     {
         $this->replaceStackWithEcho();
         foreach (['POST', 'PUT', 'PATCH', 'DELETE'] as $method) {
@@ -174,13 +173,27 @@ final class ReplayTestCaseTest extends ReplayTestCase
                 'server' => [],
             ]);
 
-            try {
-                $this->replay($path);
-                $this->fail("Replaying a $method cassette should have been refused.");
-            } catch (ReplayException $e) {
-                $this->assertStringContainsString(strtoupper($method), $e->getMessage());
-            }
+            $this->replay($path)->assertOk();
         }
+    }
+
+    public function testTheLiveOptOutDispatchesForRealWithNoFurtherGate(): void
+    {
+        // One flag, one decision: a suite that turned the isolated default off has accepted real
+        // collaborators, and asking again whether it really meant it would make the opt-in useless
+        // for the case it exists for.
+        Config::set('replay.tests_allow_live', true, true, false);
+        $this->replaceStackWithEcho();
+        $path = $this->cassetteFile([
+            'method' => 'DELETE',
+            'uri' => '/accounts/42',
+            'headers' => [],
+            'cookies' => [],
+            'body' => ['encoding' => 'utf8', 'content' => '', 'truncated' => false],
+            'server' => [],
+        ]);
+
+        $this->replay($path)->assertOk()->assertJson(['method' => 'DELETE']);
     }
 
     public function testASafeMethodReplaysWithNoConfigurationAtAll(): void

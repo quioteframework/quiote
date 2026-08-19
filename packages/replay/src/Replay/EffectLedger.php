@@ -61,13 +61,55 @@ final class EffectLedger
         array $effects = [],
         private readonly ?int $maxPayloadBytes = null,
         private readonly ?EffectRedactor $redactor = null,
+        private readonly LedgerDirection $direction = LedgerDirection::Recording,
     ) {
         $this->effects = $effects;
+    }
+
+    /** A ledger that observes a live request, bounded and scrubbed. */
+    public static function forRecording(?int $maxPayloadBytes = null, ?EffectRedactor $redactor = null): self
+    {
+        return new self([], $maxPayloadBytes, $redactor, LedgerDirection::Recording);
+    }
+
+    /**
+     * A ledger that serves a recorded request from a cassette's effects.
+     *
+     * Unbounded and unredacted by construction: the effects were bounded and scrubbed when they were
+     * recorded, and doing either again on read would only remove data the replay needs.
+     *
+     * @param list<Effect> $effects
+     */
+    public static function forReplay(array $effects): self
+    {
+        return new self($effects, null, null, LedgerDirection::Replaying);
+    }
+
+    public function direction(): LedgerDirection
+    {
+        return $this->direction;
+    }
+
+    /**
+     * Whether a collaborator looking at this ledger should answer from it rather than perform the
+     * call.
+     *
+     * This is the question a driver decorator installed permanently on a connection has to ask
+     * before it does anything: recording means execute and append, replaying means do not touch the
+     * connection and serve what was recorded.
+     */
+    public function isReplaying(): bool
+    {
+        return $this->direction === LedgerDirection::Replaying;
     }
 
     /**
      * Appends a freshly observed effect, assigning it the next sequence
      * number. Used while recording.
+     *
+     * @throws \LogicException if this ledger is replaying -- appending to a cassette's effects
+     *         mid-replay would mean a stub inventing history, and every caller that could do it by
+     *         accident is a decorator that should have checked {@see isReplaying()} first.
      *
      * Every `call`/`result` goes through {@see EffectRedactor} first when one was supplied. That
      * placement is deliberate: the ledger is the single point every recorder in every driver
@@ -88,6 +130,14 @@ final class EffectLedger
      */
     public function record(EffectKind $kind, string $fingerprint, array $call, mixed $result, ?int $durationMicros = null): Effect
     {
+        if ($this->direction === LedgerDirection::Replaying) {
+            throw new \LogicException(sprintf(
+                'Cannot record a %s effect into a replaying ledger: a replay serves recorded effects and '
+                . 'performs nothing. Check EffectLedger::isReplaying() before recording.',
+                $kind->value,
+            ));
+        }
+
         if ($this->redactor !== null) {
             // Before the budget check below, so a payload is measured at the size it will
             // actually be stored at, and before anything is held on $this, so a denied value

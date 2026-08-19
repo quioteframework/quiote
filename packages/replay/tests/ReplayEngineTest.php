@@ -12,6 +12,7 @@ use Quiote\Context;
 use Quiote\Replay\Cassette\Cassette;
 use Quiote\Replay\Cassette\CassetteCodec;
 use Quiote\Replay\Replay\ReplayEngine;
+use Quiote\Replay\Replay\ReplayMode;
 use Quiote\Replay\Replay\ReplayException;
 
 final class ReplayEngineTest extends TestCase
@@ -61,7 +62,7 @@ final class ReplayEngineTest extends TestCase
             ['status' => 200, 'headers' => ['Content-Type' => ['text/plain']], 'body' => ['encoding' => 'utf8', 'content' => 'hello', 'truncated' => false]],
         );
 
-        $result = (new ReplayEngine())->replay($context, $cassette);
+        $result = (new ReplayEngine())->replay($context, $cassette, mode: ReplayMode::Live);
 
         $this->assertTrue($result->drift->isClean());
         $this->assertSame(200, $result->response->getStatusCode());
@@ -86,7 +87,7 @@ final class ReplayEngineTest extends TestCase
         [$context] = $this->contextReturning(new Response(500));
         $cassette = $this->cassette(['method' => 'GET', 'uri' => '/widgets'], ['status' => 200, 'headers' => [], 'body' => []]);
 
-        $result = (new ReplayEngine())->replay($context, $cassette);
+        $result = (new ReplayEngine())->replay($context, $cassette, mode: ReplayMode::Live);
 
         $this->assertFalse($result->drift->isClean());
         $this->assertTrue($result->drift->hasErrors());
@@ -100,7 +101,7 @@ final class ReplayEngineTest extends TestCase
 
         $this->expectException(ReplayException::class);
         $this->expectExceptionMessageMatches('/allow_live/');
-        (new ReplayEngine())->replay($context, $cassette);
+        (new ReplayEngine())->replay($context, $cassette, mode: ReplayMode::Live);
     }
 
     public function testRefusesANonSafeMethodWithoutForce(): void
@@ -111,7 +112,7 @@ final class ReplayEngineTest extends TestCase
 
         $this->expectException(ReplayException::class);
         $this->expectExceptionMessageMatches('/--force/');
-        (new ReplayEngine())->replay($context, $cassette);
+        (new ReplayEngine())->replay($context, $cassette, mode: ReplayMode::Live);
     }
 
     public function testAllowsANonSafeMethodWithForce(): void
@@ -120,7 +121,7 @@ final class ReplayEngineTest extends TestCase
         [$context] = $this->contextReturning(new Response(200));
         $cassette = $this->cassette(['method' => 'POST', 'uri' => '/orders'], ['status' => 200, 'headers' => [], 'body' => []]);
 
-        $result = (new ReplayEngine())->replay($context, $cassette, force: true);
+        $result = (new ReplayEngine())->replay($context, $cassette, force: true, mode: ReplayMode::Live);
 
         $this->assertSame(200, $result->response->getStatusCode());
     }
@@ -146,7 +147,7 @@ final class ReplayEngineTest extends TestCase
 
         $this->expectException(ReplayException::class);
         $this->expectExceptionMessageMatches('/not a safe method/');
-        (new ReplayEngine())->replay($context, $cassette);
+        (new ReplayEngine())->replay($context, $cassette, mode: ReplayMode::Live);
     }
 
     /** @return iterable<string, array{0: string}> */
@@ -165,7 +166,7 @@ final class ReplayEngineTest extends TestCase
         [$context] = $this->contextReturning(new Response(200));
         $cassette = $this->cassette(['method' => $method, 'uri' => '/things'], ['status' => 200, 'headers' => [], 'body' => []]);
 
-        $result = (new ReplayEngine())->replay($context, $cassette);
+        $result = (new ReplayEngine())->replay($context, $cassette, mode: ReplayMode::Live);
 
         $this->assertSame(200, $result->response->getStatusCode());
     }
@@ -176,7 +177,7 @@ final class ReplayEngineTest extends TestCase
         [$context] = $this->contextReturning(new Response(200));
         $cassette = $this->cassette(['method' => 'get', 'uri' => '/things'], ['status' => 200, 'headers' => [], 'body' => []]);
 
-        $this->assertSame(200, (new ReplayEngine())->replay($context, $cassette)->response->getStatusCode());
+        $this->assertSame(200, (new ReplayEngine())->replay($context, $cassette, mode: ReplayMode::Live)->response->getStatusCode());
         $this->assertTrue(ReplayEngine::isSafeMethod('Get'));
         $this->assertFalse(ReplayEngine::isSafeMethod('delete'));
     }
@@ -191,7 +192,7 @@ final class ReplayEngineTest extends TestCase
 
         $this->expectException(ReplayException::class);
         $this->expectExceptionMessageMatches('/no replayable request/');
-        (new ReplayEngine())->replay($context, $cassette);
+        (new ReplayEngine())->replay($context, $cassette, mode: ReplayMode::Live);
     }
 
     public function testAnExceptionDuringDispatchIsWrappedWithTheCassetteId(): void
@@ -209,7 +210,7 @@ final class ReplayEngineTest extends TestCase
 
         $this->expectException(ReplayException::class);
         $this->expectExceptionMessageMatches('/CRX2050/');
-        (new ReplayEngine())->replay($context, $cassette);
+        (new ReplayEngine())->replay($context, $cassette, mode: ReplayMode::Live);
     }
 }
 

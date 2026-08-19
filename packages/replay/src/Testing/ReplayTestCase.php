@@ -7,7 +7,7 @@ namespace Quiote\Replay\Testing;
 use Quiote\Config\Config;
 use Quiote\Replay\Cassette\Cassette;
 use Quiote\Replay\Cassette\CassetteCodec;
-use Quiote\Replay\Replay\ReplayEngine;
+use Quiote\Replay\Replay\IsolatedReplay;
 use Quiote\Replay\Replay\ReplayException;
 use Quiote\Replay\Replay\RequestReconstructor;
 use Quiote\Testing\Http\TestResponse;
@@ -27,16 +27,19 @@ use Quiote\Testing\HttpTestCase;
  * regression test that must run unattended in CI with nothing configured
  * beyond having the package installed.
  *
- * The *method* gate is a different matter and is enforced here too. Replay has
- * no effect stubbing yet, so it really re-performs the request against
- * whatever database, queue and HTTP client the test context is configured
- * with. Dropping that gate on the automated path meant `--as-test` on a
- * recorded POST or DELETE produced a test that re-performed that write on
- * every CI run, forever -- the interactive path a human watches had rails and
- * the unattended path nobody watches had none, which is backwards. A safe
- * method replays with no configuration, as intended; anything else needs
- * `replay.tests_allow_live` set deliberately by whoever knows the test
- * environment is disposable.
+ * Replays in isolation by default ({@see IsolatedReplay}), which is what makes
+ * an emitted test safe to run unattended: every ledger-backed subsystem is
+ * answered from the cassette's own recorded effects and nothing is performed,
+ * so a recorded POST or DELETE re-runs on every CI build without re-performing
+ * the write. It needs no configuration and no database, which is the promise
+ * that made bypassing `ReplayEngine` right in the first place.
+ *
+ * `replay.tests_allow_live = true` opts a suite out, into a live dispatch
+ * against whatever the test context is really configured with -- for the case
+ * a test genuinely needs real collaborators. That is the whole decision: it
+ * accepts real reads *and* real writes, on every run, and is only safe where
+ * the environment is disposable. The isolated default is the protection;
+ * turning it off is choosing not to have it.
  */
 abstract class ReplayTestCase extends HttpTestCase
 {
@@ -46,39 +49,26 @@ abstract class ReplayTestCase extends HttpTestCase
      *
      * @throws \Quiote\Replay\Cassette\CassetteCodecException if the file is not a valid cassette.
      * @throws ReplayException if the cassette file cannot be read, carries no replayable
-     *         request (e.g. a `#[NoRecord]` skeleton), or records a non-safe method while
-     *         `replay.tests_allow_live` is off.
+     *         request (e.g. a `#[NoRecord]` skeleton), or -- in isolation -- if the registered
+     *         effect sources cannot serve from the ledger.
      */
     protected function replay(string $cassettePath): TestResponse
     {
         $cassette = self::loadCassette($cassettePath);
         $request = RequestReconstructor::fromCassette($cassette);
-        self::assertMethodIsReplayable($request->getMethod(), $cassettePath);
-        $response = $this->getContext()->getRequestHandler()->handle($request);
 
-        return new TestResponse($response);
-    }
-
-    /**
-     * @throws ReplayException if replaying $method would re-perform a write that nothing has
-     *         opted into.
-     */
-    private static function assertMethodIsReplayable(string $method, string $cassettePath): void
-    {
-        if (ReplayEngine::isSafeMethod($method) || Config::getBool('replay.tests_allow_live', false)) {
-            return;
+        if (!Config::getBool('replay.tests_allow_live', false)) {
+            // The default, and the reason the method gate below is now only reachable on request:
+            // an isolated replay performs nothing, so a recorded POST or DELETE is safe to run
+            // unattended on every CI run -- which is exactly the situation an emitted test is for.
+            return new TestResponse((new IsolatedReplay())->run($this->getContext(), $cassette, $request)->response);
         }
 
-        throw new ReplayException(sprintf(
-            'Refusing to replay the %s request recorded in "%s": replay has no effect stubbing '
-            . 'yet, so dispatching it really re-performs its writes against whatever database, '
-            . 'queue and HTTP client this test context is configured with -- on every run. Set '
-            . 'replay.tests_allow_live=true for this suite only once the test environment is '
-            . 'disposable, or replace the $this->replay() call with assertions that do not need '
-            . 'to re-issue the write.',
-            strtoupper($method),
-            basename($cassettePath),
-        ));
+        // No further gate: `replay.tests_allow_live` is the decision. A suite that has turned the
+        // isolated default off has said it wants real collaborators, and a second flag asking again
+        // whether it *really* wants the write would be two knobs for one concern -- and would make
+        // the opt-in useless for the case it exists for.
+        return new TestResponse($this->getContext()->getRequestHandler()->handle($request));
     }
 
     private static function loadCassette(string $path): Cassette

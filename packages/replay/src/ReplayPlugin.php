@@ -80,14 +80,14 @@ final class ReplayPlugin implements PluginInterface
         // unsalted digest of a three-digit number falls to a thousand guesses. Set it where hash
         // mode is used -- see Redactor::apply().
         $registrar->configDefault('replay.redact.hash_salt', '');
-        // Off by default everywhere: replay always runs in ReplayEngine's one mode today (no
-        // effect stubbing exists, so replaying really re-performs a request's side effects) --
-        // see ReplayEngine's own docblock.
+        // Off by default: `quiote replay` replays in isolation, which performs nothing and needs no
+        // configuration. This gates `--live`, which dispatches against the real collaborators and so
+        // really re-performs the request's side effects -- see ReplayEngine.
         $registrar->configDefault('replay.allow_live', false);
-        // The same rule for an emitted test, which bypasses ReplayEngine so it can run in CI
-        // with nothing configured. A safe method needs no opt-in; anything else re-performs a
-        // write on every run, so it needs one from whoever knows the test environment is
-        // disposable -- see ReplayTestCase.
+        // Off by default: an emitted test replays in isolation, so a recorded POST or DELETE is safe
+        // to re-run on every CI build. Turning this on opts a suite into a live dispatch with real
+        // reads and writes, and is only safe where the environment is disposable -- see
+        // ReplayTestCase.
         $registrar->configDefault('replay.tests_allow_live', false);
 
         // Singleton: the file store checks/creates its directory (and its permissions) once at
