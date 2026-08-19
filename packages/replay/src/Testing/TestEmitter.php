@@ -38,10 +38,11 @@ final class TestEmitter
             : $this->pinBehaviourBody($cassette, $id);
 
         $recordedAt = $cassette->meta['recorded_at'] ?? null;
+        $recordedAtNote = is_string($recordedAt) ? self::commentSafe($recordedAt, 64) : '';
         $header = sprintf(
             '/** Generated from cassette "%s"%s. Edit freely -- regenerating overwrites this file. */',
-            $id->raw,
-            is_string($recordedAt) && $recordedAt !== '' ? ", recorded $recordedAt" : '',
+            self::commentSafe($id->raw, 96),
+            $recordedAtNote !== '' ? ", recorded $recordedAtNote" : '',
         );
 
         $source = implode("\n", [
@@ -112,12 +113,15 @@ final class TestEmitter
             $summary .= sprintf(' (%s: %s)', is_string($exceptionClass) ? $exceptionClass : 'exception', $exceptionMessage);
         }
 
+        // The string literal keeps the full summary -- var_export() escapes it safely, and a
+        // developer reading markTestIncomplete()'s output wants the whole message. The comment
+        // line above it cannot: see commentSafe().
         $incomplete = "Fix the recorded bug ($summary), then replace the line below with assertions describing the fixed behaviour.";
 
         return implode("\n", [
             "\$response = \$this->replay(__DIR__ . '/cassettes/{$id->slug}.qcast');",
             '',
-            "// Recorded (buggy) response: $summary.",
+            '// Recorded (buggy) response: ' . self::commentSafe($summary, 200) . '.',
             '$this->markTestIncomplete(' . var_export($incomplete, true) . ');',
         ]);
     }
@@ -149,10 +153,10 @@ final class TestEmitter
             if ($effect->kind === EffectKind::Db && self::looksLikeWrite($effect)) {
                 $sql = $effect->call['sql'] ?? null;
                 if (is_string($sql)) {
-                    $notes[] = '// Recorded DB write -- assert this if it matters: ' . self::truncate($sql, 160);
+                    $notes[] = '// Recorded DB write -- assert this if it matters: ' . self::commentSafe($sql, 160);
                 }
             } elseif ($effect->kind === EffectKind::Queue) {
-                $notes[] = '// Recorded enqueued job -- assert this if it matters: ' . self::truncate($effect->fingerprint, 160);
+                $notes[] = '// Recorded enqueued job -- assert this if it matters: ' . self::commentSafe($effect->fingerprint, 160);
             }
         }
 
@@ -234,11 +238,33 @@ final class TestEmitter
         return null;
     }
 
-    private static function truncate(string $value, int $max): string
+    /**
+     * Makes a cassette-supplied string safe to interpolate into a PHP comment in the emitted
+     * source, and caps its length.
+     *
+     * A comment is not an inert context, and a cassette is not trusted input: `meta.id` is
+     * adopted from a request's correlation header (`Quiote\Support\CorrelationId::sanitize()`
+     * strips control bytes but passes `*` and `/` through), `meta.recorded_at` and a captured
+     * exception message are both free-form strings a cassette carries, and an exception message
+     * routinely embeds user input. Three sequences end a comment and hand the rest of the value
+     * to the parser as PHP:
+     *
+     *  - a newline ends a `//` line, so the remainder becomes a statement in the test method;
+     *  - the block-comment terminator ends a docblock, so the remainder becomes top-level code;
+     *  - `?` followed by `>` leaves PHP mode outright from inside a `//` line, truncating the
+     *    class definition (verified against the parser, not assumed).
+     *
+     * Whitespace runs therefore collapse to single spaces, the block terminator and the closing
+     * tag are stripped, and the cut is made on a character boundary so the generated file stays
+     * valid UTF-8 -- a byte-wise cut through a multi-byte character would produce source PHP
+     * cannot read.
+     */
+    private static function commentSafe(string $value, int $max): string
     {
-        $collapsed = preg_replace('/\s+/', ' ', trim($value)) ?? $value;
+        $collapsed = trim((string) preg_replace('/\s+/', ' ', $value));
+        $stripped = str_replace(['*/', '?>'], '', $collapsed);
 
-        return strlen($collapsed) > $max ? substr($collapsed, 0, $max - 1) . '…' : $collapsed;
+        return mb_strlen($stripped) > $max ? mb_substr($stripped, 0, $max - 1) . '…' : $stripped;
     }
 
     /** @param array<array-key, mixed> $value */
