@@ -146,6 +146,18 @@ final class FileCassetteStore implements ListableCassetteStoreInterface
     }
 
     /**
+     * Whether $path is $ancestor itself or sits beneath it, matched on whole path segments.
+     *
+     * A bare `str_starts_with` treats `/app/pubfoo` as inside `/app/pub`. That fails closed, so it
+     * only ever produced a spurious refusal rather than an exposure -- but a store refusing a
+     * perfectly private directory is its own problem.
+     */
+    private static function isAtOrUnder(string $path, string $ancestor): bool
+    {
+        return $path === $ancestor || str_starts_with($path, $ancestor . '/') || str_starts_with($path, $ancestor . '\\');
+    }
+
+    /**
      * Resolves a relative path against `core.app_dir`, and refuses one when there is no app dir to
      * resolve it against.
      *
@@ -256,11 +268,9 @@ final class FileCassetteStore implements ListableCassetteStoreInterface
             // The public dir doesn't exist (yet) on disk -- compare by prefix instead of realpath,
             // so a not-yet-created cassette directory nested under a not-yet-created pub/ is still
             // caught rather than silently allowed through realpath() returning false.
-            $normalizedPublic = rtrim($publicDir, '/\\');
-
-            return str_starts_with(rtrim($resolvedDirectory, '/\\'), $normalizedPublic);
+            return self::isAtOrUnder(rtrim($resolvedDirectory, '/\\'), rtrim($publicDir, '/\\'));
         }
 
-        return str_starts_with(rtrim($resolvedDirectory, '/\\'), rtrim($resolvedPublic, '/\\'));
+        return self::isAtOrUnder(rtrim($resolvedDirectory, '/\\'), rtrim($resolvedPublic, '/\\'));
     }
 }

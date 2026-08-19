@@ -57,7 +57,6 @@ final class ReplayPlugin implements PluginInterface
         // from replay.store.path, which is the file store's own storage location.
         $registrar->configDefault('replay.local_path', 'var/cassettes');
         $registrar->configDefault('replay.tests_path', 'tests/Replay');
-        $registrar->configDefault('replay.write', 'sync_on_error');
         // Consumed by CassettePruneCommand's default --older-than when the store is file/pdo;
         // meaningless on Azure, which prunes via a blob lifecycle rule instead.
         $registrar->configDefault('replay.retention_days', 14);
@@ -65,7 +64,6 @@ final class ReplayPlugin implements PluginInterface
         $registrar->configDefault('replay.max_effects', 2000);
         $registrar->configDefault('replay.capture_body', true);
         $registrar->configDefault('replay.capture_session', true);
-        $registrar->configDefault('replay.capture_log', false);
         $registrar->configDefault('replay.redact.headers', ['authorization', 'cookie', 'set-cookie', 'proxy-authorization', 'x-api-key']);
         $registrar->configDefault('replay.redact.params', ['password', 'password_confirm', 'token', 'secret', 'card', 'cvv', 'ssn']);
         $registrar->configDefault('replay.redact.session', ['_csrf', 'auth.token']);

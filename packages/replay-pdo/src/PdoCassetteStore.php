@@ -99,12 +99,18 @@ final readonly class PdoCassetteStore implements ListableCassetteStoreInterface
         }
     }
 
+    /** @throws StorageException if the read does not succeed. */
     public function get(CassetteId $id): ?Cassette
     {
-        $stmt = $this->pdo->prepare(sprintf('SELECT payload FROM %s WHERE slug = :slug', $this->quoteIdent($this->table)));
-        $stmt->bindValue(':slug', $id->slug, PDO::PARAM_STR);
-        $stmt->execute();
-        $payload = $stmt->fetchColumn();
+        try {
+            $stmt = $this->pdo->prepare(sprintf('SELECT payload FROM %s WHERE slug = :slug', $this->quoteIdent($this->table)));
+            $stmt->bindValue(':slug', $id->slug, PDO::PARAM_STR);
+            $stmt->execute();
+            $payload = $stmt->fetchColumn();
+        } catch (PDOException $e) {
+            throw new StorageException(sprintf('Failed reading cassette row for "%s": %s', $id->slug, $e->getMessage()), 0, $e);
+        }
+
         if (!is_string($payload) || $payload === '') {
             return null;
         }
@@ -114,31 +120,55 @@ final readonly class PdoCassetteStore implements ListableCassetteStoreInterface
         return $decoded === false ? null : $this->codec->decode($decoded);
     }
 
+    /** @throws StorageException if the read does not succeed. */
     public function has(CassetteId $id): bool
     {
-        $stmt = $this->pdo->prepare(sprintf('SELECT 1 FROM %s WHERE slug = :slug', $this->quoteIdent($this->table)));
-        $stmt->bindValue(':slug', $id->slug, PDO::PARAM_STR);
-        $stmt->execute();
+        try {
+            $stmt = $this->pdo->prepare(sprintf('SELECT 1 FROM %s WHERE slug = :slug', $this->quoteIdent($this->table)));
+            $stmt->bindValue(':slug', $id->slug, PDO::PARAM_STR);
+            $stmt->execute();
 
-        return $stmt->fetchColumn() !== false;
+            return $stmt->fetchColumn() !== false;
+        } catch (PDOException $e) {
+            throw new StorageException(sprintf('Failed checking for cassette row "%s": %s', $id->slug, $e->getMessage()), 0, $e);
+        }
     }
 
+    /** @throws StorageException if the delete does not succeed. */
     public function delete(CassetteId $id): void
     {
-        $stmt = $this->pdo->prepare(sprintf('DELETE FROM %s WHERE slug = :slug', $this->quoteIdent($this->table)));
-        $stmt->bindValue(':slug', $id->slug, PDO::PARAM_STR);
-        $stmt->execute();
+        try {
+            $stmt = $this->pdo->prepare(sprintf('DELETE FROM %s WHERE slug = :slug', $this->quoteIdent($this->table)));
+            $stmt->bindValue(':slug', $id->slug, PDO::PARAM_STR);
+            $stmt->execute();
+        } catch (PDOException $e) {
+            throw new StorageException(sprintf('Failed deleting cassette row for "%s": %s', $id->slug, $e->getMessage()), 0, $e);
+        }
     }
 
-    /** @return list<string> */
+    /**
+     * Every cassette slug in the table.
+     *
+     * A failed query raises rather than returning an empty list. Reporting an error as "the store
+     * is empty" is the worst available answer for the two callers this has: `cassette:list` would
+     * print "No cassettes found" for a table it could not read, and `cassette:prune` would decide
+     * there was nothing to prune.
+     *
+     * @return list<string>
+     * @throws StorageException if the listing does not succeed.
+     */
     public function slugs(): array
     {
-        $stmt = $this->pdo->query(sprintf('SELECT slug FROM %s ORDER BY slug', $this->quoteIdent($this->table)));
-        if ($stmt === false) {
-            return [];
-        }
+        try {
+            $stmt = $this->pdo->query(sprintf('SELECT slug FROM %s ORDER BY slug', $this->quoteIdent($this->table)));
+            if ($stmt === false) {
+                throw new StorageException(sprintf('Failed listing cassette rows from "%s".', $this->table));
+            }
 
-        $slugs = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            $slugs = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        } catch (PDOException $e) {
+            throw new StorageException(sprintf('Failed listing cassette rows from "%s": %s', $this->table, $e->getMessage()), 0, $e);
+        }
 
         return array_values(array_filter($slugs, is_string(...)));
     }

@@ -272,4 +272,43 @@ final class CassetteCodecTest extends TestCase
         $this->assertIsArray($originalBody);
         $this->assertSame($originalBody['content'], $decodedBody['content']);
     }
+
+    public function testTwoEffectsSharingASeqAreRefused(): void
+    {
+        // EffectLedger keys its consumed-set by seq, so a duplicate marks both consumed at once:
+        // matching the first makes the second unreachable and turns it into a phantom unplayed()
+        // entry. The recorder never emits one, so a cassette carrying one has been edited.
+        $raw = json_encode([
+            '_schema_version' => 1,
+            'meta' => [],
+            'request' => [],
+            'response' => [],
+            'effects' => [
+                ['seq' => 0, 'kind' => 'db', 'fingerprint' => 'a', 'call' => []],
+                ['seq' => 0, 'kind' => 'db', 'fingerprint' => 'b', 'call' => []],
+            ],
+        ]);
+        $this->assertIsString($raw);
+
+        $this->expectException(CassetteCodecException::class);
+        $this->expectExceptionMessageMatches('/two effects with seq 0/');
+        (new CassetteCodec())->decodeRaw($raw);
+    }
+
+    public function testDistinctSeqValuesAreAccepted(): void
+    {
+        $raw = json_encode([
+            '_schema_version' => 1,
+            'meta' => [],
+            'request' => [],
+            'response' => [],
+            'effects' => [
+                ['seq' => 0, 'kind' => 'db', 'fingerprint' => 'a', 'call' => []],
+                ['seq' => 1, 'kind' => 'db', 'fingerprint' => 'b', 'call' => []],
+            ],
+        ]);
+        $this->assertIsString($raw);
+
+        $this->assertCount(2, (new CassetteCodec())->decodeRaw($raw)->effects);
+    }
 }

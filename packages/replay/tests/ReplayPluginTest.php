@@ -32,11 +32,12 @@ final class ReplayPluginTest extends TestCase
     /** @var list<string> */
     private const REPLAY_KEYS = [
         'replay.enabled', 'replay.record', 'replay.sample_rate', 'replay.trigger_header',
-        'replay.store', 'replay.store.path', 'replay.tests_path', 'replay.write', 'replay.retention_days',
-        'replay.max_bytes', 'replay.max_effects',
-        'replay.capture_body', 'replay.capture_session', 'replay.capture_log',
+        'replay.store', 'replay.store.path', 'replay.tests_path', 'replay.retention_days',
+        'replay.local_path', 'replay.max_bytes', 'replay.max_effects',
+        'replay.capture_body', 'replay.capture_session',
         'replay.redact.headers', 'replay.redact.params', 'replay.redact.session', 'replay.redact.mode',
-        'replay.allow_live',
+        'replay.redact.env', 'replay.redact.hash_salt',
+        'replay.allow_live', 'replay.tests_allow_live',
     ];
 
     #[Before]
@@ -60,13 +61,11 @@ final class ReplayPluginTest extends TestCase
         $this->assertSame('file', Config::getString('replay.store'));
         $this->assertSame('var/cassettes', Config::getString('replay.store.path'));
         $this->assertSame('tests/Replay', Config::getString('replay.tests_path'));
-        $this->assertSame('sync_on_error', Config::getString('replay.write'));
         $this->assertSame(14, Config::getInt('replay.retention_days'));
         $this->assertSame(2_097_152, Config::getInt('replay.max_bytes'));
         $this->assertSame(2000, Config::getInt('replay.max_effects'));
         $this->assertTrue(Config::getBool('replay.capture_body'));
         $this->assertTrue(Config::getBool('replay.capture_session'));
-        $this->assertFalse(Config::getBool('replay.capture_log'));
         $this->assertSame('drop', Config::getString('replay.redact.mode'));
         $this->assertFalse(Config::getBool('replay.allow_live'));
     }

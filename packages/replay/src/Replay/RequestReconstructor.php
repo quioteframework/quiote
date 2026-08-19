@@ -22,6 +22,18 @@ use Quiote\Request\WebRequest;
 final class RequestReconstructor
 {
     /**
+     * Server params a cassette may put back into a replayed request. A subset of
+     * `RecorderMiddleware`'s own capture allowlist, with `REMOTE_ADDR` deliberately absent -- see
+     * {@see replayableServerParams()}.
+     *
+     * @var list<string>
+     */
+    private const REPLAYABLE_SERVER_PARAMS = [
+        'REQUEST_METHOD', 'REQUEST_URI', 'SERVER_PROTOCOL', 'HTTP_HOST',
+        'SERVER_NAME', 'SERVER_PORT', 'REQUEST_TIME_FLOAT',
+    ];
+
+    /**
      * @throws ReplayException if the cassette carries no method/uri to replay --
      *         a `#[NoRecord]` skeleton, or `replay.capture_body` was off when it was recorded.
      */
@@ -36,9 +48,20 @@ final class RequestReconstructor
                 . '#[NoRecord], or with replay.capture_body disabled.',
             );
         }
+        // Replaying a truncated body sends a prefix and calls it the request. Whatever the
+        // application then does differently gets attributed to the application rather than to the
+        // recording, which is the wrong answer to give and worse than no answer.
+        $body = $data['body'] ?? null;
+        if (is_array($body) && ($body['truncated'] ?? false) === true) {
+            throw new ReplayException(
+                'Cassette carries a truncated request body (it exceeded replay.max_bytes when recorded), so '
+                . 'replaying it would send only a prefix and report the difference as drift in the '
+                . 'application. Re-record with a larger replay.max_bytes.',
+            );
+        }
 
         $protocol = is_string($data['protocol'] ?? null) ? $data['protocol'] : '1.1';
-        $server = is_array($data['server'] ?? null) ? $data['server'] : [];
+        $server = self::replayableServerParams($data['server'] ?? null);
         $cookies = is_array($data['cookies'] ?? null) ? $data['cookies'] : [];
 
         // PSR-7 validates the method, URI, header names and header values it is given, and every
@@ -64,6 +87,39 @@ final class RequestReconstructor
                 $e->getMessage(),
             ), 0, $e);
         }
+    }
+
+    /**
+     * The recorded `server` params that are safe to hand back to the application.
+     *
+     * A cassette is unauthenticated input -- there is no integrity marker on a `.qcast` file, and
+     * one can arrive from an object store, a bug report or a colleague. Restoring `server`
+     * wholesale meant a crafted cassette could present itself to the application as originating
+     * from `REMOTE_ADDR` of its choosing, which is exactly what an internal-IP or trusted-proxy
+     * check reads. `127.0.0.1` is a short cassette edit away.
+     *
+     * So the client's address is dropped rather than replayed. It is the one recorded server param
+     * that grants anything, and a replay's request genuinely does not come from where the original
+     * did -- restoring it was fidelity in appearance and a bypass in effect. The rest of the
+     * recorder's own allowlist is descriptive (method, URI, protocol, host, port, time) and is kept
+     * so a replayed request still looks like the one recorded.
+     *
+     * @return array<string, mixed>
+     */
+    private static function replayableServerParams(mixed $server): array
+    {
+        if (!is_array($server)) {
+            return [];
+        }
+
+        $result = [];
+        foreach ($server as $name => $value) {
+            if (is_string($name) && in_array($name, self::REPLAYABLE_SERVER_PARAMS, true)) {
+                $result[$name] = $value;
+            }
+        }
+
+        return $result;
     }
 
     /** @return array<string, list<string>> */

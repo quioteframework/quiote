@@ -95,4 +95,75 @@ final class RequestReconstructorTest extends TestCase
 
         $this->assertSame('', (string)$request->getBody());
     }
+
+    public function testTheRecordedClientAddressIsNotReplayedBackIntoTheRequest(): void
+    {
+        // A cassette carries no integrity marker and can arrive from an object store, a bug report
+        // or a colleague. Restoring REMOTE_ADDR wholesale let a crafted cassette present itself as
+        // originating from an address of its choosing -- which is what an internal-IP or
+        // trusted-proxy check reads.
+        $request = RequestReconstructor::fromCassette($this->cassetteWithRequest([
+            'method' => 'GET',
+            'uri' => 'https://example.test/admin',
+            'server' => [
+                'REMOTE_ADDR' => '127.0.0.1',
+                'HTTP_HOST' => 'example.test',
+                'SERVER_PORT' => '443',
+            ],
+        ]));
+
+        $server = $request->getServerParams();
+        $this->assertArrayNotHasKey('REMOTE_ADDR', $server);
+        // The descriptive params are kept, so a replayed request still looks like the recorded one.
+        $this->assertSame('example.test', $server['HTTP_HOST']);
+        $this->assertSame('443', $server['SERVER_PORT']);
+    }
+
+    public function testAnUnexpectedServerParamIsNotRestored(): void
+    {
+        $request = RequestReconstructor::fromCassette($this->cassetteWithRequest([
+            'method' => 'GET',
+            'uri' => 'https://example.test/x',
+            'server' => ['HTTP_X_FORWARDED_FOR' => '10.0.0.1', 'SOMETHING_ELSE' => 'x'],
+        ]));
+
+        $this->assertSame([], $request->getServerParams());
+    }
+
+    public function testATruncatedRequestBodyIsRefusedRatherThanReplayedAsAPrefix(): void
+    {
+        // Sending a prefix and calling it the request attributes the difference to the application
+        // rather than to the recording.
+        $this->expectException(ReplayException::class);
+        $this->expectExceptionMessageMatches('/truncated request body/');
+        RequestReconstructor::fromCassette($this->cassetteWithRequest([
+            'method' => 'POST',
+            'uri' => 'https://example.test/x',
+            'body' => ['encoding' => 'utf8', 'content' => 'partial', 'truncated' => true],
+        ]));
+    }
+
+    public function testAnUntruncatedBodyIsReplayedNormally(): void
+    {
+        $request = RequestReconstructor::fromCassette($this->cassetteWithRequest([
+            'method' => 'POST',
+            'uri' => 'https://example.test/x',
+            'body' => ['encoding' => 'utf8', 'content' => 'whole', 'truncated' => false],
+        ]));
+
+        $this->assertSame('whole', (string)$request->getBody());
+    }
+
+    public function testAnUnusableUriIsReportedAsACassetteProblem(): void
+    {
+        // PSR-7 validates what the cassette supplies, and an escaping InvalidArgumentException was
+        // caught by ReplayCommand's generic handler and reported as a context resolution failure.
+        $this->expectException(ReplayException::class);
+        $this->expectExceptionMessageMatches('/PSR-7 will not accept/');
+        RequestReconstructor::fromCassette($this->cassetteWithRequest([
+            'method' => 'GET',
+            'uri' => 'http://',
+            'headers' => ['Bad Header Name' => ['x']],
+        ]));
+    }
 }

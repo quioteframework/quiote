@@ -45,6 +45,12 @@ final readonly class PrefixScanIndex implements CassetteIndexInterface
             return null;
         }
 
+        // Validated as strictly as --hour is. `new DateTimeImmutable()` takes `tomorrow` and
+        // `+1 week` as readily as a date, for an option documented as YYYY-MM-DD -- and a relative
+        // expression silently scans a prefix the developer did not ask for.
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $hints->date) !== 1) {
+            throw new CassetteIndexException(sprintf('"--date=%s" must be a YYYY-MM-DD calendar date.', $hints->date));
+        }
         try {
             $day = new DateTimeImmutable($hints->date, new DateTimeZone('UTC'));
         } catch (Exception $e) {

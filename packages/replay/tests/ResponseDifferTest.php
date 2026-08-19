@@ -144,4 +144,23 @@ final class ResponseDifferTest extends TestCase
         $this->assertNotNull($diagnostic);
         $this->assertSame(Diagnostic::SEVERITY_WARNING, $diagnostic->severity);
     }
+
+    public function testABase64BodyDecodingToZeroIsNotTreatedAsEmpty(): void
+    {
+        // `?:` swallowed a body that legitimately decodes to "0", reporting a spurious mismatch.
+        $recorded = ['status' => 200, 'headers' => [], 'body' => ['encoding' => 'base64', 'content' => base64_encode('0'), 'truncated' => false]];
+
+        $diagnostics = (new ResponseDiffer())->diff($recorded, new Response(200, [], '0'), 'cid');
+
+        $this->assertSame([], $diagnostics, 'A matching body must produce no diagnostics.');
+    }
+
+    public function testAnUndecodableBase64BodyStillReportsAMismatch(): void
+    {
+        $recorded = ['status' => 200, 'headers' => [], 'body' => ['encoding' => 'base64', 'content' => '!!!not base64!!!', 'truncated' => false]];
+
+        $diagnostics = (new ResponseDiffer())->diff($recorded, new Response(200, [], 'anything'), 'cid');
+
+        $this->assertNotSame([], $diagnostics);
+    }
 }

@@ -266,14 +266,34 @@ final class CassetteCodec
         return true;
     }
 
-    /** @return list<Effect> */
+    /**
+     * @return list<Effect>
+     * @throws CassetteCodecException if two effects share a `seq`.
+     */
     private static function effectsFromArray(mixed $effects): array
     {
         if (!is_array($effects)) {
             throw new CassetteCodecException('Cassette "effects" must be a JSON array.');
         }
 
-        return array_values(array_map(self::effectFromArray(...), $effects));
+        $decoded = array_values(array_map(self::effectFromArray(...), $effects));
+
+        // `EffectLedger` keys its consumed-set by `seq`, so two effects sharing one are marked
+        // consumed together -- matching the first silently makes the second unreachable and turns
+        // it into a phantom `unplayed()` entry. The recorder never produces a duplicate; a cassette
+        // that carries one has been edited or corrupted, and saying so beats replaying it wrong.
+        $seen = [];
+        foreach ($decoded as $effect) {
+            if (isset($seen[$effect->seq])) {
+                throw new CassetteCodecException(sprintf(
+                    'Cassette has two effects with seq %d; sequence numbers must be unique.',
+                    $effect->seq,
+                ));
+            }
+            $seen[$effect->seq] = true;
+        }
+
+        return $decoded;
     }
 
     private static function effectFromArray(mixed $effectData): Effect

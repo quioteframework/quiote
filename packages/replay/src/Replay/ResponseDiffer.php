@@ -127,9 +127,14 @@ final class ResponseDiffer
         if (!is_string($content)) {
             return null;
         }
-        $decoded = ($recordedBody['encoding'] ?? 'utf8') === 'base64'
-            ? (base64_decode($content, true) ?: '')
-            : $content;
+        // `!== false`, not `?:` -- the latter also swallows a body that legitimately decodes to
+        // "0", and the two sibling decoders in RequestReconstructor and TestEmitter both get this
+        // right.
+        $decoded = $content;
+        if (($recordedBody['encoding'] ?? 'utf8') === 'base64') {
+            $raw = base64_decode($content, true);
+            $decoded = $raw !== false ? $raw : '';
+        }
         $truncated = (bool)($recordedBody['truncated'] ?? false);
 
         if ($truncated) {

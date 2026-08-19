@@ -16,6 +16,18 @@ final class CacheFingerprint
 {
     public const string CLEAR = 'clear';
 
+    /**
+     * `"{op}:{key}"`.
+     *
+     * The `:` separator is unambiguous only because PSR-16 reserves `:` in a key, so no compliant
+     * key can contain one and `of('get', 'a:b')` cannot be confused with `of('get:a', 'b')`. That
+     * is a real guarantee rather than an accident -- both this and
+     * {@see \Quiote\Replay\Replay\StubbedCache} go through a `Psr\SimpleCache\CacheInterface`
+     * -- but it is borrowed from the interface's rule rather than enforced here, so a backend
+     * reached through some other contract that permits `:` in keys would need a different
+     * separator. Changing it is not free: a fingerprint is what a recorded cassette is matched by,
+     * so a new separator makes every existing cassette unmatchable.
+     */
     public static function of(string $op, string $key): string
     {
         return $op . ':' . $key;
