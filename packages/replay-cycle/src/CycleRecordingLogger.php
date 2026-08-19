@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Quiote\Replay\Db;
+namespace Quiote\Replay\Adapter\Cycle;
 
 use Psr\Log\AbstractLogger;
 use Psr\Log\LogLevel;

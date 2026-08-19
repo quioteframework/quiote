@@ -49,13 +49,22 @@ use Throwable;
  * `RequestState::publish()` additions in `RoutingMiddleware`/`DispatchMiddleware`
  * this depends on.
  *
- * Effects (§6's DB/HTTP/cache/queue/env recorders) are not populated by this
- * middleware: that requires the app's live PDO/cache/queue/HTTP-client
- * instances to be swapped for their `Recording*` counterparts for the
- * request's duration, a distinct integration task. Every cassette this
- * middleware writes has `effects: []` and states so in `meta.effects_instrumented`
- * (`false`), so a `cassette:show` reader can tell "nothing happened" apart
- * from "nothing was watched" without reading this source file.
+ * Effects: this package carries no compile-time dependency on any ORM/DB
+ * driver. A driver-specific package (e.g. `quioteframework/replay-propulsion`)
+ * registers an {@see EffectSource} via {@see EffectSourceRegistry::register()}
+ * from its own plugin, and this middleware activates/deactivates every
+ * registered source for the duration of `$handler->handle()` -- see
+ * {@see EffectSource}'s own docblock for why a driver needs this seam at all
+ * rather than just taking an `EffectLedger` directly (Propulsion's
+ * `addQueryObserver()` being process-scoped, not request-scoped, is the
+ * motivating case; a per-request decorator around a specific connection, the
+ * PDO/Doctrine/Eloquent/Cycle shape, has no need of it). HTTP/cache/queue/env
+ * effects are not populated by this middleware either: those still require
+ * the app's live client/cache/queue instances to be swapped for their
+ * `Recording*` counterparts, a distinct integration task per subsystem.
+ * `meta.effects_instrumented` states whether any `EffectSource` is
+ * registered at all, so a `cassette:show` reader can tell "nothing happened"
+ * apart from "nothing was watched" without reading this source file.
  * `response.stray_output` is likewise always empty: `OutputCapture` is owned
  * by `Quiote\Runtime\Kernel` and not reachable from a PSR-15 middleware.
  */
@@ -99,8 +108,12 @@ final class RecorderMiddleware implements MiddlewareInterface, ResetInterface
             return $handler->handle($request);
         }
 
+        // Computed once, up front: needed before the request reaches the database (an
+        // EffectSource may need to tag queries by it) as well as for the cassette id built at
+        // the end.
+        $rawId = CorrelationId::fromRequest($request) ?? CorrelationId::generate();
         $session = new RecordingSession(Config::getInt('replay.max_bytes', 2_097_152), Config::getInt('replay.max_effects', 2000));
-        $redactor = $this->makeRedactor();
+        $redactor = Redactor::fromConfig();
 
         if (Config::getBool('replay.capture_body', true)) {
             $session->setRequest($this->captureRequest($request, $redactor));
@@ -108,21 +121,42 @@ final class RecorderMiddleware implements MiddlewareInterface, ResetInterface
 
         $sampleRate = Config::getFloat('replay.sample_rate', 0.0);
         $headerPresent = $this->triggerHeaderPresent($request);
+        $sources = EffectSourceRegistry::all();
+        foreach ($sources as $source) {
+            $source->activate($rawId, $session->ledger());
+        }
 
         try {
             $response = $handler->handle($request);
         } catch (Throwable $e) {
+            $this->deactivate($sources, $rawId);
             if ($policy->shouldKeep(500, true, $sampleRate, $this->randomness, $headerPresent)) {
-                $this->finishRecording($session, $request, null, $e, $redactor, $policy);
+                $this->finishRecording($session, $request, null, $e, $redactor, $policy, $rawId, $sources !== []);
             }
             throw $e;
         }
 
+        $this->deactivate($sources, $rawId);
+
         if ($policy->shouldKeep($response->getStatusCode(), false, $sampleRate, $this->randomness, $headerPresent)) {
-            $this->finishRecording($session, $request, $response, null, $redactor, $policy);
+            $this->finishRecording($session, $request, $response, null, $redactor, $policy, $rawId, $sources !== []);
         }
 
         return $response;
+    }
+
+    /**
+     * Called as soon as `$handler->handle()` returns or throws: every query this request could
+     * make has already happened by then, so nothing further would need an `EffectSource`'s
+     * routing entry regardless of when `finishRecording()` itself runs afterward.
+     *
+     * @param list<EffectSource> $sources
+     */
+    private function deactivate(array $sources, string $correlationId): void
+    {
+        foreach ($sources as $source) {
+            $source->deactivate($correlationId);
+        }
     }
 
     /** @return array<string, mixed> */
@@ -214,29 +248,6 @@ final class RecorderMiddleware implements MiddlewareInterface, ResetInterface
         return $request->getHeaderLine($headerName) !== '';
     }
 
-    private function makeRedactor(): Redactor
-    {
-        return new Redactor(
-            self::lowercasedList(Config::getStringList('replay.redact.headers', [
-                'authorization', 'cookie', 'set-cookie', 'proxy-authorization', 'x-api-key',
-            ])),
-            self::lowercasedList(Config::getStringList('replay.redact.params', [
-                'password', 'password_confirm', 'token', 'secret', 'card', 'cvv', 'ssn',
-            ])),
-            self::lowercasedList(Config::getStringList('replay.redact.session', ['_csrf', 'auth.token'])),
-            RedactionMode::fromConfigValue(Config::getString('replay.redact.mode', 'drop')),
-        );
-    }
-
-    /**
-     * @param array<int, string> $values
-     * @return list<string>
-     */
-    private static function lowercasedList(array $values): array
-    {
-        return array_values(array_map(strtolower(...), $values));
-    }
-
     private function currentRequest(ServerRequestInterface $fallback): ServerRequestInterface
     {
         $requestState = $this->context->getContainer()->tryGet(RequestState::class);
@@ -251,6 +262,8 @@ final class RecorderMiddleware implements MiddlewareInterface, ResetInterface
         ?Throwable $exception,
         Redactor $redactor,
         SamplingPolicy $policy,
+        string $rawId,
+        bool $effectsInstrumented,
     ): void {
         $current = $this->currentRequest($request);
         $descriptorAttr = $current->getAttribute(ActionDescriptor::class);
@@ -286,9 +299,8 @@ final class RecorderMiddleware implements MiddlewareInterface, ResetInterface
             ]);
         }
 
-        $rawId = CorrelationId::fromRequest($request) ?? CorrelationId::generate();
         $id = CassetteId::fromCorrelationId($rawId);
-        $cassette = $this->buildCassette($id, $rawId, $session, $policy, $noRecord);
+        $cassette = $this->buildCassette($id, $rawId, $session, $policy, $noRecord, $effectsInstrumented);
 
         try {
             $this->store->put($id, $cassette);
@@ -304,7 +316,7 @@ final class RecorderMiddleware implements MiddlewareInterface, ResetInterface
         }
     }
 
-    private function buildCassette(CassetteId $id, string $rawId, RecordingSession $session, SamplingPolicy $policy, bool $noRecord): Cassette
+    private function buildCassette(CassetteId $id, string $rawId, RecordingSession $session, SamplingPolicy $policy, bool $noRecord, bool $effectsInstrumented): Cassette
     {
         $request = $session->request() ?? [];
         if ($noRecord) {
@@ -333,12 +345,10 @@ final class RecorderMiddleware implements MiddlewareInterface, ResetInterface
                 'span_id' => null,
                 'trigger' => $policy->value,
                 // §6.3's own precedent: "a cassette that recorded no DB effects because its
-                // adapter is not yet instrumented says so in meta" -- always false today, since
-                // nothing wires the DB/HTTP/cache/queue/env recorders into a live request yet.
-                // Stated in the data itself, not only in this class's docblock, so a
-                // cassette:show reader can tell "nothing happened" apart from "nothing was
-                // watched" without reading the source.
-                'effects_instrumented' => false,
+                // adapter is not yet instrumented says so in meta". True when at least one
+                // driver-specific EffectSource is registered (e.g. quioteframework/replay-propulsion
+                // installed and its plugin booted), false otherwise.
+                'effects_instrumented' => $effectsInstrumented,
             ],
             request: $request,
             resolved: $session->resolved(),

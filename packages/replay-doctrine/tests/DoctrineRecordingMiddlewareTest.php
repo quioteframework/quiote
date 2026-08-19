@@ -8,7 +8,7 @@ use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\Exception\DriverException;
 use PHPUnit\Framework\TestCase;
 use Quiote\Replay\Cassette\EffectKind;
-use Quiote\Replay\Db\DoctrineRecordingMiddleware;
+use Quiote\Replay\Adapter\Doctrine\DoctrineRecordingMiddleware;
 use Quiote\Replay\Replay\EffectLedger;
 use Quiote\Support\Clock\FrozenClock;
 

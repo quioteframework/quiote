@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Quiote\Replay\Recording;
 
+use Quiote\Config\Config;
 use Stringable;
 
 /**
@@ -31,6 +32,35 @@ final readonly class Redactor
         private array $deniedSessionKeys,
         private RedactionMode $mode = RedactionMode::Drop,
     ) {
+    }
+
+    /**
+     * Builds a Redactor from the current `replay.redact.*` config, the one
+     * place every consumer -- the recorder middleware, and any driver-specific
+     * package's own query/row recorder -- gets its denylists/mode from, so
+     * they can never drift apart.
+     */
+    public static function fromConfig(): self
+    {
+        return new self(
+            self::lowercasedList(Config::getStringList('replay.redact.headers', [
+                'authorization', 'cookie', 'set-cookie', 'proxy-authorization', 'x-api-key',
+            ])),
+            self::lowercasedList(Config::getStringList('replay.redact.params', [
+                'password', 'password_confirm', 'token', 'secret', 'card', 'cvv', 'ssn',
+            ])),
+            self::lowercasedList(Config::getStringList('replay.redact.session', ['_csrf', 'auth.token'])),
+            RedactionMode::fromConfigValue(Config::getString('replay.redact.mode', 'drop')),
+        );
+    }
+
+    /**
+     * @param array<int, string> $values
+     * @return list<string>
+     */
+    private static function lowercasedList(array $values): array
+    {
+        return array_values(array_map(strtolower(...), $values));
     }
 
     /**
@@ -77,6 +107,48 @@ final readonly class Redactor
     public function redactParams(array $params): array
     {
         return $this->redactNested($params);
+    }
+
+    /**
+     * Redacts a single value against the same denylist {@see redactParams()}
+     * uses, by an explicit column name rather than an array key -- for a
+     * captured database value (a bound query parameter, a single fetched
+     * column) that isn't sitting in a keyed structure. A `null` column name
+     * (no column identity was known for this value -- a raw/manual PDO bind)
+     * never matches, so the value passes through unredacted: there is
+     * nothing to check it against.
+     */
+    public function redactColumnValue(?string $columnName, mixed $value): mixed
+    {
+        return $columnName !== null && in_array(strtolower($columnName), $this->deniedParams, true)
+            ? $this->apply($value)
+            : $value;
+    }
+
+    /**
+     * Redacts a list-shaped fetched row (`PDO::FETCH_NUM` order) by zipping
+     * it against the column names it came with. `$columns === null` means no
+     * column names are known for this row at all (a caller fetched in a mode
+     * other than the ORM's own default) -- passed through as-is, the same
+     * "nothing to check it against" rule {@see redactColumnValue()} applies
+     * per value.
+     *
+     * @param array<int, string>|null $columns
+     * @param array<array-key, mixed> $values
+     * @return array<array-key, mixed>
+     */
+    public function redactRowValues(?array $columns, array $values): array
+    {
+        if ($columns === null) {
+            return $values;
+        }
+
+        $result = [];
+        foreach ($values as $index => $value) {
+            $result[$index] = $this->redactColumnValue($columns[$index] ?? null, $value);
+        }
+
+        return $result;
     }
 
     /**

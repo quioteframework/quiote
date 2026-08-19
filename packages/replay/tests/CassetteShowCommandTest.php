@@ -51,8 +51,9 @@ final class CassetteShowCommandTest extends TestCase
     /**
      * @param array<string, mixed> $response
      * @param array<string, mixed> $resolved
+     * @param list<\Quiote\Replay\Cassette\Effect> $effects
      */
-    private function putCassette(string $rawId, array $response, array $resolved = []): void
+    private function putCassette(string $rawId, array $response, array $resolved = [], array $effects = []): void
     {
         $store = new FileCassetteStore($this->dir);
         $cassette = new Cassette(
@@ -62,7 +63,7 @@ final class CassetteShowCommandTest extends TestCase
             resolved: $resolved,
             session: null,
             user: null,
-            effects: [],
+            effects: $effects,
             response: $response,
             exception: null,
             log: null,

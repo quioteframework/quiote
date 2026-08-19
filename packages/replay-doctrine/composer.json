@@ -1,0 +1,37 @@
+{
+	"name": "quioteframework/replay-doctrine",
+	"description": "Doctrine DBAL effect recorder for quioteframework/replay: a driver middleware that appends one effect-ledger entry per query.",
+	"keywords": ["quiote", "replay", "record", "doctrine", "dbal"],
+	"homepage": "https://github.com/quioteframework/replay-doctrine",
+	"type": "library",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "Quiote Contributors",
+			"homepage": "https://github.com/quioteframework/quiote/graphs/contributors"
+		}
+	],
+	"support": {
+		"issues": "https://github.com/quioteframework/quiote/issues"
+	},
+	"require": {
+		"php": ">=8.5.0",
+		"quioteframework/quiote": "^4.0",
+		"quioteframework/replay": "^4.0",
+		"doctrine/dbal": "^4.4"
+	},
+	"require-dev": {
+		"quioteframework/db-doctrine": "^4.0"
+	},
+	"autoload": {
+		"psr-4": {
+			"Quiote\\Replay\\Adapter\\Doctrine\\": "src/"
+		}
+	},
+	"extra": {
+		"branch-alias": {
+			"dev-main": "4.0.x-dev"
+		},
+		"quiote-monorepo-note": "Developed in-tree under quioteframework/quiote's packages/replay-doctrine/; split to this standalone repo via splitsh/lite on tag push. PRs go to the monorepo, not here."
+	}
+}

@@ -2,13 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Quiote\Replay\Db;
+namespace Quiote\Replay\Adapter\Doctrine;
 
 use Doctrine\DBAL\Driver\Connection;
 use Doctrine\DBAL\Driver\Middleware\AbstractConnectionMiddleware;
 use Doctrine\DBAL\Driver\Result;
 use Doctrine\DBAL\Driver\Statement;
 use Quiote\Replay\Cassette\EffectKind;
+use Quiote\Replay\Db\RecordingPdo;
+use Quiote\Replay\Db\RecordingPdoStatement;
 use Quiote\Replay\Replay\EffectLedger;
 use Quiote\Support\Clock\ClockInterface;
 

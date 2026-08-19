@@ -45,6 +45,7 @@ final class ReplayPluginTest extends TestCase
         foreach (self::REPLAY_KEYS as $key) {
             Config::remove($key);
         }
+        \Quiote\Replay\Recording\EffectSourceRegistry::reset();
     }
 
     public function testRegistersDefaultConfig(): void

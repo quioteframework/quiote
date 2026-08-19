@@ -104,7 +104,11 @@
 		"quioteframework/cloud-gcs": "^4.0",
 		"quioteframework/cloud-azure": "^4.0",
 		"quioteframework/storage": "^4.0",
-		"quioteframework/replay": "^4.0"
+		"quioteframework/replay": "^4.0",
+		"quioteframework/replay-propulsion": "^4.0",
+		"quioteframework/replay-doctrine": "^4.0",
+		"quioteframework/replay-eloquent": "^4.0",
+		"quioteframework/replay-cycle": "^4.0"
 	},
 	"suggest": {
 		"phpunit/phpunit": "Install phpunit if you want to run your tests",
@@ -152,7 +156,11 @@
 		"quioteframework/cloud-gcs": "Minimal GCS REST client (Quiote\\Storage\\Gcs\\); pulled in automatically by the matching session-* and filesystem-* packages",
 		"quioteframework/cloud-azure": "Minimal Azure Blob and Table Storage REST client (Quiote\\Storage\\Azure\\); pulled in automatically by the matching session-* and filesystem-* packages",
 		"quioteframework/storage": "Framework-agnostic object-store contracts (Quiote\\Storage\\ObjectStoreClientInterface and friends); pulled in automatically by cloud-azure, cloud-s3 and cloud-gcs",
-		"quioteframework/replay": "Record → replay → regression test: an effect ledger and per-subsystem recording/stub seams (Quiote\\Replay\\*)"
+		"quioteframework/replay": "Record → replay → regression test: an effect ledger and per-subsystem recording/stub seams (Quiote\\Replay\\*)",
+		"quioteframework/replay-propulsion": "Records Propulsion queries into the replay effect ledger, with bound-parameter/row redaction (Quiote\\Replay\\Adapter\\Propulsion\\*)",
+		"quioteframework/replay-doctrine": "Records Doctrine DBAL queries into the replay effect ledger, via a DBAL driver middleware (Quiote\\Replay\\Adapter\\Doctrine\\*)",
+		"quioteframework/replay-eloquent": "Records Eloquent queries into the replay effect ledger, via the QueryExecuted event (Quiote\\Replay\\Adapter\\Eloquent\\*)",
+		"quioteframework/replay-cycle": "Records Cycle queries into the replay effect ledger, via Cycle's own PSR-3 logger seam (Quiote\\Replay\\Adapter\\Cycle\\*)"
 	},
 	"scripts": {
 		"test": "php -d apc.enable_cli=0 vendor/bin/phpunit --no-coverage",

@@ -55,6 +55,10 @@
             <directory>packages/cloud-azure/tests</directory>
             <directory>packages/storage/tests</directory>
             <directory>packages/replay/tests</directory>
+            <directory>packages/replay-propulsion/tests</directory>
+            <directory>packages/replay-doctrine/tests</directory>
+            <directory>packages/replay-eloquent/tests</directory>
+            <directory>packages/replay-cycle/tests</directory>
             <directory>packages/session-gcs/tests</directory>
             <directory>packages/queue/tests</directory>
             <directory>packages/queue-db/tests</directory>
@@ -145,6 +149,10 @@
             <directory>packages/worker-roadrunner/src</directory>
             <directory>packages/worker-swoole/src</directory>
             <directory>packages/replay/src</directory>
+            <directory>packages/replay-propulsion/src</directory>
+            <directory>packages/replay-doctrine/src</directory>
+            <directory>packages/replay-eloquent/src</directory>
+            <directory>packages/replay-cycle/src</directory>
         </include>
         <exclude>
         <directory>Quiote/translation/data</directory>

@@ -5,7 +5,8 @@ declare(strict_types=1);
 use Illuminate\Database\Capsule\Manager as Capsule;
 use PHPUnit\Framework\TestCase;
 use Quiote\Replay\Cassette\EffectKind;
-use Quiote\Replay\Db\EloquentQueryRecorder;
+use Quiote\Replay\Adapter\Eloquent\EloquentMinimalEventDispatcher;
+use Quiote\Replay\Adapter\Eloquent\EloquentQueryRecorder;
 use Quiote\Replay\Replay\EffectLedger;
 
 final class EloquentQueryRecorderTest extends TestCase
@@ -102,7 +103,7 @@ final class EloquentQueryRecorderTest extends TestCase
     public function testAttachReusesAnExistingEventDispatcher(): void
     {
         $conn = $this->connection();
-        $existing = new \Quiote\Replay\Db\EloquentMinimalEventDispatcher();
+        $existing = new EloquentMinimalEventDispatcher();
         $conn->setEventDispatcher($existing);
 
         (new EloquentQueryRecorder(new EffectLedger()))->attach($conn);

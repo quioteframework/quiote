@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Quiote\Replay\Db;
+namespace Quiote\Replay\Adapter\Eloquent;
 
 use Illuminate\Database\Connection;
 use Illuminate\Database\Events\QueryExecuted;

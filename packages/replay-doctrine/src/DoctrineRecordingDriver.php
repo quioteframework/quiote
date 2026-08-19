@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Quiote\Replay\Db;
+namespace Quiote\Replay\Adapter\Doctrine;
 
 use Doctrine\DBAL\Driver as DriverInterface;
 use Doctrine\DBAL\Driver\Connection;

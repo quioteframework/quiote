@@ -38,6 +38,7 @@ final class RecorderMiddlewareTest extends TestCase
         foreach (self::REPLAY_KEYS as $key) {
             Config::remove($key);
         }
+        \Quiote\Replay\Recording\EffectSourceRegistry::reset();
         parent::tearDown();
     }
 
@@ -152,6 +153,9 @@ final class RecorderMiddlewareTest extends TestCase
         $this->assertSame(200, $cassette->response['status']);
         $this->assertSame('GET', $cassette->request['method']);
         $this->assertSame([], $cassette->effects);
+        // No driver-specific package is installed/registered in this test, so nothing recording
+        // effects is instrumented -- see testEffectsInstrumentedIsTrueWhenAnEffectSourceIsRegistered()
+        // for the other side of this.
         $this->assertFalse($cassette->meta['effects_instrumented']);
     }
 
@@ -325,6 +329,86 @@ final class RecorderMiddlewareTest extends TestCase
 
         $this->assertSame(200, $response->getStatusCode());
         $this->assertSame('unaffected', (string)$response->getBody());
+    }
+
+    /**
+     * Generic, driver-agnostic proof of the EffectSource contract -- no ORM/DB dependency at
+     * all. A real driver package (e.g. quioteframework/replay-propulsion) proves its own
+     * EffectSource implementation end to end against a real connection in its own test suite;
+     * this only proves RecorderMiddleware activates/deactivates every registered source
+     * correctly and reports effects_instrumented accordingly.
+     */
+    public function testEffectsInstrumentedIsTrueAndSourcesAreActivatedWhenAnEffectSourceIsRegistered(): void
+    {
+        $source = new class implements \Quiote\Replay\Recording\EffectSource {
+            /** @var list<string> */
+            public array $activations = [];
+            /** @var list<string> */
+            public array $deactivations = [];
+
+            public function activate(string $correlationId, \Quiote\Replay\Replay\EffectLedger $ledger): void
+            {
+                $this->activations[] = $correlationId;
+                $ledger->record(\Quiote\Replay\Cassette\EffectKind::Db, 'fake query', [], null);
+            }
+
+            public function deactivate(string $correlationId): void
+            {
+                $this->deactivations[] = $correlationId;
+            }
+        };
+        \Quiote\Replay\Recording\EffectSourceRegistry::register($source);
+
+        $this->enable('always');
+        $store = $this->spyStore();
+        $middleware = new RecorderMiddleware($this->context($store), $store);
+
+        $middleware->process(new ServerRequest('GET', '/widgets'), $this->handler(new Response(200)));
+
+        $this->assertCount(1, $store->put);
+        $cassette = $store->put[0][1];
+        $this->assertTrue($cassette->meta['effects_instrumented']);
+        $this->assertCount(1, $cassette->effects);
+        $this->assertSame('fake query', $cassette->effects[0]->fingerprint);
+        $this->assertCount(1, $source->activations);
+        $this->assertCount(1, $source->deactivations);
+        $this->assertSame($source->activations[0], $source->deactivations[0]);
+    }
+
+    public function testEveryRegisteredEffectSourceIsDeactivatedEvenWhenTheHandlerThrows(): void
+    {
+        $source = new class implements \Quiote\Replay\Recording\EffectSource {
+            /** @var list<string> */
+            public array $deactivations = [];
+
+            public function activate(string $correlationId, \Quiote\Replay\Replay\EffectLedger $ledger): void
+            {
+            }
+
+            public function deactivate(string $correlationId): void
+            {
+                $this->deactivations[] = $correlationId;
+            }
+        };
+        \Quiote\Replay\Recording\EffectSourceRegistry::register($source);
+
+        $this->enable('error');
+        $store = $this->spyStore();
+        $middleware = new RecorderMiddleware($this->context($store), $store);
+        $handler = new class implements RequestHandlerInterface {
+            public function handle(ServerRequestInterface $request): ResponseInterface
+            {
+                throw new RuntimeException('boom');
+            }
+        };
+
+        try {
+            $middleware->process(new ServerRequest('GET', '/'), $handler);
+        } catch (RuntimeException) {
+            // expected
+        }
+
+        $this->assertCount(1, $source->deactivations);
     }
 }
 

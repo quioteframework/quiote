@@ -13,6 +13,8 @@ use Quiote\Plugin\PluginRegistrar;
 use Quiote\Replay\Console\CassetteListCommand;
 use Quiote\Replay\Console\CassetteShowCommand;
 use Quiote\Replay\Console\ReplayCommand;
+use Quiote\Replay\Recording\EffectLedgerRegistry;
+use Quiote\Replay\Recording\EffectSourceRegistry;
 use Quiote\Replay\Recording\RecorderMiddleware;
 use Quiote\Replay\Store\CassetteStoreInterface;
 use Quiote\Replay\Store\CassetteStoreRegistry;
@@ -83,6 +85,8 @@ final class ReplayPlugin implements PluginInterface
 
         $registrar->stateReset('quioteframework/replay', static function (): void {
             CassetteStoreRegistry::reset();
+            EffectLedgerRegistry::reset();
+            EffectSourceRegistry::reset();
         });
     }
 

@@ -138,7 +138,7 @@ final class CassetteShowCommand extends AbstractAppCommand
             'resolved' => $cassette->resolved,
             'session' => $cassette->session,
             'user' => $cassette->user,
-            'effects' => array_map(self::effectToArray(...), $cassette->effects),
+            'effects' => array_map(static fn(Effect $effect): array => self::effectToArray($effect, $includeBodies), $cassette->effects),
             'response' => self::projectSection($cassette->response, $includeBodies),
             'exception' => $cassette->exception,
             'log' => $cassette->log,
@@ -171,13 +171,28 @@ final class CassetteShowCommand extends AbstractAppCommand
         return $section;
     }
 
-    /** @return array<string, mixed> */
-    private static function effectToArray(Effect $effect): array
+    /**
+     * `call` (sql/source/bound_params, for a DB effect) is always shown in full: it's small and
+     * already redacted at capture time by whichever driver-specific recorder produced it, unlike
+     * a request/response body. `result`'s captured rows are the one part of an effect that can
+     * genuinely be large -- a per-query cap, independent of `replay.max_effects` -- so those
+     * follow the same excerpt-by-default rule {@see projectSection()} applies to bodies.
+     *
+     * @return array<string, mixed>
+     */
+    private static function effectToArray(Effect $effect, bool $includeBodies): array
     {
+        $result = $effect->result;
+        if (!$includeBodies && is_array($result) && is_array($result['rows'] ?? null)) {
+            $result['rows'] = ['excerpted' => true, 'captured_row_count' => count($result['rows'])];
+        }
+
         return [
             'seq' => $effect->seq,
             'kind' => $effect->kind->value,
             'fingerprint' => $effect->fingerprint,
+            'call' => $effect->call,
+            'result' => $result,
             'duration_us' => $effect->durationMicros,
         ];
     }

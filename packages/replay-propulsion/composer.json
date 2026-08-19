@@ -1,0 +1,37 @@
+{
+	"name": "quioteframework/replay-propulsion",
+	"description": "Propulsion effect recorder for quioteframework/replay: records every query into a request's cassette effect ledger, with bound-parameter and captured-row redaction.",
+	"keywords": ["quiote", "replay", "record", "propulsion", "propel"],
+	"homepage": "https://github.com/quioteframework/replay-propulsion",
+	"type": "library",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "Quiote Contributors",
+			"homepage": "https://github.com/quioteframework/quiote/graphs/contributors"
+		}
+	],
+	"support": {
+		"issues": "https://github.com/quioteframework/quiote/issues"
+	},
+	"require": {
+		"php": ">=8.5.0",
+		"quioteframework/quiote": "^4.0",
+		"quioteframework/replay": "^4.0",
+		"quioteframework/propulsion": "^2.0 || ^3.0"
+	},
+	"require-dev": {
+		"quioteframework/db-propulsion": "^4.0"
+	},
+	"autoload": {
+		"psr-4": {
+			"Quiote\\Replay\\Adapter\\Propulsion\\": "src/"
+		}
+	},
+	"extra": {
+		"branch-alias": {
+			"dev-main": "4.0.x-dev"
+		},
+		"quiote-monorepo-note": "Developed in-tree under quioteframework/quiote's packages/replay-propulsion/; split to this standalone repo via splitsh/lite on tag push. PRs go to the monorepo, not here."
+	}
+}

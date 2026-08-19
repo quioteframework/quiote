@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use PHPUnit\Framework\TestCase;
-use Quiote\Replay\Db\EloquentMinimalEventDispatcher;
+use Quiote\Replay\Adapter\Eloquent\EloquentMinimalEventDispatcher;
 
 final class EloquentMinimalEventDispatcherTest extends TestCase
 {

@@ -9,7 +9,7 @@ use Cycle\Database\DatabaseInterface;
 use Cycle\Database\DatabaseManager;
 use PHPUnit\Framework\TestCase;
 use Quiote\Replay\Cassette\EffectKind;
-use Quiote\Replay\Db\CycleRecordingLogger;
+use Quiote\Replay\Adapter\Cycle\CycleRecordingLogger;
 use Quiote\Replay\Replay\EffectLedger;
 
 final class CycleRecordingLoggerTest extends TestCase

@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use PHPUnit\Framework\TestCase;
-use Quiote\Replay\Db\DoctrineSnapshotResult;
+use Quiote\Replay\Adapter\Doctrine\DoctrineSnapshotResult;
 
 final class DoctrineSnapshotResultTest extends TestCase
 {

@@ -1,0 +1,37 @@
+{
+	"name": "quioteframework/replay-eloquent",
+	"description": "Eloquent (illuminate/database) effect recorder for quioteframework/replay: records one effect-ledger entry per query via the QueryExecuted event.",
+	"keywords": ["quiote", "replay", "record", "eloquent", "illuminate"],
+	"homepage": "https://github.com/quioteframework/replay-eloquent",
+	"type": "library",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "Quiote Contributors",
+			"homepage": "https://github.com/quioteframework/quiote/graphs/contributors"
+		}
+	],
+	"support": {
+		"issues": "https://github.com/quioteframework/quiote/issues"
+	},
+	"require": {
+		"php": ">=8.5.0",
+		"quioteframework/quiote": "^4.0",
+		"quioteframework/replay": "^4.0",
+		"illuminate/database": "^10.0 || ^11.0 || ^12.0 || ^13.0"
+	},
+	"require-dev": {
+		"quioteframework/db-eloquent": "^4.0"
+	},
+	"autoload": {
+		"psr-4": {
+			"Quiote\\Replay\\Adapter\\Eloquent\\": "src/"
+		}
+	},
+	"extra": {
+		"branch-alias": {
+			"dev-main": "4.0.x-dev"
+		},
+		"quiote-monorepo-note": "Developed in-tree under quioteframework/quiote's packages/replay-eloquent/; split to this standalone repo via splitsh/lite on tag push. PRs go to the monorepo, not here."
+	}
+}
