@@ -1,6 +1,6 @@
 {
 	"name": "quioteframework/replay",
-	"description": "Record → replay → regression test: an effect ledger and per-subsystem recording/stub seams (database, HTTP client, cache, queue, env) for Quiote.",
+	"description": "Record → replay → regression test: a cassette format/store, a request recorder middleware, cassette:list/cassette:show console commands, and an effect ledger with per-subsystem recording/stub seams (database, HTTP client, cache, queue, env) for Quiote.",
 	"keywords": ["quiote", "replay", "record", "testing", "determinism"],
 	"homepage": "https://github.com/quioteframework/replay",
 	"type": "library",

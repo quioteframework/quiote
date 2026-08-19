@@ -7,7 +7,9 @@ use Psr\Http\Server\RequestHandlerInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Quiote\Context;
+use Quiote\Execution\ActionDescriptor;
 use Quiote\Middleware\RoutingMiddleware;
+use Quiote\Request\RequestState;
 use Quiote\Routing\Routing;
 use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
@@ -272,5 +274,45 @@ class RoutingMiddlewareTest extends TestCase
 
         $this->assertSame('/a-path', $cacheA['test_route']);
         $this->assertSame('/b-path', $cacheB['test_route']);
+    }
+
+    /**
+     * Regression: a middleware sitting outermost in the pipeline (e.g. a request recorder)
+     * cannot see attributes attached deep inside the PSR-7 clone chain -- it only ever holds
+     * the request it was originally handed, before any withAttribute() calls made downstream.
+     * RequestState::current() is the documented escape from that, but it only reflects a
+     * request that was actually published to it. Verifies RoutingMiddleware now publishes the
+     * ActionDescriptor-bearing request on a match, so it is reachable outside the pipeline.
+     */
+    public function testPublishesMatchedRequestToRequestState(): void
+    {
+        $routing = $this->routingWithRoute('/widgets', ['POST']);
+        $mw = new RoutingMiddleware($routing, $this->controller());
+        $req = new ServerRequest('POST', '/widgets');
+
+        $this->dispatch($mw, $req);
+
+        $requestState = Context::getInstance('test')->getContainer()->get(RequestState::class);
+        $descriptor = $requestState->current()->getAttribute(ActionDescriptor::class);
+        $this->assertInstanceOf(ActionDescriptor::class, $descriptor);
+        $this->assertSame('TestModule', $descriptor->module);
+        $this->assertSame('TestAction', $descriptor->action);
+    }
+
+    /**
+     * An unmatched route (404 case) makes no attribute change, so nothing new needs
+     * publishing -- but it also must not throw or otherwise misbehave now that a publish
+     * call was added to the matched branch.
+     */
+    public function testUnmatchedRouteDoesNotPublishAnActionDescriptor(): void
+    {
+        $routing = $this->routingWithRoute('/widgets', ['POST']);
+        $mw = new RoutingMiddleware($routing, $this->controller());
+        $req = new ServerRequest('GET', '/does-not-exist');
+
+        $result = $this->dispatch($mw, $req);
+
+        $this->assertTrue($result['reached']);
+        $this->assertNull($this->requireRequest($result['request'])->getAttribute(ActionDescriptor::class));
     }
 }

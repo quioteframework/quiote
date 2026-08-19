@@ -424,6 +424,16 @@ class DispatchMiddleware implements MiddlewareInterface
         if ($dbg) {
             \Quiote\Logging\Log::for($this)->debug('[DispatchMiddleware][' . $rid . '] response status=' . $resp->getStatusCode() . ' len=' . strlen((string)$resp->getBody()));
         }
+        // Publish so the final ExecutionState (module/action rewritten by a forward,
+        // validationDecision) is reachable via RequestState::current() outside the PSR-7 clone
+        // chain, for a request that never reached ValidationMiddleware/FormPopulationMiddleware's
+        // own publish() calls -- a simple action with no forward is exactly that case. tryGet(),
+        // not get(): a test double's fabricated Context/Container legitimately has no RequestState
+        // bound, and that must stay a no-op rather than a crash.
+        $requestState = $this->controller->getContext()->getContainer()->tryGet(\Quiote\Request\RequestState::class);
+        if ($requestState instanceof \Quiote\Request\RequestState) {
+            $requestState->publish($request);
+        }
         return $resp;
     }
 

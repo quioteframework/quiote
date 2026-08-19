@@ -460,6 +460,71 @@ class DispatchMiddlewareTest extends TestCase
         $this->assertTrue($es->validationDecision->isPassed());
         $this->assertSame(SecurityDecision::Allow, $es->securityDecision);
     }
+
+    /**
+     * Regression: a middleware sitting outermost in the pipeline (e.g. a request recorder)
+     * cannot see attributes attached deep inside the PSR-7 clone chain -- for a simple action
+     * with no forward, nothing downstream of routing calls RequestState::publish(), so the
+     * final ExecutionState was previously unreachable outside process(). Verifies
+     * DispatchMiddleware now publishes it when a RequestState is bound in the container.
+     */
+    public function testPublishesFinalRequestToRequestStateWhenBound(): void
+    {
+        require_once __DIR__ . '/../../../fixtures/App/Modules/Foo/Views/BarView.php';
+        $action = new class extends \Quiote\Action\Action {
+            public function initialize(\Quiote\Execution\ActionInitContext $ctx): void {}
+            public function isCacheable(?string $outputType = null): bool { return false; }
+            public function isSecure() { return false; }
+            public function execute(mixed $request = null): mixed { return 'Bar'; }
+        };
+        $controller = $this->makeController(fn()=>$action);
+        $this->bootstrapOutputType($controller);
+
+        $published = null;
+        $requestState = new \Quiote\Request\RequestState(
+            read: fn(): \Quiote\Request\WebRequest => new \Quiote\Request\WebRequest(),
+            write: function ($request) use (&$published): void { $published = $request; },
+        );
+        $controller->getContext()->getContainer()->set(\Quiote\Request\RequestState::class, $requestState);
+
+        $mw = new DispatchMiddleware($controller);
+        $ad = new ActionDescriptor('Foo', 'Bar', 'execute', 'html', true);
+        $req = (new ServerRequest('GET', '/'))->withAttribute(ActionDescriptor::class, $ad);
+        $resp = $mw->process($req, $this->createStub(RequestHandlerInterface::class));
+
+        $this->assertSame(200, $resp->getStatusCode());
+        $this->assertInstanceOf(
+            ServerRequestInterface::class,
+            $published,
+            'DispatchMiddleware should publish the final request to RequestState',
+        );
+        $this->assertInstanceOf(ActionDescriptor::class, $published->getAttribute(ActionDescriptor::class));
+    }
+
+    /**
+     * A container that has no RequestState bound (a hand-fabricated test double, as this
+     * file's own makeController() produces) must not make DispatchMiddleware crash -- the
+     * publish call is best-effort via tryGet(), not a hard dependency.
+     */
+    public function testMissingRequestStateBindingDoesNotCrashDispatch(): void
+    {
+        require_once __DIR__ . '/../../../fixtures/App/Modules/Foo/Views/BarView.php';
+        $action = new class extends \Quiote\Action\Action {
+            public function initialize(\Quiote\Execution\ActionInitContext $ctx): void {}
+            public function isCacheable(?string $outputType = null): bool { return false; }
+            public function isSecure() { return false; }
+            public function execute(mixed $request = null): mixed { return 'Bar'; }
+        };
+        $controller = $this->makeController(fn()=>$action);
+        $this->bootstrapOutputType($controller);
+        $mw = new DispatchMiddleware($controller);
+        $ad = new ActionDescriptor('Foo', 'Bar', 'execute', 'html', true);
+        $req = (new ServerRequest('GET', '/'))->withAttribute(ActionDescriptor::class, $ad);
+
+        $resp = $mw->process($req, $this->createStub(RequestHandlerInterface::class));
+
+        $this->assertSame(200, $resp->getStatusCode());
+    }
 }
 
 /**

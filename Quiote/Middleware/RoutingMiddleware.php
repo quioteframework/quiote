@@ -122,6 +122,16 @@ class RoutingMiddleware implements MiddlewareInterface
                     ->withAttribute(ActionDescriptor::class, $descriptor)
                     ->withAttribute('route_name', $routeName)
                     ->withAttribute('route_params', $attributes);
+                // Publish so ActionDescriptor is reachable via RequestState::current() outside the
+                // PSR-7 clone chain -- otherwise a middleware sitting outermost (e.g. a request
+                // recorder) can never see the matched route for a simple action, which skips
+                // ValidationMiddleware's own publish() entirely. tryGet(), not get(): a test
+                // double's fabricated Context/Container legitimately has no RequestState bound,
+                // and that must stay a no-op rather than a crash.
+                $requestState = $this->controller->getContext()->getContainer()->tryGet(\Quiote\Request\RequestState::class);
+                if ($requestState instanceof \Quiote\Request\RequestState) {
+                    $requestState->publish($request);
+                }
                 // Lifecycle hook: route matched.
                 // Events::emit gates on hasListeners and swallows listener errors,
                 // so a no-listener app pays only a lookup and a bad listener can't
