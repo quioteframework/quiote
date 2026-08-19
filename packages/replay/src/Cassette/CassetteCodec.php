@@ -22,6 +22,32 @@ final class CassetteCodec
 {
     public const CURRENT_SCHEMA_VERSION = 1;
 
+    /**
+     * Ceiling on the inflated size of a `.qcast` payload, well above what
+     * `replay.max_bytes`' own 2 MiB default plus a bounded effect ledger can produce, and far
+     * below what an unbounded inflate can cost. See {@see decode()} for why a ceiling exists
+     * at all.
+     */
+    public const DEFAULT_MAX_DECODED_BYTES = 33_554_432;
+
+    /**
+     * Input fed to the incremental inflater per step. Deliberately small: `inflate_add()`
+     * inflates whatever it is given in one call and allocates the whole result before
+     * returning, so bounding the *input* per call is what bounds the allocation -- checking the
+     * running total between calls cannot help if one call is already too large. DEFLATE's
+     * expansion is capped at roughly 1032:1, so 8 KiB in cannot produce more than about 8 MiB
+     * out, which keeps the overshoot past the ceiling to one chunk's worth.
+     */
+    private const INFLATE_CHUNK_BYTES = 8_192;
+
+    /**
+     * @param positive-int $maxDecodedBytes Inflated-size ceiling for {@see decode()}.
+     */
+    public function __construct(
+        private readonly int $maxDecodedBytes = self::DEFAULT_MAX_DECODED_BYTES,
+    ) {
+    }
+
     /** Gzip-wrapped JSON -- the on-disk `.qcast` format. */
     public function encode(Cassette $cassette): string
     {
@@ -43,18 +69,65 @@ final class CassetteCodec
         }
     }
 
-    /** Decodes a gzip-wrapped `.qcast` payload. */
+    /**
+     * Decodes a gzip-wrapped `.qcast` payload.
+     *
+     * Inflated incrementally against {@see $maxDecodedBytes} rather than through `gzdecode()`,
+     * because a cassette is untrusted input and gzip's compression ratio is unbounded: a few
+     * hundred kilobytes of highly repetitive `.qcast` inflates to hundreds of megabytes, and
+     * exhausting `memory_limit` is a fatal error rather than a catchable one -- so a single
+     * oversized cassette in a store would take down `cassette:list`/`cassette:prune` for every
+     * cassette, past any `catch (Throwable)` a caller wrapped it in. Checking the budget as the
+     * output grows refuses that payload with a normal exception instead, and does so before the
+     * allocation rather than after it.
+     */
     public function decode(string $payload): Cassette
+    {
+        return $this->decodeRaw($this->inflateBounded($payload));
+    }
+
+    /**
+     * @throws CassetteCodecException if the payload is not a gzip container, or inflates past
+     *         the configured ceiling.
+     */
+    private function inflateBounded(string $payload): string
     {
         // @-suppressed deliberately: this is exactly the untrusted-input boundary the project's
         // no-silent-swallow rule carves out an exception for -- the failure is reported via the
-        // explicit false check below, not left to a raw PHP warning.
-        $json = @gzdecode($payload);
-        if ($json === false) {
+        // explicit false checks below, not left to a raw PHP warning.
+        $context = @inflate_init(ZLIB_ENCODING_GZIP);
+        if ($context === false) {
+            throw new CassetteCodecException('Could not initialise the gzip inflater for the cassette payload.');
+        }
+
+        $json = '';
+        $length = strlen($payload);
+        for ($offset = 0; $offset < $length; $offset += self::INFLATE_CHUNK_BYTES) {
+            $isLast = $offset + self::INFLATE_CHUNK_BYTES >= $length;
+            $chunk = @inflate_add(
+                $context,
+                substr($payload, $offset, self::INFLATE_CHUNK_BYTES),
+                $isLast ? ZLIB_FINISH : ZLIB_NO_FLUSH,
+            );
+            if ($chunk === false) {
+                throw new CassetteCodecException('Cassette payload is not a valid gzip container (truncated or corrupt).');
+            }
+            $json .= $chunk;
+            if (strlen($json) > $this->maxDecodedBytes) {
+                throw new CassetteCodecException(sprintf(
+                    'Cassette payload inflates to more than the %d-byte ceiling this codec accepts; refusing to '
+                    . 'decode it. A cassette this large is either corrupt or hostile -- a legitimate one is bounded '
+                    . 'by replay.max_bytes.',
+                    $this->maxDecodedBytes,
+                ));
+            }
+        }
+
+        if ($json === '') {
             throw new CassetteCodecException('Cassette payload is not a valid gzip container (truncated or corrupt).');
         }
 
-        return $this->decodeRaw($json);
+        return $json;
     }
 
     /** Decodes a plain-JSON (`--raw`) payload. */

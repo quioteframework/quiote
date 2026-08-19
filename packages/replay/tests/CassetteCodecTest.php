@@ -161,4 +161,115 @@ final class CassetteCodecTest extends TestCase
         $this->expectExceptionMessageMatches('/unknown "kind"/');
         $codec->decodeRaw($raw);
     }
+
+    public function testAPayloadInflatingPastTheCeilingIsRefusedRatherThanAllocated(): void
+    {
+        // Highly compressible, so a small payload claims a large inflated size -- the shape of a
+        // decompression bomb. The ceiling is deliberately tiny here so the test stays fast.
+        $bomb = gzencode(str_repeat('A', 4_194_304), 9);
+        $this->assertIsString($bomb);
+        $this->assertLessThan(65_536, strlen($bomb), 'Guard: the payload must be small relative to what it inflates to.');
+
+        $codec = new CassetteCodec(maxDecodedBytes: 65_536);
+
+        $this->expectException(CassetteCodecException::class);
+        $this->expectExceptionMessageMatches('/inflates to more than the 65536-byte ceiling/');
+        $codec->decode($bomb);
+    }
+
+    public function testTheCeilingIsEnforcedWithoutAllocatingTheWholeInflatedPayload(): void
+    {
+        $bomb = gzencode(str_repeat('A', 33_554_432), 9);
+        $this->assertIsString($bomb);
+
+        $before = memory_get_usage(true);
+        try {
+            (new CassetteCodec(maxDecodedBytes: 65_536))->decode($bomb);
+            $this->fail('Expected the payload to be refused.');
+        } catch (CassetteCodecException) {
+            // expected
+        }
+        $grew = memory_get_usage(true) - $before;
+
+        // One 8 KiB input chunk cannot inflate to more than about 8 MiB, so refusing a 32 MiB
+        // payload must cost far less than 32 MiB. Without the bound this allocates the lot.
+        $this->assertLessThan(16_777_216, $grew, sprintf('Refusing the payload allocated %d bytes.', $grew));
+    }
+
+    public function testACassetteAtTheCeilingStillRoundTrips(): void
+    {
+        $cassette = new Cassette(
+            schemaVersion: CassetteCodec::CURRENT_SCHEMA_VERSION,
+            meta: ['id' => 'big'],
+            request: ['method' => 'POST', 'uri' => '/upload', 'body' => ['encoding' => 'utf8', 'content' => str_repeat('payload ', 60_000), 'truncated' => false]],
+            resolved: [],
+            session: null,
+            user: null,
+            effects: [],
+            response: ['status' => 200, 'body' => ['encoding' => 'utf8', 'content' => 'ok', 'truncated' => false]],
+            exception: null,
+            log: null,
+        );
+
+        $codec = new CassetteCodec();
+        $decoded = $codec->decode($codec->encode($cassette));
+
+        $body = $decoded->request['body'];
+        $this->assertIsArray($body);
+        $this->assertIsString($body['content']);
+        $this->assertSame(480_000, strlen($body['content']));
+    }
+
+    public function testTheDefaultCeilingSitsWellAboveAPlausibleCassette(): void
+    {
+        // A cassette bounded by replay.max_bytes' own 2 MiB default, for request and response
+        // together, must never come close to the ceiling.
+        $this->assertGreaterThan(4 * 2_097_152, CassetteCodec::DEFAULT_MAX_DECODED_BYTES);
+    }
+
+    public function testAnEmptyPayloadIsRefused(): void
+    {
+        $codec = new CassetteCodec();
+
+        $this->expectException(CassetteCodecException::class);
+        $this->expectExceptionMessageMatches('/not a valid gzip container/');
+        $codec->decode('');
+    }
+
+    public function testAPlainNonGzipPayloadIsRefused(): void
+    {
+        $codec = new CassetteCodec();
+
+        $this->expectException(CassetteCodecException::class);
+        $this->expectExceptionMessageMatches('/not a valid gzip container/');
+        $codec->decode('{"_schema_version":1}');
+    }
+
+    public function testAPayloadLargerThanOneInflateChunkRoundTrips(): void
+    {
+        // Crosses the 8 KiB input-chunk boundary many times over, so the incremental inflater's
+        // multi-chunk path is what is exercised rather than a single-shot one.
+        $cassette = new Cassette(
+            schemaVersion: CassetteCodec::CURRENT_SCHEMA_VERSION,
+            meta: ['id' => 'chunked'],
+            request: ['method' => 'GET', 'uri' => '/x', 'body' => ['encoding' => 'utf8', 'content' => bin2hex(random_bytes(200_000)), 'truncated' => false]],
+            resolved: [],
+            session: null,
+            user: null,
+            effects: [],
+            response: ['status' => 200],
+            exception: null,
+            log: null,
+        );
+
+        $codec = new CassetteCodec();
+        $encoded = $codec->encode($cassette);
+        $this->assertGreaterThan(8_192 * 4, strlen($encoded), 'Guard: the compressed payload must span several input chunks.');
+
+        $decodedBody = $codec->decode($encoded)->request['body'];
+        $originalBody = $cassette->request['body'];
+        $this->assertIsArray($decodedBody);
+        $this->assertIsArray($originalBody);
+        $this->assertSame($originalBody['content'], $decodedBody['content']);
+    }
 }
