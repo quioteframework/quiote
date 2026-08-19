@@ -18,7 +18,9 @@ use Quiote\Replay\Replay\EffectLedger;
  * `quioteframework/replay-{propulsion,doctrine,eloquent,cycle}` plugin is
  * installed; cache/queue/env effects still need the app to substitute the
  * matching `Recording*` decorator for its own cache/queue/env binding by
- * hand.
+ * hand. The ledger it builds carries an {@see EffectRedactor}, so every one of
+ * those recorders is scrubbed at the one point they all share rather than each
+ * having to remember.
  */
 final class RecordingSession
 {
@@ -57,8 +59,12 @@ final class RecordingSession
         private readonly int $maxBytes = 2_097_152,
         private readonly int $maxEffects = 2000,
         ?EffectLedger $ledger = null,
+        ?EffectRedactor $effectRedactor = null,
     ) {
-        $this->ledger = $ledger ?? new EffectLedger(maxPayloadBytes: max(0, $maxBytes));
+        $this->ledger = $ledger ?? new EffectLedger(
+            maxPayloadBytes: max(0, $maxBytes),
+            redactor: $effectRedactor ?? EffectRedactor::fromConfig(),
+        );
     }
 
     public function ledger(): EffectLedger

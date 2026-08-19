@@ -6,6 +6,7 @@ namespace Quiote\Replay\Replay;
 
 use Quiote\Replay\Cassette\Effect;
 use Quiote\Replay\Cassette\EffectKind;
+use Quiote\Replay\Recording\EffectRedactor;
 
 /**
  * A request's effect ledger: written to by appending during recording, read
@@ -51,15 +52,27 @@ final class EffectLedger
      * @param int|null $maxPayloadBytes Ceiling on the total size of the `call`/`result` payloads
      *        {@see record()} keeps. Null means unbounded, for a ledger built from an
      *        already-bounded cassette on the replay side, where there is nothing to bound.
+     * @param EffectRedactor|null $redactor Applied to every recorded `call`/`result`. Null skips
+     *        redaction, for a ledger on the replay side -- a cassette's effects were already
+     *        scrubbed when they were recorded, and scrubbing them again on read would only remove
+     *        data replay needs.
      */
-    public function __construct(array $effects = [], private readonly ?int $maxPayloadBytes = null)
-    {
+    public function __construct(
+        array $effects = [],
+        private readonly ?int $maxPayloadBytes = null,
+        private readonly ?EffectRedactor $redactor = null,
+    ) {
         $this->effects = $effects;
     }
 
     /**
      * Appends a freshly observed effect, assigning it the next sequence
      * number. Used while recording.
+     *
+     * Every `call`/`result` goes through {@see EffectRedactor} first when one was supplied. That
+     * placement is deliberate: the ledger is the single point every recorder in every driver
+     * package already funnels through, so a recorder cannot forget to redact the way most of them
+     * had -- see {@see EffectRedactor}'s own docblock for what each one was leaking.
      *
      * An effect's `result` is the largest thing a cassette carries after the request and
      * response bodies -- a cache value, a captured result set, an HTTP response body -- and
@@ -75,6 +88,14 @@ final class EffectLedger
      */
     public function record(EffectKind $kind, string $fingerprint, array $call, mixed $result, ?int $durationMicros = null): Effect
     {
+        if ($this->redactor !== null) {
+            // Before the budget check below, so a payload is measured at the size it will
+            // actually be stored at, and before anything is held on $this, so a denied value
+            // never sits in the ledger unredacted even briefly.
+            $call = $this->redactor->redactCall($kind, $call);
+            $result = $this->redactor->redactResult($kind, $call, $result);
+        }
+
         if ($this->maxPayloadBytes !== null) {
             $remaining = $this->maxPayloadBytes - $this->payloadBytesUsed;
             $size = self::approximateSize($result, $remaining);

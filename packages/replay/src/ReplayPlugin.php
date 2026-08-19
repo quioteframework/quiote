@@ -69,6 +69,13 @@ final class ReplayPlugin implements PluginInterface
         $registrar->configDefault('replay.redact.headers', ['authorization', 'cookie', 'set-cookie', 'proxy-authorization', 'x-api-key']);
         $registrar->configDefault('replay.redact.params', ['password', 'password_confirm', 'token', 'secret', 'card', 'cvv', 'ssn']);
         $registrar->configDefault('replay.redact.session', ['_csrf', 'auth.token']);
+        // Matched as case-insensitive substrings of an environment variable's name, not as exact
+        // names: env vars are named per deployment (APP_DB_PASSWORD, STRIPE_SECRET_KEY), so an
+        // exact-match denylist would have to enumerate every name in every app to work at all.
+        $registrar->configDefault('replay.redact.env', [
+            'password', 'passwd', 'secret', 'token', 'key', 'credential', 'private',
+            'auth', 'dsn', 'connection_string', 'connectionstring', 'salt', 'cert',
+        ]);
         $registrar->configDefault('replay.redact.mode', 'drop');
         // Off by default everywhere: replay always runs in ReplayEngine's one mode today (no
         // effect stubbing exists, so replaying really re-performs a request's side effects) --
