@@ -42,15 +42,27 @@ final class DoctrineRecordingConnection extends AbstractConnectionMiddleware
         return new DoctrineRecordingStatement(parent::prepare($sql), $sql, $this->clock);
     }
 
+    /**
+     * Consults the ledger before touching the result set and hands the real `Result` straight
+     * back when nothing is recording -- see {@see DoctrineRecordingStatement::execute()} for why
+     * an unconditional snapshot here changed the behaviour of every query in the application.
+     */
     #[\Override]
     public function query(string $sql): Result
     {
+        $ledger = ActiveEffectLedger::get();
         $start = $this->clock->monotonic();
         $real = parent::query($sql);
+
+        if ($ledger === null) {
+            return $real;
+        }
+
+        $columnCount = $real->columnCount();
         $rows = $real->fetchAllAssociative();
         $affected = $real->rowCount();
 
-        ActiveEffectLedger::get()?->record(
+        $ledger->record(
             EffectKind::Db,
             RecordingPdoStatement::fingerprintOf($sql),
             ['sql' => $sql, 'params' => []],
@@ -58,9 +70,13 @@ final class DoctrineRecordingConnection extends AbstractConnectionMiddleware
             RecordingPdo::durationMicros($this->clock, $start),
         );
 
-        return new DoctrineSnapshotResult($rows, $affected);
+        return new DoctrineSnapshotResult($rows, $affected, $columnCount);
     }
 
+    /**
+     * `exec()` has no result set to snapshot, so there is nothing to skip when the ledger is
+     * absent -- the null-safe call is the whole guard.
+     */
     #[\Override]
     public function exec(string $sql): int|string
     {

@@ -31,15 +31,26 @@ final class DoctrineSnapshotResult implements Result
     /** @var list<string> */
     private readonly array $columnNames;
 
+    private readonly int $columnCount;
+
     /**
      * @param list<array<string, mixed>> $rows Snapshotted rows, associative by column name.
      * @param int|numeric-string $affectedRows The real statement's own rowCount(), captured before snapshotting.
+     * @param int|null $columnCount The real result's own columnCount(), captured before snapshotting.
+     *        Required to answer correctly for an empty result set, where the rows carry no column
+     *        names to count: a `SELECT` that matched nothing still has columns, and reporting 0
+     *        is how a caller distinguishes a result set from a write --
+     *        `Quiote\Replay\Db\RecordingPdoStatement` branches on exactly that. Null falls back
+     *        to counting the first row's keys, for a caller constructing a snapshot directly with
+     *        no real result to ask.
      */
     public function __construct(
         private array $rows,
         private readonly int|string $affectedRows,
+        ?int $columnCount = null,
     ) {
         $this->columnNames = $this->rows === [] ? [] : array_keys($this->rows[0]);
+        $this->columnCount = $columnCount ?? count($this->columnNames);
     }
 
     public function fetchNumeric(): array|false
@@ -55,11 +66,23 @@ final class DoctrineSnapshotResult implements Result
         return $this->rows[$this->cursor++] ?? false;
     }
 
+    /**
+     * The row's presence is what answers "was there a row" -- so a row whose first column is SQL
+     * `NULL` returns `null`, matching a real driver result, rather than the `false` DBAL uses for
+     * "no rows". Collapsing the two would make `SELECT MAX(id)` over an empty table, a nullable
+     * column and a `LEFT JOIN` miss all indistinguishable from an exhausted cursor, and any
+     * caller written as `if ($result->fetchOne() === false)` would change behaviour the moment
+     * this snapshot was installed.
+     */
     public function fetchOne(): mixed
     {
         $row = $this->fetchAssociative();
+        if ($row === false) {
+            return false;
+        }
+        $values = array_values($row);
 
-        return $row === false ? false : array_values($row)[0] ?? false;
+        return $values === [] ? false : $values[0];
     }
 
     /** @return list<list<mixed>> */
@@ -90,7 +113,7 @@ final class DoctrineSnapshotResult implements Result
 
     public function columnCount(): int
     {
-        return count($this->columnNames);
+        return $this->columnCount;
     }
 
     public function getColumnName(int $index): string
