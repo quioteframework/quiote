@@ -23,8 +23,10 @@ state and the decisions already made for *this* release.
   `storage` require for real code reasons; `9b2b1f72c` then moved that code out, so
   reverting it in `b125bb817` was correct.
 - **Replay packages: `4.0.0-RC1`, not stable.** They have never run outside this
-  monorepo's own suite, a single audit pass found 43 defects in them, and isolated
-  replay mode is still being built. `^4.0` *is* in range for `4.0.0-RC1` (verified
+  monorepo's own suite and a single audit pass found 43 defects in them. Isolated mode
+  has since landed, so they are feature-complete — but "feature-complete and never run
+  in anger" is exactly what an RC is for, and the database-isolation caveat below is
+  the kind of thing a first real user finds. `^4.0` *is* in range for `4.0.0-RC1` (verified
   against `composer/semver`) — prereleases are gated by install-time stability, not
   by the constraint — so the existing inter-package `^4.0` requirements need no
   change and consumers opt in with `^4.0@RC` or `minimum-stability: RC`.
