@@ -18,10 +18,8 @@
 		"php": ">=8.5.0",
 		"quioteframework/quiote": "^4.0",
 		"quioteframework/replay": "^4.0",
+		"quioteframework/db-eloquent": "^4.0",
 		"illuminate/database": "^10.0 || ^11.0 || ^12.0 || ^13.0"
-	},
-	"require-dev": {
-		"quioteframework/db-eloquent": "^4.0"
 	},
 	"autoload": {
 		"psr-4": {

@@ -11,7 +11,7 @@ use Doctrine\DBAL\Driver\Statement;
 use Quiote\Replay\Cassette\EffectKind;
 use Quiote\Replay\Db\RecordingPdo;
 use Quiote\Replay\Db\RecordingPdoStatement;
-use Quiote\Replay\Replay\EffectLedger;
+use Quiote\Replay\Recording\ActiveEffectLedger;
 use Quiote\Support\Clock\ClockInterface;
 
 /**
@@ -20,12 +20,17 @@ use Quiote\Support\Clock\ClockInterface;
  * {@see DoctrineRecordingStatement} from `prepare()` so a prepared statement's
  * own `execute()` is recorded too. Mirrors the shape of
  * `Doctrine\DBAL\Logging\Connection`, DBAL's own reference middleware.
+ *
+ * Records into {@see ActiveEffectLedger}'s current ledger rather than a fixed
+ * one -- see that class's own docblock -- so a query is simply not recorded
+ * when nothing is currently active (e.g. a boot-time query run before any
+ * request is being recorded), the same as every other recorder in this
+ * package does for a call it declines to observe.
  */
 final class DoctrineRecordingConnection extends AbstractConnectionMiddleware
 {
     public function __construct(
         Connection $connection,
-        private readonly EffectLedger $ledger,
         private readonly ClockInterface $clock,
     ) {
         parent::__construct($connection);
@@ -34,7 +39,7 @@ final class DoctrineRecordingConnection extends AbstractConnectionMiddleware
     #[\Override]
     public function prepare(string $sql): Statement
     {
-        return new DoctrineRecordingStatement(parent::prepare($sql), $this->ledger, $sql, $this->clock);
+        return new DoctrineRecordingStatement(parent::prepare($sql), $sql, $this->clock);
     }
 
     #[\Override]
@@ -44,14 +49,13 @@ final class DoctrineRecordingConnection extends AbstractConnectionMiddleware
         $real = parent::query($sql);
         $rows = $real->fetchAllAssociative();
         $affected = $real->rowCount();
-        $duration = RecordingPdo::durationMicros($this->clock, $start);
 
-        $this->ledger->record(
+        ActiveEffectLedger::get()?->record(
             EffectKind::Db,
             RecordingPdoStatement::fingerprintOf($sql),
             ['sql' => $sql, 'params' => []],
             $rows,
-            $duration,
+            RecordingPdo::durationMicros($this->clock, $start),
         );
 
         return new DoctrineSnapshotResult($rows, $affected);
@@ -62,14 +66,13 @@ final class DoctrineRecordingConnection extends AbstractConnectionMiddleware
     {
         $start = $this->clock->monotonic();
         $result = parent::exec($sql);
-        $duration = RecordingPdo::durationMicros($this->clock, $start);
 
-        $this->ledger->record(
+        ActiveEffectLedger::get()?->record(
             EffectKind::Db,
             RecordingPdoStatement::fingerprintOf($sql),
             ['sql' => $sql, 'params' => []],
             $result,
-            $duration,
+            RecordingPdo::durationMicros($this->clock, $start),
         );
 
         return $result;

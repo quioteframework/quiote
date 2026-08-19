@@ -18,10 +18,8 @@
 		"php": ">=8.5.0",
 		"quioteframework/quiote": "^4.0",
 		"quioteframework/replay": "^4.0",
+		"quioteframework/db-doctrine": "^4.0",
 		"doctrine/dbal": "^4.4"
-	},
-	"require-dev": {
-		"quioteframework/db-doctrine": "^4.0"
 	},
 	"autoload": {
 		"psr-4": {

@@ -10,6 +10,7 @@ use Cycle\Database\DatabaseManager;
 use PHPUnit\Framework\TestCase;
 use Quiote\Replay\Cassette\EffectKind;
 use Quiote\Replay\Adapter\Cycle\CycleRecordingLogger;
+use Quiote\Replay\Recording\ActiveEffectLedger;
 use Quiote\Replay\Replay\EffectLedger;
 
 final class CycleRecordingLoggerTest extends TestCase
@@ -21,14 +22,19 @@ final class CycleRecordingLoggerTest extends TestCase
         }
     }
 
-    private function database(EffectLedger $ledger): DatabaseInterface
+    protected function tearDown(): void
+    {
+        ActiveEffectLedger::reset();
+    }
+
+    private function database(): DatabaseInterface
     {
         $manager = new DatabaseManager(new DatabaseConfig([
             'default' => 'default',
             'databases' => ['default' => ['connection' => 'sqlite']],
             'connections' => ['sqlite' => new SQLiteDriverConfig(connection: new MemoryConnectionConfig())],
         ]));
-        $manager->setLogger(new CycleRecordingLogger($ledger));
+        $manager->setLogger(new CycleRecordingLogger());
 
         return $manager->database('default');
     }
@@ -36,7 +42,8 @@ final class CycleRecordingLoggerTest extends TestCase
     public function testASelectRecordsOneEffectWithRowCountAndTiming(): void
     {
         $ledger = new EffectLedger();
-        $db = $this->database($ledger);
+        ActiveEffectLedger::set($ledger);
+        $db = $this->database();
         $db->execute('CREATE TABLE t (id INTEGER, name TEXT)');
         $db->execute("INSERT INTO t (id, name) VALUES (1, 'a')");
 
@@ -58,7 +65,8 @@ final class CycleRecordingLoggerTest extends TestCase
     public function testAnInsertRecordsTheAffectedRowCount(): void
     {
         $ledger = new EffectLedger();
-        $db = $this->database($ledger);
+        ActiveEffectLedger::set($ledger);
+        $db = $this->database();
         $db->execute('CREATE TABLE t (id INTEGER)');
 
         $affected = $db->execute('INSERT INTO t (id) VALUES (1), (2)');
@@ -72,7 +80,8 @@ final class CycleRecordingLoggerTest extends TestCase
     public function testTwoSequentialQueriesProduceTwoOrderedEffects(): void
     {
         $ledger = new EffectLedger();
-        $db = $this->database($ledger);
+        ActiveEffectLedger::set($ledger);
+        $db = $this->database();
         $db->execute('CREATE TABLE t (id INTEGER)');
 
         $db->query('SELECT 1')->fetchAll();
@@ -86,7 +95,8 @@ final class CycleRecordingLoggerTest extends TestCase
     public function testAFailingQueryDoesNotRecordAnEffectAndPropagates(): void
     {
         $ledger = new EffectLedger();
-        $db = $this->database($ledger);
+        ActiveEffectLedger::set($ledger);
+        $db = $this->database();
 
         try {
             $db->query('SELECT * FROM no_such_table')->fetchAll();
@@ -101,12 +111,47 @@ final class CycleRecordingLoggerTest extends TestCase
     public function testOtherLogLevelsAreIgnored(): void
     {
         $ledger = new EffectLedger();
-        $logger = new CycleRecordingLogger($ledger);
+        ActiveEffectLedger::set($ledger);
+        $logger = new CycleRecordingLogger();
 
         $logger->error('boom');
         $logger->warning('careful');
         $logger->debug('detail');
 
         $this->assertSame([], $ledger->all());
+    }
+
+    public function testAQueryRunsUnrecordedWhenNoLedgerIsActive(): void
+    {
+        $db = $this->database();
+
+        $db->query('SELECT 1')->fetchAll();
+
+        $this->addToAssertionCount(1);
+    }
+
+    public function testOneConnectionRecordsIntoWhicheverLedgerIsCurrentlyActive(): void
+    {
+        // setLogger() runs once, mirroring how CycleDatabase::connect() only builds the
+        // DatabaseManager once and DatabaseManager::recycleConnections() reuses it thereafter --
+        // proving ActiveEffectLedger, not a ledger fixed at setLogger() time, is what makes a
+        // second request's queries land in that request's own cassette.
+        $db = $this->database();
+        $db->execute('CREATE TABLE t (id INTEGER)');
+
+        $first = new EffectLedger();
+        ActiveEffectLedger::set($first);
+        $db->query('SELECT 1')->fetchAll();
+        ActiveEffectLedger::set(null);
+
+        $second = new EffectLedger();
+        ActiveEffectLedger::set($second);
+        $db->query('SELECT 2')->fetchAll();
+        ActiveEffectLedger::set(null);
+
+        $this->assertCount(1, $first->all());
+        $this->assertCount(1, $second->all());
+        $this->assertSame('SELECT 1', $first->all()[0]->call['sql']);
+        $this->assertSame('SELECT 2', $second->all()[0]->call['sql']);
     }
 }

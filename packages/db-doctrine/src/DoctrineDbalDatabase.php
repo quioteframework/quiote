@@ -4,6 +4,7 @@ namespace Quiote\Database\Adapter\Doctrine;
 
 use Quiote\Database\AbstractOrmDatabase;
 use Quiote\Exception\DatabaseException;
+use Doctrine\DBAL\Configuration;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\Connection as DbalConnection;
 
@@ -35,7 +36,7 @@ class DoctrineDbalDatabase extends AbstractOrmDatabase
         }
 
         try {
-            $this->connection = $this->resource = DriverManager::getConnection($params);
+            $this->connection = $this->resource = DriverManager::getConnection($params, $this->buildDbalConfiguration());
         } catch (\Throwable $e) {
             throw new DatabaseException(sprintf(
                 'DoctrineDbalDatabase "%s" could not create a DBAL connection: %s',
@@ -43,6 +44,17 @@ class DoctrineDbalDatabase extends AbstractOrmDatabase
                 $e->getMessage()
             ), 0, $e);
         }
+    }
+
+    /**
+     * Override to hand `DriverManager::getConnection()` a `Configuration` --
+     * e.g. to install a driver middleware (`Configuration::setMiddlewares()`)
+     * before the connection is built, which is the only time DBAL accepts
+     * one. Returns null (DBAL's own default) here.
+     */
+    protected function buildDbalConfiguration(): ?Configuration
+    {
+        return null;
     }
 
     /**

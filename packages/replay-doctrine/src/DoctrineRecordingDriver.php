@@ -7,7 +7,6 @@ namespace Quiote\Replay\Adapter\Doctrine;
 use Doctrine\DBAL\Driver as DriverInterface;
 use Doctrine\DBAL\Driver\Connection;
 use Doctrine\DBAL\Driver\Middleware\AbstractDriverMiddleware;
-use Quiote\Replay\Replay\EffectLedger;
 use Quiote\Support\Clock\ClockInterface;
 use SensitiveParameter;
 
@@ -15,7 +14,6 @@ final class DoctrineRecordingDriver extends AbstractDriverMiddleware
 {
     public function __construct(
         DriverInterface $driver,
-        private readonly EffectLedger $ledger,
         private readonly ClockInterface $clock,
     ) {
         parent::__construct($driver);
@@ -26,6 +24,6 @@ final class DoctrineRecordingDriver extends AbstractDriverMiddleware
         #[SensitiveParameter]
         array $params,
     ): Connection {
-        return new DoctrineRecordingConnection(parent::connect($params), $this->ledger, $this->clock);
+        return new DoctrineRecordingConnection(parent::connect($params), $this->clock);
     }
 }

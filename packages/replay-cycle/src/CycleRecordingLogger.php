@@ -7,7 +7,7 @@ namespace Quiote\Replay\Adapter\Cycle;
 use Psr\Log\AbstractLogger;
 use Psr\Log\LogLevel;
 use Quiote\Replay\Cassette\EffectKind;
-use Quiote\Replay\Replay\EffectLedger;
+use Quiote\Replay\Recording\ActiveEffectLedger;
 
 /**
  * Records one {@see EffectKind::Db} entry per successful query on a Cycle
@@ -31,13 +31,19 @@ use Quiote\Replay\Replay\EffectLedger;
  * `Driver::defineLoggerContext()`); `$context['parameters']` is only present
  * when the driver's `logQueryParameters` option is enabled (default `false`)
  * -- absent otherwise, recorded here as an empty list in that case.
+ *
+ * Records into {@see ActiveEffectLedger}'s current ledger rather than a
+ * fixed one taken at construction: this logger is installed once, at
+ * `CycleDatabase::connect()`, and per that adapter's own docblock Cycle is
+ * "the data-mapper built for long-running (RoadRunner/FrankenPHP) processes"
+ * -- its `DatabaseManager` is recycled (not rebuilt) across every later
+ * request in a worker. See {@see ActiveEffectLedger}'s own docblock for why
+ * a fixed ledger would be wrong past the connection's first use. A query
+ * that runs with nothing currently active (e.g. before any request is being
+ * recorded) is simply not recorded.
  */
 final class CycleRecordingLogger extends AbstractLogger
 {
-    public function __construct(private readonly EffectLedger $ledger)
-    {
-    }
-
     #[\Override]
     public function log($level, string|\Stringable $message, array $context = []): void
     {
@@ -51,7 +57,7 @@ final class CycleRecordingLogger extends AbstractLogger
         $rowCount = $context['rowCount'] ?? null;
         $parameters = is_array($context['parameters'] ?? null) ? $context['parameters'] : [];
 
-        $this->ledger->record(
+        ActiveEffectLedger::get()?->record(
             EffectKind::Db,
             self::fingerprintOf($sql),
             ['sql' => $sql, 'parameters' => $parameters],

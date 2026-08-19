@@ -236,6 +236,54 @@ class DoctrineDbalDatabaseTest extends TestCase
         $this->assertInstanceOf(\Doctrine\DBAL\Connection::class, $db->getDbalConnection());
     }
 
+    /**
+     * `buildDbalConfiguration()` exists purely as an override seam
+     * (`quioteframework/replay-doctrine` is the motivating consumer); the
+     * default behaviour must stay exactly what a plain `getConnection()`
+     * with no `Configuration` at all gives.
+     */
+    public function testBuildDbalConfigurationDefaultsToNullAndBuildsAWorkingConnection(): void
+    {
+        $db = $this->sqliteDatabase();
+
+        $connection = $db->getDbalConnection();
+
+        $connection->executeStatement('CREATE TABLE t (id INTEGER PRIMARY KEY)');
+        $this->assertSame(1, $connection->executeStatement('INSERT INTO t (id) VALUES (1)'));
+    }
+
+    /**
+     * A subclass overriding `buildDbalConfiguration()` must have its
+     * `Configuration` (and therefore any driver middleware it installs)
+     * actually reach `DriverManager::getConnection()`.
+     */
+    public function testBuildDbalConfigurationOverrideIsUsedToBuildTheConnection(): void
+    {
+        if (!in_array('sqlite', PDO::getAvailableDrivers(), true)) {
+            $this->markTestSkipped('pdo_sqlite driver not available');
+        }
+        DoctrineDbalDatabaseMarkerMiddleware::$wrapped = false;
+
+        $db = new class extends DoctrineDbalDatabase {
+            #[\Override]
+            protected function buildDbalConfiguration(): \Doctrine\DBAL\Configuration
+            {
+                $config = new \Doctrine\DBAL\Configuration();
+                $config->setMiddlewares([new DoctrineDbalDatabaseMarkerMiddleware()]);
+
+                return $config;
+            }
+        };
+        $db->initialize(new DatabaseManager(), [
+            'connection' => ['driver' => 'pdo_sqlite', 'memory' => true],
+        ]);
+
+        $connection = $db->getDbalConnection();
+
+        $this->assertTrue(DoctrineDbalDatabaseMarkerMiddleware::$wrapped, "the override's middleware must have wrapped the driver");
+        $connection->executeQuery('SELECT 1');
+    }
+
     private function sqliteDatabase(): DoctrineDbalDatabase
     {
         if (!in_array('sqlite', PDO::getAvailableDrivers(), true)) {
@@ -262,5 +310,19 @@ final class DoctrineDbalUnreachableConnection extends \Doctrine\DBAL\Connection
         ?\Doctrine\DBAL\Cache\QueryCacheProfile $qcp = null,
     ): \Doctrine\DBAL\Result {
         throw new \RuntimeException('server has gone away');
+    }
+}
+
+/** Proves a `buildDbalConfiguration()` override's middleware actually wraps the driver. */
+final class DoctrineDbalDatabaseMarkerMiddleware implements \Doctrine\DBAL\Driver\Middleware
+{
+    public static bool $wrapped = false;
+
+    #[\Override]
+    public function wrap(\Doctrine\DBAL\Driver $driver): \Doctrine\DBAL\Driver
+    {
+        self::$wrapped = true;
+
+        return $driver;
     }
 }

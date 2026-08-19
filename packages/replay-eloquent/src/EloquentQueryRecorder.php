@@ -7,7 +7,7 @@ namespace Quiote\Replay\Adapter\Eloquent;
 use Illuminate\Database\Connection;
 use Illuminate\Database\Events\QueryExecuted;
 use Quiote\Replay\Cassette\EffectKind;
-use Quiote\Replay\Replay\EffectLedger;
+use Quiote\Replay\Recording\ActiveEffectLedger;
 
 /**
  * Records one {@see EffectKind::Db} entry per query on an Eloquent
@@ -33,16 +33,21 @@ use Quiote\Replay\Replay\EffectLedger;
  * alone and this recorder's listener is simply added alongside whatever else
  * is already listening.
  *
+ * Records into {@see ActiveEffectLedger}'s current ledger rather than a
+ * fixed one taken at construction: {@see attach()} runs once, at
+ * `EloquentDatabase::connect()`, and that connection is then recycled (not
+ * rebuilt) across every later request in a worker process -- see
+ * {@see ActiveEffectLedger}'s own docblock for why a fixed ledger would be
+ * wrong past the connection's first use. A query that runs with nothing
+ * currently active (e.g. before any request is being recorded) is simply
+ * not recorded.
+ *
  * A failing query never fires `QueryExecuted` (Eloquent only dispatches it
  * after a successful run), so nothing here needs to guard against recording
  * a failed call -- that exclusion falls out of the event's own contract.
  */
 final class EloquentQueryRecorder
 {
-    public function __construct(private readonly EffectLedger $ledger)
-    {
-    }
-
     public function attach(Connection $connection): void
     {
         if ($connection->getEventDispatcher() === null) {
@@ -58,7 +63,7 @@ final class EloquentQueryRecorder
     {
         $durationMicros = $event->time !== null ? max(0, (int) round($event->time * 1_000)) : null;
 
-        $this->ledger->record(
+        ActiveEffectLedger::get()?->record(
             EffectKind::Db,
             self::fingerprintOf($event->sql),
             [

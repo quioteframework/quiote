@@ -13,6 +13,7 @@ use Quiote\Plugin\PluginRegistrar;
 use Quiote\Replay\Console\CassetteListCommand;
 use Quiote\Replay\Console\CassetteShowCommand;
 use Quiote\Replay\Console\ReplayCommand;
+use Quiote\Replay\Recording\ActiveEffectLedger;
 use Quiote\Replay\Recording\EffectLedgerRegistry;
 use Quiote\Replay\Recording\EffectSourceRegistry;
 use Quiote\Replay\Recording\RecorderMiddleware;
@@ -87,6 +88,7 @@ final class ReplayPlugin implements PluginInterface
             CassetteStoreRegistry::reset();
             EffectLedgerRegistry::reset();
             EffectSourceRegistry::reset();
+            ActiveEffectLedger::reset();
         });
     }
 

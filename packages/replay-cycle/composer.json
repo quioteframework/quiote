@@ -18,11 +18,9 @@
 		"php": ">=8.5.0",
 		"quioteframework/quiote": "^4.0",
 		"quioteframework/replay": "^4.0",
+		"quioteframework/db-cycle": "^4.0",
 		"cycle/database": "^2.21",
 		"psr/log": "^3.0"
-	},
-	"require-dev": {
-		"quioteframework/db-cycle": "^4.0"
 	},
 	"autoload": {
 		"psr-4": {

@@ -9,6 +9,7 @@ use Doctrine\DBAL\Exception\DriverException;
 use PHPUnit\Framework\TestCase;
 use Quiote\Replay\Cassette\EffectKind;
 use Quiote\Replay\Adapter\Doctrine\DoctrineRecordingMiddleware;
+use Quiote\Replay\Recording\ActiveEffectLedger;
 use Quiote\Replay\Replay\EffectLedger;
 use Quiote\Support\Clock\FrozenClock;
 
@@ -21,10 +22,15 @@ final class DoctrineRecordingMiddlewareTest extends TestCase
         }
     }
 
-    private function connect(EffectLedger $ledger): Connection
+    protected function tearDown(): void
+    {
+        ActiveEffectLedger::reset();
+    }
+
+    private function connect(): Connection
     {
         $config = new Configuration();
-        $config->setMiddlewares([new DoctrineRecordingMiddleware($ledger, new FrozenClock())]);
+        $config->setMiddlewares([new DoctrineRecordingMiddleware(new FrozenClock())]);
 
         return DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true], $config);
     }
@@ -32,7 +38,8 @@ final class DoctrineRecordingMiddlewareTest extends TestCase
     public function testASelectRecordsOneEffectWithTheFetchedRows(): void
     {
         $ledger = new EffectLedger();
-        $conn = $this->connect($ledger);
+        ActiveEffectLedger::set($ledger);
+        $conn = $this->connect();
         $conn->executeStatement('CREATE TABLE t (id INTEGER, name TEXT)');
         $conn->executeStatement("INSERT INTO t (id, name) VALUES (1, 'a')");
 
@@ -53,7 +60,8 @@ final class DoctrineRecordingMiddlewareTest extends TestCase
         // Proves the connection is not left in a consumed state after the
         // recorder snapshots the result for the ledger.
         $ledger = new EffectLedger();
-        $conn = $this->connect($ledger);
+        ActiveEffectLedger::set($ledger);
+        $conn = $this->connect();
         $conn->executeStatement('CREATE TABLE t (id INTEGER)');
         $conn->executeStatement('INSERT INTO t (id) VALUES (1), (2), (3)');
 
@@ -66,7 +74,8 @@ final class DoctrineRecordingMiddlewareTest extends TestCase
     public function testAnInsertRecordsTheAffectedRowCount(): void
     {
         $ledger = new EffectLedger();
-        $conn = $this->connect($ledger);
+        ActiveEffectLedger::set($ledger);
+        $conn = $this->connect();
         $conn->executeStatement('CREATE TABLE t (id INTEGER)');
 
         $affected = $conn->executeStatement('INSERT INTO t (id) VALUES (1), (2)');
@@ -80,7 +89,8 @@ final class DoctrineRecordingMiddlewareTest extends TestCase
     public function testTwoSequentialQueriesProduceTwoOrderedEffects(): void
     {
         $ledger = new EffectLedger();
-        $conn = $this->connect($ledger);
+        ActiveEffectLedger::set($ledger);
+        $conn = $this->connect();
         $conn->executeStatement('CREATE TABLE t (id INTEGER)');
 
         $conn->executeQuery('SELECT 1');
@@ -94,7 +104,8 @@ final class DoctrineRecordingMiddlewareTest extends TestCase
     public function testAFailingQueryDoesNotRecordAnEffectAndPropagates(): void
     {
         $ledger = new EffectLedger();
-        $conn = $this->connect($ledger);
+        ActiveEffectLedger::set($ledger);
+        $conn = $this->connect();
 
         try {
             $conn->executeQuery('SELECT * FROM no_such_table');
@@ -109,7 +120,8 @@ final class DoctrineRecordingMiddlewareTest extends TestCase
     public function testBoundParametersAreCapturedInTheCallField(): void
     {
         $ledger = new EffectLedger();
-        $conn = $this->connect($ledger);
+        ActiveEffectLedger::set($ledger);
+        $conn = $this->connect();
         $conn->executeStatement('CREATE TABLE t (id INTEGER, name TEXT)');
         $conn->executeStatement("INSERT INTO t (id, name) VALUES (1, 'a')");
 
@@ -122,5 +134,41 @@ final class DoctrineRecordingMiddlewareTest extends TestCase
         $params = $effects[0]->call['params'];
         $this->assertIsArray($params);
         $this->assertSame(1, $params[1] ?? null);
+    }
+
+    public function testAQueryRunsUnrecordedWhenNoLedgerIsActive(): void
+    {
+        $conn = $this->connect();
+
+        $conn->executeQuery('SELECT 1');
+
+        // Nothing to assert against but "it didn't throw" -- there is no ledger to inspect,
+        // which is the point: a boot-time query outside any recorded request is a no-op here.
+        $this->addToAssertionCount(1);
+    }
+
+    public function testOneConnectionRecordsIntoWhicheverLedgerIsCurrentlyActive(): void
+    {
+        // The connection is built once and reused across "requests" here, mirroring how
+        // DatabaseManager::recycleConnections() recycles (never rebuilds) a worker's Doctrine
+        // connection -- proving ActiveEffectLedger, not a ledger fixed at connect() time, is
+        // what makes a second request's queries land in that request's own cassette.
+        $conn = $this->connect();
+        $conn->executeStatement('CREATE TABLE t (id INTEGER)');
+
+        $first = new EffectLedger();
+        ActiveEffectLedger::set($first);
+        $conn->executeQuery('SELECT 1');
+        ActiveEffectLedger::set(null);
+
+        $second = new EffectLedger();
+        ActiveEffectLedger::set($second);
+        $conn->executeQuery('SELECT 2');
+        ActiveEffectLedger::set(null);
+
+        $this->assertCount(1, $first->all());
+        $this->assertCount(1, $second->all());
+        $this->assertSame(['sql' => 'SELECT 1', 'params' => []], $first->all()[0]->call);
+        $this->assertSame(['sql' => 'SELECT 2', 'params' => []], $second->all()[0]->call);
     }
 }

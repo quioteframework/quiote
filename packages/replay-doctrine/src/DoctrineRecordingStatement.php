@@ -11,7 +11,7 @@ use Doctrine\DBAL\ParameterType;
 use Quiote\Replay\Cassette\EffectKind;
 use Quiote\Replay\Db\RecordingPdo;
 use Quiote\Replay\Db\RecordingPdoStatement;
-use Quiote\Replay\Replay\EffectLedger;
+use Quiote\Replay\Recording\ActiveEffectLedger;
 use Quiote\Support\Clock\ClockInterface;
 
 /**
@@ -22,6 +22,10 @@ use Quiote\Support\Clock\ClockInterface;
  * `Result` is snapshotted once into a {@see DoctrineSnapshotResult} so the
  * caller's own fetch calls keep working after the row set has been read once
  * for the ledger.
+ *
+ * Records into {@see ActiveEffectLedger}'s current ledger -- see that
+ * class's own docblock for why a statement built once around a recycled
+ * connection cannot take a fixed ledger at construction.
  */
 final class DoctrineRecordingStatement extends AbstractStatementMiddleware
 {
@@ -30,7 +34,6 @@ final class DoctrineRecordingStatement extends AbstractStatementMiddleware
 
     public function __construct(
         Statement $statement,
-        private readonly EffectLedger $ledger,
         private readonly string $sql,
         private readonly ClockInterface $clock,
     ) {
@@ -52,14 +55,13 @@ final class DoctrineRecordingStatement extends AbstractStatementMiddleware
         $real = parent::execute();
         $rows = $real->fetchAllAssociative();
         $affected = $real->rowCount();
-        $duration = RecordingPdo::durationMicros($this->clock, $start);
 
-        $this->ledger->record(
+        ActiveEffectLedger::get()?->record(
             EffectKind::Db,
             RecordingPdoStatement::fingerprintOf($this->sql),
             ['sql' => $this->sql, 'params' => $this->params],
             $rows,
-            $duration,
+            RecordingPdo::durationMicros($this->clock, $start),
         );
 
         return new DoctrineSnapshotResult($rows, $affected);

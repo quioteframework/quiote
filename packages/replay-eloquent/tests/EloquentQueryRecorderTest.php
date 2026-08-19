@@ -7,6 +7,7 @@ use PHPUnit\Framework\TestCase;
 use Quiote\Replay\Cassette\EffectKind;
 use Quiote\Replay\Adapter\Eloquent\EloquentMinimalEventDispatcher;
 use Quiote\Replay\Adapter\Eloquent\EloquentQueryRecorder;
+use Quiote\Replay\Recording\ActiveEffectLedger;
 use Quiote\Replay\Replay\EffectLedger;
 
 final class EloquentQueryRecorderTest extends TestCase
@@ -21,6 +22,11 @@ final class EloquentQueryRecorderTest extends TestCase
         }
     }
 
+    protected function tearDown(): void
+    {
+        ActiveEffectLedger::reset();
+    }
+
     private function connection(): \Illuminate\Database\Connection
     {
         $capsule = new Capsule();
@@ -33,7 +39,8 @@ final class EloquentQueryRecorderTest extends TestCase
     {
         $ledger = new EffectLedger();
         $conn = $this->connection();
-        (new EloquentQueryRecorder($ledger))->attach($conn);
+        (new EloquentQueryRecorder())->attach($conn);
+        ActiveEffectLedger::set($ledger);
         $conn->statement('CREATE TABLE t (id INTEGER, name TEXT)');
         $conn->table('t')->insert(['id' => 1, 'name' => 'a']);
 
@@ -51,7 +58,8 @@ final class EloquentQueryRecorderTest extends TestCase
     {
         $ledger = new EffectLedger();
         $conn = $this->connection();
-        (new EloquentQueryRecorder($ledger))->attach($conn);
+        (new EloquentQueryRecorder())->attach($conn);
+        ActiveEffectLedger::set($ledger);
         $conn->statement('CREATE TABLE t (id INTEGER, name TEXT)');
         $conn->table('t')->insert(['id' => 1, 'name' => 'a']);
 
@@ -64,7 +72,8 @@ final class EloquentQueryRecorderTest extends TestCase
     {
         $ledger = new EffectLedger();
         $conn = $this->connection();
-        (new EloquentQueryRecorder($ledger))->attach($conn);
+        (new EloquentQueryRecorder())->attach($conn);
+        ActiveEffectLedger::set($ledger);
         $conn->statement('CREATE TABLE t (id INTEGER)');
         $conn->table('t')->insert(['id' => 1]);
 
@@ -79,7 +88,8 @@ final class EloquentQueryRecorderTest extends TestCase
     {
         $ledger = new EffectLedger();
         $conn = $this->connection();
-        (new EloquentQueryRecorder($ledger))->attach($conn);
+        (new EloquentQueryRecorder())->attach($conn);
+        ActiveEffectLedger::set($ledger);
         $conn->statement('CREATE TABLE t (id INTEGER)');
 
         $conn->select('select 1');
@@ -95,7 +105,7 @@ final class EloquentQueryRecorderTest extends TestCase
         $conn = $this->connection();
         $this->assertNull($conn->getEventDispatcher());
 
-        (new EloquentQueryRecorder(new EffectLedger()))->attach($conn);
+        (new EloquentQueryRecorder())->attach($conn);
 
         $this->assertNotNull($conn->getEventDispatcher());
     }
@@ -106,7 +116,7 @@ final class EloquentQueryRecorderTest extends TestCase
         $existing = new EloquentMinimalEventDispatcher();
         $conn->setEventDispatcher($existing);
 
-        (new EloquentQueryRecorder(new EffectLedger()))->attach($conn);
+        (new EloquentQueryRecorder())->attach($conn);
 
         $this->assertSame($existing, $conn->getEventDispatcher());
     }
@@ -115,7 +125,8 @@ final class EloquentQueryRecorderTest extends TestCase
     {
         $ledger = new EffectLedger();
         $conn = $this->connection();
-        (new EloquentQueryRecorder($ledger))->attach($conn);
+        (new EloquentQueryRecorder())->attach($conn);
+        ActiveEffectLedger::set($ledger);
 
         try {
             $conn->select('select * from no_such_table');
@@ -125,5 +136,41 @@ final class EloquentQueryRecorderTest extends TestCase
         }
 
         $this->assertSame([], $ledger->all());
+    }
+
+    public function testAQueryRunsUnrecordedWhenNoLedgerIsActive(): void
+    {
+        $conn = $this->connection();
+        (new EloquentQueryRecorder())->attach($conn);
+
+        $conn->select('select 1');
+
+        $this->addToAssertionCount(1);
+    }
+
+    public function testOneConnectionRecordsIntoWhicheverLedgerIsCurrentlyActive(): void
+    {
+        // attach() runs once, mirroring how EloquentDatabase::connect() only builds the
+        // connection once and DatabaseManager::recycleConnections() reuses it thereafter --
+        // proving ActiveEffectLedger, not a ledger fixed at attach() time, is what makes a
+        // second request's queries land in that request's own cassette.
+        $conn = $this->connection();
+        (new EloquentQueryRecorder())->attach($conn);
+        $conn->statement('CREATE TABLE t (id INTEGER)');
+
+        $first = new EffectLedger();
+        ActiveEffectLedger::set($first);
+        $conn->select('select 1');
+        ActiveEffectLedger::set(null);
+
+        $second = new EffectLedger();
+        ActiveEffectLedger::set($second);
+        $conn->select('select 2');
+        ActiveEffectLedger::set(null);
+
+        $this->assertCount(1, $first->all());
+        $this->assertCount(1, $second->all());
+        $this->assertSame('select 1', $first->all()[0]->call['sql']);
+        $this->assertSame('select 2', $second->all()[0]->call['sql']);
     }
 }
