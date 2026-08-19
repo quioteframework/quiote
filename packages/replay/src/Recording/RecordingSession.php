@@ -46,12 +46,19 @@ final class RecordingSession
 
     private readonly EffectLedger $ledger;
 
+    /**
+     * `maxBytes` bounds the request/response bodies *and*, separately, the effect ledger's own
+     * payloads: an effect carries cache values, captured result sets and HTTP response bodies,
+     * and `maxEffects` bounds only how many effects are kept, not how large. Each budget is the
+     * full `maxBytes` rather than a shared pool, so instrumenting effects never silently costs a
+     * request its body -- the two are different failure modes and a reader can tell them apart.
+     */
     public function __construct(
         private readonly int $maxBytes = 2_097_152,
         private readonly int $maxEffects = 2000,
         ?EffectLedger $ledger = null,
     ) {
-        $this->ledger = $ledger ?? new EffectLedger();
+        $this->ledger = $ledger ?? new EffectLedger(maxPayloadBytes: max(0, $maxBytes));
     }
 
     public function ledger(): EffectLedger
@@ -148,10 +155,18 @@ final class RecordingSession
         return $this->responseBodyTruncated;
     }
 
-    /** Whether the ledger holds more effects than `replay.max_effects` allows into the cassette. */
+    /**
+     * Whether anything was dropped from the effect ledger on its way into the cassette -- either
+     * more effects than `replay.max_effects` allows, or a payload past the byte budget.
+     *
+     * Surfaced in `meta.effects_truncated` by {@see RecorderMiddleware}: a cassette that dropped
+     * effects is otherwise indistinguishable from one whose request genuinely made that few
+     * calls, and replaying it reports the missing effects as drift in the application rather than
+     * as an incomplete recording.
+     */
     public function effectsTruncated(): bool
     {
-        return count($this->ledger->all()) > $this->maxEffects;
+        return count($this->ledger->all()) > $this->maxEffects || $this->ledger->payloadTruncated();
     }
 
     /** @return list<Effect> The ledger's effects, bounded to `replay.max_effects`, in recorded order. */

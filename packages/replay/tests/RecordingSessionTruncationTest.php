@@ -5,7 +5,9 @@ declare(strict_types=1);
 use PHPUnit\Framework\TestCase;
 use Quiote\Replay\Cassette\Cassette;
 use Quiote\Replay\Cassette\CassetteCodec;
+use Quiote\Replay\Cassette\EffectKind;
 use Quiote\Replay\Recording\RecordingSession;
+use Quiote\Replay\Replay\EffectLedger;
 
 /**
  * The byte budget exists to stop an oversized request producing an oversized cassette. Cutting
@@ -149,5 +151,84 @@ final class RecordingSessionTruncationTest extends TestCase
 
         $this->assertSame(['status' => 204, 'headers' => []], $session->response());
         $this->assertFalse($session->responseBodyTruncated());
+    }
+
+    public function testAnOversizedEffectPayloadIsReplacedWithAMarkerRatherThanKept(): void
+    {
+        // replay.max_effects bounds how many effects are kept, not how large: a request reading
+        // cached page fragments could build a multi-gigabyte cassette in memory under any count.
+        $session = new RecordingSession(maxBytes: 1024, maxEffects: 2000);
+        $big = str_repeat('S', 1_048_576);
+
+        for ($i = 0; $i < 50; $i++) {
+            $session->ledger()->record(EffectKind::Cache, "get:k$i", ['op' => 'get', 'key' => "k$i"], ['hit' => true, 'value' => $big]);
+        }
+
+        $effects = $session->boundedEffects();
+        $this->assertCount(50, $effects, 'Every call is still recorded -- only its payload is dropped.');
+        $this->assertTrue($session->effectsTruncated());
+        $this->assertTrue($session->ledger()->payloadTruncated());
+
+        // The fingerprint and call survive; the payload does not.
+        $this->assertSame('get:k49', $effects[49]->fingerprint);
+        $this->assertSame(['op' => 'get', 'key' => 'k49'], $effects[49]->call);
+        $this->assertSame(['truncated' => true, 'reason' => 'effect payload budget exhausted'], $effects[49]->result);
+
+        $serialized = strlen(serialize($effects));
+        $this->assertLessThan(4_194_304, $serialized, sprintf('The bounded ledger still held %d bytes.', $serialized));
+    }
+
+    public function testEffectPayloadsWithinTheBudgetAreKeptWhole(): void
+    {
+        $session = new RecordingSession(maxBytes: 1_048_576, maxEffects: 2000);
+
+        $session->ledger()->record(EffectKind::Db, 'select 1', ['sql' => 'select 1'], [['id' => 1, 'name' => 'Ada']]);
+
+        $effects = $session->boundedEffects();
+        $this->assertSame([['id' => 1, 'name' => 'Ada']], $effects[0]->result);
+        $this->assertFalse($session->effectsTruncated());
+        $this->assertFalse($session->ledger()->payloadTruncated());
+    }
+
+    public function testTheBudgetIsSpentAcrossEffectsNotResetPerEffect(): void
+    {
+        $session = new RecordingSession(maxBytes: 1000, maxEffects: 2000);
+        $chunk = str_repeat('x', 400);
+
+        $session->ledger()->record(EffectKind::Cache, 'get:a', [], $chunk);
+        $session->ledger()->record(EffectKind::Cache, 'get:b', [], $chunk);
+        $session->ledger()->record(EffectKind::Cache, 'get:c', [], $chunk);
+
+        $effects = $session->boundedEffects();
+        $this->assertSame($chunk, $effects[0]->result);
+        $this->assertSame($chunk, $effects[1]->result);
+        $this->assertIsArray($effects[2]->result, 'The third payload passes the 1000-byte total.');
+        $this->assertTrue($session->effectsTruncated());
+    }
+
+    public function testExceedingMaxEffectsAlsoCountsAsTruncated(): void
+    {
+        $session = new RecordingSession(maxBytes: 1_048_576, maxEffects: 2);
+
+        $session->ledger()->record(EffectKind::Db, 'select 1', [], 1);
+        $session->ledger()->record(EffectKind::Db, 'select 2', [], 1);
+        $session->ledger()->record(EffectKind::Db, 'select 3', [], 1);
+
+        $this->assertCount(2, $session->boundedEffects());
+        $this->assertTrue($session->effectsTruncated());
+        $this->assertFalse($session->ledger()->payloadTruncated(), 'Nothing hit the byte budget here.');
+    }
+
+    public function testAReplaySideLedgerIsUnbounded(): void
+    {
+        // A ledger built from a cassette is already bounded by whatever wrote it; re-bounding it
+        // on read would silently drop recorded data a replay needs.
+        $ledger = new EffectLedger();
+        $ledger->record(EffectKind::Cache, 'get:a', [], str_repeat('S', 4_194_304));
+
+        $this->assertFalse($ledger->payloadTruncated());
+        $recorded = $ledger->all()[0]->result;
+        $this->assertIsString($recorded);
+        $this->assertSame(4_194_304, strlen($recorded));
     }
 }

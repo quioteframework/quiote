@@ -350,6 +350,13 @@ final class RecorderMiddleware implements MiddlewareInterface, ResetInterface
                 // (e.g. quioteframework/replay-propulsion installed and its plugin booted), false
                 // otherwise.
                 'effects_instrumented' => $effectsInstrumented,
+                // True when `replay.max_effects` or the ledger's own byte budget dropped
+                // something. Without it a reader cannot tell an incomplete recording apart from
+                // a request that genuinely made that few calls, and replay attributes the
+                // missing effects to the application rather than to the recording.
+                'effects_truncated' => $session->effectsTruncated(),
+                'request_body_truncated' => $session->requestBodyTruncated(),
+                'response_body_truncated' => $session->responseBodyTruncated(),
             ],
             request: $request,
             resolved: $session->resolved(),

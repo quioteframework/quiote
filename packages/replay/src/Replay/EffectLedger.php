@@ -41,8 +41,18 @@ final class EffectLedger
     /** @var list<array{kind: EffectKind, fingerprint: string, matched: string}> */
     private array $fuzzyMatches = [];
 
-    /** @param list<Effect> $effects Effects loaded from a cassette, in original recorded order. */
-    public function __construct(array $effects = [])
+    /** Payload bytes charged so far by {@see record()}, against {@see $maxPayloadBytes}. */
+    private int $payloadBytesUsed = 0;
+
+    private bool $payloadTruncated = false;
+
+    /**
+     * @param list<Effect> $effects Effects loaded from a cassette, in original recorded order.
+     * @param int|null $maxPayloadBytes Ceiling on the total size of the `call`/`result` payloads
+     *        {@see record()} keeps. Null means unbounded, for a ledger built from an
+     *        already-bounded cassette on the replay side, where there is nothing to bound.
+     */
+    public function __construct(array $effects = [], private readonly ?int $maxPayloadBytes = null)
     {
         $this->effects = $effects;
     }
@@ -51,15 +61,85 @@ final class EffectLedger
      * Appends a freshly observed effect, assigning it the next sequence
      * number. Used while recording.
      *
+     * An effect's `result` is the largest thing a cassette carries after the request and
+     * response bodies -- a cache value, a captured result set, an HTTP response body -- and
+     * `replay.max_effects` bounds only how *many* effects are kept, not how large. Charging the
+     * payload against {@see $maxPayloadBytes} here is what keeps a request that reads two
+     * thousand cached page fragments from building a multi-gigabyte cassette in memory before
+     * gzip ever sees it. Past the ceiling the `result` is replaced with a marker naming what was
+     * dropped, rather than the effect being discarded: that a call happened, and with what
+     * fingerprint, is the part replay needs most and the part that costs least.
+     *
      * @param array<string, mixed> $call
      * @param non-negative-int|null $durationMicros
      */
     public function record(EffectKind $kind, string $fingerprint, array $call, mixed $result, ?int $durationMicros = null): Effect
     {
+        if ($this->maxPayloadBytes !== null) {
+            $remaining = $this->maxPayloadBytes - $this->payloadBytesUsed;
+            $size = self::approximateSize($result, $remaining);
+            if ($size > $remaining) {
+                $this->payloadTruncated = true;
+                $result = ['truncated' => true, 'reason' => 'effect payload budget exhausted'];
+            } else {
+                $this->payloadBytesUsed += $size;
+            }
+        }
+
         $effect = new Effect(count($this->effects), $kind, $fingerprint, $call, $result, $durationMicros);
         $this->effects[] = $effect;
 
         return $effect;
+    }
+
+    /**
+     * Whether any effect's payload was replaced with a marker because the budget ran out. The
+     * cassette says so in `meta.effects_truncated`, so a reader can tell an incomplete recording
+     * apart from a complete one -- otherwise replay reports the missing data as drift in the
+     * application.
+     */
+    public function payloadTruncated(): bool
+    {
+        return $this->payloadTruncated;
+    }
+
+    /**
+     * A rough byte size for a recorded payload, abandoned as soon as it passes `$limit`.
+     *
+     * Deliberately not `strlen(serialize($value))`: serializing to measure copies the whole
+     * value, which is the cost this budget exists to avoid paying. Walking the structure with an
+     * early exit means an oversized payload is recognised from its first few kilobytes and never
+     * measured in full. The number only has to be good enough to keep the total in the right
+     * order of magnitude, so a flat per-node overhead stands in for container bookkeeping.
+     */
+    private static function approximateSize(mixed $value, int $limit): int
+    {
+        if ($limit < 0) {
+            return PHP_INT_MAX;
+        }
+        if (is_string($value)) {
+            return strlen($value);
+        }
+        if ($value === null || is_bool($value) || is_int($value) || is_float($value)) {
+            return 8;
+        }
+        if (!is_array($value)) {
+            // An object or a resource: not measurable without walking it, and not something a
+            // recorder should be putting in a cassette. Charged a nominal amount rather than
+            // guessed at.
+            return 64;
+        }
+
+        $size = 0;
+        foreach ($value as $key => $item) {
+            $size += is_string($key) ? strlen($key) + 8 : 16;
+            $size += self::approximateSize($item, $limit - $size);
+            if ($size > $limit) {
+                return $size;
+            }
+        }
+
+        return $size;
     }
 
     /**
