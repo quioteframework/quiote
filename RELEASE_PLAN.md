@@ -37,6 +37,11 @@ state and the decisions already made for *this* release.
   same classes that shipped inside `quioteframework/quiote` at 4.0.0 and 4.1.0, only
   relocated — relocated code keeps its track record. `docs` predates the backfill
   (2026-08-09) and has not changed since.
+  One asterisk on `storage`: `1c72d318b` fixed two real defects in
+  `ObjectMetadata::fromResponse()` (a mangled weak ETag, a saturated oversized
+  `Content-Length`) that its first tests turned up, so it is no longer *purely*
+  relocated code. Still `4.0.0` — both are fixes, both are in the changelog, and the
+  package had no tag to be compared against.
 
 ## Still open
 
