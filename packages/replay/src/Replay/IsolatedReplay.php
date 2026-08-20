@@ -43,11 +43,11 @@ use Throwable;
  * replay exists to avoid.
  *
  * **The database is the one subsystem that cannot always be isolated**, and this refuses to run
- * rather than pretend otherwise. An ORM's recording seam has to be a decorator -- something called
- * *instead of* the real statement -- for a recorded result to be servable through it. Doctrine's
- * DBAL driver middleware is; Eloquent's `QueryExecuted` event, Cycle's PSR-3 logger and Propulsion's
- * query observer all fire around a real execution that has already happened. See
- * {@see IsolatesFromLedger}.
+ * rather than pretend otherwise. Serving a recorded row needs a seam that sits *in front of* the real
+ * execution: Doctrine's DBAL driver middleware is such a decorator, and Propulsion, whose observers
+ * only bracket a query that has already run, instead lets the connection itself be replaced.
+ * Eloquent's `QueryExecuted` event and Cycle's PSR-3 logger fire after the fact and offer no
+ * equivalent, so a replay through them would touch the real database. See {@see IsolatesFromLedger}.
  */
 final class IsolatedReplay
 {
@@ -105,12 +105,12 @@ final class IsolatedReplay
         }
 
         throw new ReplayException(sprintf(
-            'Cannot replay in isolation: %s record through a seam that observes queries after they have '
-            . 'already run, so there is no point at which a recorded result could be served instead. '
-            . 'Replaying through them would read from -- and write to -- the real database while '
-            . 'appearing isolated. Use --live (with replay.allow_live) if that is genuinely what you '
-            . 'want, or record the cassette through quioteframework/replay-doctrine, whose DBAL driver '
-            . 'middleware can serve from the ledger.',
+            'Cannot replay in isolation: %s observe their queries after they have already run, and offer '
+            . 'no way to replace the connection either, so there is no point at which a recorded result '
+            . 'could be served instead. Replaying through them would read from -- and write to -- the '
+            . 'real database while appearing isolated. Use --live (with replay.allow_live) if that is '
+            . 'genuinely what you want, or record the cassette through quioteframework/replay-doctrine '
+            . 'or quioteframework/replay-propulsion, both of which can serve from the ledger.',
             implode(', ', array_map(static fn(EffectSource $s): string => $s::class, $blocking)),
         ));
     }
@@ -160,6 +160,19 @@ final class IsolatedReplay
         $undo[] = static function (): void {
             ActiveEffectLedger::set(null);
         };
+
+        // And whatever else each driver package needs doing -- substituting a connection, for a
+        // driver whose observers cannot intercept. Every source here is an IsolatesFromLedger,
+        // because assertEverySourceCanIsolate() already refused otherwise.
+        foreach (EffectSourceRegistry::all() as $source) {
+            if (!$source instanceof IsolatesFromLedger) {
+                continue;
+            }
+            $source->beginIsolation($ledger);
+            $undo[] = static function () use ($source): void {
+                $source->endIsolation();
+            };
+        }
 
         return $undo;
     }

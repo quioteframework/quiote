@@ -342,7 +342,10 @@ final class IsolatedReplayTest extends TestCase
 
     public function testIsolationProceedsWhenEverySourceCanServeFromTheLedger(): void
     {
-        EffectSourceRegistry::register(new class implements IsolatesFromLedger {
+        $source = new class implements IsolatesFromLedger {
+            public ?EffectLedger $isolatedWith = null;
+            public bool $ended = false;
+
             public function activate(string $correlationId, EffectLedger $ledger): void
             {
             }
@@ -350,10 +353,26 @@ final class IsolatedReplayTest extends TestCase
             public function deactivate(string $correlationId): void
             {
             }
-        });
+
+            public function beginIsolation(EffectLedger $ledger): void
+            {
+                $this->isolatedWith = $ledger;
+            }
+
+            public function endIsolation(): void
+            {
+                $this->ended = true;
+            }
+        };
+        EffectSourceRegistry::register($source);
         $context = $this->contextRunning(static fn(): ResponseInterface => new Response(200, [], 'ok'));
 
-        $this->assertSame(200, (new ReplayEngine())->replay($context, $this->cassette([]))->response->getStatusCode());
+        $result = (new ReplayEngine())->replay($context, $this->cassette([]));
+
+        $this->assertSame(200, $result->response->getStatusCode());
+        // The driver was handed the replaying ledger, and told to stand down again afterwards.
+        $this->assertSame($result->ledger, $source->isolatedWith);
+        $this->assertTrue($source->ended);
     }
 
     public function testARefusalHappensBeforeAnythingIsSubstituted(): void

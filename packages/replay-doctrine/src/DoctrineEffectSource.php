@@ -35,4 +35,25 @@ final class DoctrineEffectSource implements IsolatesFromLedger
     {
         ActiveEffectLedger::set(null);
     }
+
+    /**
+     * Nothing to do: {@see DoctrineRecordingMiddleware}'s decorator chain is already installed on
+     * the connection and reads {@see ActiveEffectLedger} on every statement, which
+     * {@see \Quiote\Replay\Replay\IsolatedReplay} has set to the replaying ledger by the time
+     * this runs. `DoctrineRecordingDriver::connect()` likewise sees it and hands back a connection
+     * that opens nothing.
+     *
+     * Empty because the work is genuinely already done, not because it is unimplemented -- see
+     * `quioteframework/replay-propulsion`'s own implementation for the case where a driver has to be
+     * actively substituted instead.
+     */
+    #[\Override]
+    public function beginIsolation(EffectLedger $ledger): void
+    {
+    }
+
+    #[\Override]
+    public function endIsolation(): void
+    {
+    }
 }
