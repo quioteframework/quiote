@@ -36,19 +36,66 @@ final readonly class ObjectMetadata
      *
      * Each field independently becomes null when its header is absent or unusable: a
      * `Content-Length` that is not all digits, an unparseable `Last-Modified`, an empty
-     * `ETag`. The ETag's surrounding quotes are stripped. Nothing throws — a response with
-     * none of the three headers yields an all-null instance.
+     * `ETag`. Nothing throws — a response with none of the three headers yields an all-null
+     * instance.
      */
     public static function fromResponse(ResponseInterface $response): self
     {
-        $length = $response->getHeaderLine('Content-Length');
-        $etag = trim($response->getHeaderLine('ETag'), '"');
-
         return new self(
-            ctype_digit($length) ? (int) $length : null,
+            self::parseContentLength($response->getHeaderLine('Content-Length')),
             self::parseHttpDate($response->getHeaderLine('Last-Modified')),
-            $etag === '' ? null : $etag,
+            self::parseEtag($response->getHeaderLine('ETag')),
         );
+    }
+
+    /**
+     * The object's size, or null when the header is absent or is not a plain digit string.
+     *
+     * Rejects a value above `PHP_INT_MAX` rather than casting it: `(int)` saturates instead of
+     * failing, so an 8-exabyte `Content-Length` would come back as a plausible-looking number that
+     * is not the object's size -- the invented value this class exists to avoid handing out. No real
+     * object store can produce one, but the header is whatever the far end sends, and a proxy or a
+     * stub is not a real object store.
+     */
+    private static function parseContentLength(string $value): ?int
+    {
+        if (!ctype_digit($value)) {
+            return null;
+        }
+
+        // Leading zeros are valid in a digit string and must not change the comparison below.
+        $digits = ltrim($value, '0');
+        if ($digits === '') {
+            return 0;
+        }
+
+        $limit = (string) PHP_INT_MAX;
+        // Equal-length digit strings compare lexicographically the same way they compare
+        // numerically, which is what makes this safe without arbitrary-precision arithmetic.
+        if (strlen($digits) > strlen($limit) || (strlen($digits) === strlen($limit) && $digits > $limit)) {
+            return null;
+        }
+
+        return (int) $digits;
+    }
+
+    /**
+     * The ETag as a caller should compare it, or null when the header is absent or empty.
+     *
+     * A strong ETag loses its surrounding quotes -- `"abc"` becomes `abc` -- which is the form a
+     * caller that stores one and compares it later wants. A weak ETag keeps its `W/"abc"` form
+     * verbatim: a weak validator is not interchangeable with the strong tag carrying the same
+     * opaque value, so reducing both to `abc` would let a caller treat one as the other. Anything
+     * that is neither, such as a proxy sending an unquoted token, is passed through as it arrived
+     * rather than guessed at.
+     */
+    private static function parseEtag(string $value): ?string
+    {
+        if (preg_match('~^"(.*)"$~', $value, $matches) === 1) {
+            return $matches[1] === '' ? null : $matches[1];
+        }
+
+        return $value === '' ? null : $value;
     }
 
     /**

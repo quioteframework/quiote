@@ -144,6 +144,12 @@
             <directory>packages/queue-redis/src</directory>
             <directory>packages/session-redis/src</directory>
             <directory>packages/scheduler/src</directory>
+            <directory>packages/storage/src</directory>
+            <directory>packages/cloud-s3/src</directory>
+            <directory>packages/cloud-gcs/src</directory>
+            <directory>packages/cloud-azure/src</directory>
+            <directory>packages/rector/src</directory>
+            <directory>packages/docs/src</directory>
             <directory>packages/filesystem/src</directory>
             <directory>packages/filesystem/src-session</directory>
             <directory>packages/filesystem-s3/src</directory>
