@@ -48,6 +48,7 @@
 - *(replay)* Anchor the store path, honour the PSR contracts, and stop paying for discarded work
 - *(replay)* Treat a cassette as untrusted input on the replay path
 - *(replay)* Select the cassette store by config, not by plugin load order
+- *(storage)* Read ETags and oversized lengths correctly, and test the package
 
 ### 🚜 Refactor
 
@@ -66,6 +67,8 @@
 - *(release)* Correct the replay RC rationale now that isolated mode has landed
 - *(replay)* Record the Propulsion isolation in the changelogs
 - Add UPGRADING.md and make cloud-azure an RC
+- Prep v4.2.0-RC1
+- *(storage)* Record the ObjectMetadata fixes in the changelog
 
 ### 🧪 Testing
 
