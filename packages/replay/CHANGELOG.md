@@ -1,4 +1,4 @@
-## [4.0.0-RC1] - 2026-08-19
+## [4.0.0-RC1] - 2026-08-20
 
 ### 🚀 Features
 
@@ -19,6 +19,7 @@
 - *(replay)* Add PDO cassette store and cassette:prune
 - *(replay)* Add a cassette-index chain to resolve a bare id to a cassette
 - *(replay)* Build isolated replay mode, and make it the default
+- *(replay)* Isolate Propulsion by substituting the connection
 
 ### 🐛 Bug Fixes
 
@@ -48,3 +49,4 @@
 - *(replay)* Remove internal plan-doc citations from code comments
 - *(replay)* Add changelogs for the eight replay packages
 - *(replay)* Make the replay packages 4.0.0-RC1, not 4.0.0
+- *(replay)* Fold isolated mode into the changelogs and the release plan
