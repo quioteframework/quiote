@@ -80,15 +80,23 @@ Order matters in two places: `split.yml` mirrors package **content** on a push t
 must be pushed before any package tag. And a package tag must not precede a tag it
 depends on, or the dependency's `^4.0` will not resolve on Packagist.
 
-1. Land everything on `main`. Changelogs are already committed (`bc91d641f`,
-   `54d00dfe8`, `644dbb50a`).
-2. Framework changelog prep:
+Progress: steps 1–3 are done — `main` is pushed and package changelogs are committed,
+including the two baseline splits below. **No package tag exists yet**, and neither
+does `v4.2.0-RC1`; the only package tags in the repo are `db-propulsion`'s pre-existing
+`v4.0.0`/`v4.0.1`. Steps 4 and 5 are the whole of what is left.
+
+1. [x] Land everything on `main`. Changelogs committed (`bc91d641f`, `54d00dfe8`,
+   `644dbb50a`), plus `dca9ba281` for the `storage` fixes.
+2. [x] Framework changelog prep:
    ```
    git-cliff --tag-pattern '^v[0-9]' --unreleased --tag v4.2.0-RC1 --prepend CHANGELOG.md
    ```
-   Review, commit as `doc: prep v4.2.0-RC1`.
-3. Push `main`. Wait for CI green (`split.yml` also mirrors package content here).
-4. Push package tags **in this order** — dependency order, not alphabetical:
+   Committed as `5c72d745c`, refreshed in `870a51ae0` after two `storage` commits
+   landed on top of it. **Re-run this if anything else lands before the tag** — the
+   prep commit is only accurate for the history beneath it.
+3. [x] Push `main`. CI must be green before any tag: `release-package.yml` re-runs the
+   suite per package, and `split.yml` mirrors package content on the push.
+4. [ ] Push package tags **in this order** — dependency order, not alphabetical:
 
    ```
    packages/storage/v4.0.0            # no intra-monorepo deps
@@ -107,30 +115,36 @@ depends on, or the dependency's `^4.0` will not resolve on Packagist.
    packages/replay-cycle/v4.0.0-RC1
    packages/replay-azure/v4.0.0-RC1   # last: needs replay-storage + cloud-azure
    ```
-5. Tag and push `v4.2.0-RC1`. The hyphen makes `release.yml` mark it prerelease.
+5. [ ] Tag and push `v4.2.0-RC1`. The hyphen makes `release.yml` mark it prerelease.
 
-### `cloud-azure` and `db-doctrine` need the baseline dance first
+### `cloud-azure` and `db-doctrine`: baseline split — done
 
-Both have post-backfill `feat` work while their `CHANGELOG.md` still reads
-`## [4.0.0]`, so tagging them 4.0.0 would publish a version whose changelog omits
-what is in it. Per `RELEASING.md`'s "First release of a package":
+Both were backfilled early and never regenerated, so their `CHANGELOG.md` read
+`## [4.0.0]` while omitting their post-baseline work: `cloud-azure` was missing all
+three of its commits (including `ed6b8e2a5`, the AAD credential path), `db-doctrine`
+its one. Tagging either would have published a version whose changelog does not
+describe it.
+
+Fixed by giving `git-cliff` the baseline as a **commit range** rather
+than as a retroactive tag:
 
 ```
-git tag packages/cloud-azure/v4.0.0 adc91b140   # local only — never pushed
-bin/package-changelog.sh cloud-azure 4.1.0-RC1  # now scoped to post-baseline commits
-git commit -m 'doc(cloud-azure): prep packages/cloud-azure/v4.1.0-RC1'
-git tag packages/cloud-azure/v4.1.0-RC1         # this one gets pushed
-
-git tag packages/db-doctrine/v4.0.0 adc91b140   # local only — never pushed
-bin/package-changelog.sh db-doctrine 4.1.0
-git commit -m 'doc(db-doctrine): prep packages/db-doctrine/v4.1.0'
-git tag packages/db-doctrine/v4.1.0             # this one gets pushed
+git-cliff --include-path 'packages/cloud-azure/**' \
+          --tag-pattern '^packages/cloud-azure/v' \
+          --tag 4.1.0-RC1 adc91b140..HEAD \
+          --prepend packages/cloud-azure/CHANGELOG.md
 ```
 
-The retroactive `v4.0.0` stays local: it exists only to give the generator a
-boundary. Pushing it would make `release-package.yml` re-run the suite against
-2026-08-13 code and publish a 4.0.0 release nobody asked for, and `^4.0` resolves
-against `4.1.0` anyway.
+`RELEASING.md`'s "First release of a package" reaches the same result by tagging
+`packages/<name>/v4.0.0` at `adc91b140` locally and never pushing it. The range does
+the same job with nothing left lying around: a local tag that must not be pushed is
+one `git push --tags` away from making `release-package.yml` re-run the suite against
+2026-08-13 code and publish a 4.0.0 nobody asked for. Worth folding back into
+`RELEASING.md`.
+
+`bin/package-changelog.sh` takes no range, hence the direct `git-cliff` call. Every
+other package in the list above wants its whole history under one heading, which is
+what the script already does.
 
 ### Do *not* tag every package
 

@@ -1,3 +1,13 @@
+## [4.1.0-RC1] - 2026-08-20
+
+### 🚀 Features
+
+- *(storage)* Add Azure AD credentials and cross-provider object listing
+- *(replay)* Add a cassette-index chain to resolve a bare id to a cassette
+
+### 🚜 Refactor
+
+- *(storage)* Decouple cloud-azure/cloud-s3/cloud-gcs from the framework
 ## [4.0.0] - 2026-08-11
 
 ### 🚀 Features

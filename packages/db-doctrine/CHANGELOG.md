@@ -1,3 +1,8 @@
+## [4.1.0] - 2026-08-20
+
+### 🚀 Features
+
+- *(replay)* Wire Doctrine/Eloquent/Cycle DB effects into live requests
 ## [4.0.0] - 2026-08-11
 
 ### 🚀 Features
