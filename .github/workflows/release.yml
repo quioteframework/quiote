@@ -43,25 +43,58 @@ jobs:
         # Downloaded standalone rather than via a third-party composite
         # action: full control over the exact invocation instead of trusting
         # an action's env-var/output contract.
-        # --current scopes the output to just the commits belonging to the
-        # tag that triggered this run (not the entire project history, which
-        # `--tag` alone would include on every release).
+        #
+        # Scoped by an explicit `<previous tag>..<this tag>` range so the notes
+        # cover only this release's commits, rather than the whole project
+        # history that a bare `--tag` would include.
+        #
+        # The range is spelled out instead of using `--current` because a
+        # framework tag and the `packages/<name>/vX.Y.Z` tags frequently land on
+        # the *same* commit -- a release that ships the framework and its
+        # packages together puts a dozen tags on one SHA. Git resolves that
+        # commit to a single tag (`git describe --exact-match` picks one of the
+        # package tags), so `--current` reports "No tag exists for the current
+        # commit" and the release fails. The range depends on nothing but the
+        # tag that triggered the run.
+        #
         # --tag-pattern restricts git-cliff to plain framework tags -- since
         # v4.0.0, individual packages mint their own `packages/<name>/vX.Y.Z`
         # tags (see release-package.yml), which must never be treated as a
-        # framework version boundary here.
+        # framework version boundary here. The same pattern, as a glob, picks
+        # the previous framework tag: `git describe` walks ancestors from the
+        # tag's parent, so it finds the last framework release rather than
+        # whatever sorts highest.
         #
         # Skipped for v1.0.0: the commit history before that tag predates
         # this repo's conventional-commit convention, so git-cliff has
         # nothing usable to scope against. v1.0.0 ships hand-written release
         # notes instead; every tag after it is generated normally.
         if: github.ref_name != 'v1.2.0'
+        env:
+          TAG: ${{ github.ref_name }}
         run: |
           GIT_CLIFF_VERSION="2.13.1"
           curl -sSL -o /tmp/git-cliff.tar.gz \
             "https://github.com/orhun/git-cliff/releases/download/v${GIT_CLIFF_VERSION}/git-cliff-${GIT_CLIFF_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
           tar -xzf /tmp/git-cliff.tar.gz -C /tmp
-          "/tmp/git-cliff-${GIT_CLIFF_VERSION}/git-cliff" --tag-pattern '^v[0-9]' --current --strip header -o /tmp/release-notes.md
+          # Empty for the earliest framework tag, which has no predecessor to
+          # measure from; git-cliff then falls back to the newest tag it can
+          # see, which at that point is the one being released.
+          PREVIOUS="$(git describe --tags --abbrev=0 --match 'v[0-9]*' "${TAG}^" 2>/dev/null || true)"
+          if [ -n "$PREVIOUS" ]; then
+            SCOPE="${PREVIOUS}..${TAG}"
+            echo "Generating notes for ${SCOPE}"
+          else
+            SCOPE="--latest"
+            echo "No framework tag precedes ${TAG}; generating notes for the latest tag"
+          fi
+          # shellcheck disable=SC2086
+          "/tmp/git-cliff-${GIT_CLIFF_VERSION}/git-cliff" \
+            --tag-pattern '^v[0-9]' \
+            $SCOPE \
+            --tag "${TAG}" \
+            --strip header \
+            -o /tmp/release-notes.md
 
       - name: Use hand-written notes for v1.2.0
         if: github.ref_name == 'v1.0.0'
