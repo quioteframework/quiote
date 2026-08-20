@@ -22,6 +22,8 @@ state and the decisions already made for *this* release.
   `quioteframework/quiote: ^4.0`, so it would be circular. `3194e31e4` added the
   `storage` require for real code reasons; `9b2b1f72c` then moved that code out, so
   reverting it in `b125bb817` was correct.
+  `UPGRADING.md` now exists and covers this — including the two failure modes, since a
+  `plugins` entry for a missing class is logged and skipped rather than fatal.
 - **Replay packages: `4.0.0-RC1`, not stable.** They have never run outside this
   monorepo's own suite and a single audit pass found 43 defects in them. Isolated mode
   has since landed, so they are feature-complete — but "feature-complete and never run
@@ -50,13 +52,21 @@ state and the decisions already made for *this* release.
       after-the-fact with no connection-level equivalent, so `IsolatedReplay` refuses
       outright rather than silently hitting a real database. And the whole thing has
       still only run against this repo's own suite — which is what `-RC1` says.
-- [ ] **`cloud-azure`: `4.1.0` or `4.1.0-RC1`?** Its bulk (blob/table client) is in
-      production via `session-azure`, but its 3 post-backfill commits include
-      `ed6b8e2a5`, which added the AAD/`az login` credential path — and that has
-      never authenticated against real Azure. Same reasoning that made replay an RC
-      applies to that half of the package.
-- [ ] **`UPGRADING.md`** for the class relocations above. There is no `UPGRADING.md`
-      in the repo at all today.
+- [x] **`cloud-azure`: `4.1.0-RC1`.** Its bulk (blob/table client) is in production via
+      `session-azure`, but its 3 post-backfill commits include `ed6b8e2a5`, which added
+      the AAD/`az login` credential path — and that has never authenticated against real
+      Azure. Same reasoning that made replay an RC applies to that half of the package.
+      Nothing regresses today — the package has no tag at all, so nobody is being moved
+      from a stable release onto a prerelease — but it does put a constraint on the
+      *next* round: `session-azure` and `filesystem-azure` both require
+      `quioteframework/cloud-azure: ^4.0`, so neither can be tagged **stable** until
+      `cloud-azure` is, or an app on `minimum-stability: stable` cannot resolve them.
+      Whoever exercises the AAD path against real Azure unblocks all three.
+- [x] **`UPGRADING.md`** — written, covering the 14 relocated classes (which packages,
+      which requires already pull them in transitively, and both failure modes), the
+      `addStateReset()` seam for plugin authors, and the RC-stability flags the replay
+      packages and `cloud-azure` need to resolve. Includes the `AzureBlobClient`
+      constructor change for anyone tracking `cloud-azure` on `dev-main`.
 
 ## Order of operations
 
@@ -81,7 +91,7 @@ depends on, or the dependency's `^4.0` will not resolve on Packagist.
    packages/docs/v4.0.0               # independent
    packages/db-eloquent/v4.0.0        # 0 post-backfill commits
    packages/db-cycle/v4.0.0           # 0 post-backfill commits
-   packages/cloud-azure/v4.1.0        # needs storage; see open question above
+   packages/cloud-azure/v4.1.0-RC1    # needs storage; RC for the AAD credential path
    packages/db-doctrine/v4.1.0
    packages/replay/v4.0.0-RC1
    packages/replay-storage/v4.0.0-RC1 # needs replay + storage
@@ -101,10 +111,15 @@ Both have post-backfill `feat` work while their `CHANGELOG.md` still reads
 what is in it. Per `RELEASING.md`'s "First release of a package":
 
 ```
-git tag packages/<name>/v4.0.0 adc91b140     # local only — never pushed
-bin/package-changelog.sh <name> 4.1.0        # now scoped to post-baseline commits
-git commit -m 'doc(<name>): prep packages/<name>/v4.1.0'
-git tag packages/<name>/v4.1.0               # this one gets pushed
+git tag packages/cloud-azure/v4.0.0 adc91b140   # local only — never pushed
+bin/package-changelog.sh cloud-azure 4.1.0-RC1  # now scoped to post-baseline commits
+git commit -m 'doc(cloud-azure): prep packages/cloud-azure/v4.1.0-RC1'
+git tag packages/cloud-azure/v4.1.0-RC1         # this one gets pushed
+
+git tag packages/db-doctrine/v4.0.0 adc91b140   # local only — never pushed
+bin/package-changelog.sh db-doctrine 4.1.0
+git commit -m 'doc(db-doctrine): prep packages/db-doctrine/v4.1.0'
+git tag packages/db-doctrine/v4.1.0             # this one gets pushed
 ```
 
 The retroactive `v4.0.0` stays local: it exists only to give the generator a
