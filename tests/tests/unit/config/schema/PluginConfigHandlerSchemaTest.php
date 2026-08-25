@@ -48,16 +48,33 @@ class PluginConfigHandlerSchemaTest extends PhpUnitTestCase
 		$this->assertSame('[0].class', $diagnostics[0]->keyPath);
 	}
 
-	public function testNonBoolEnabledIsReported(): void
+	/**
+	 * A string "enabled" is structurally allowed because that is how an unresolved `%env(...)%`
+	 * placeholder travels through compilation, and how a hand-authored YAML source writes the
+	 * boolean literals the XSD accepts.
+	 */
+	public function testStringEnabledIsAllowedStructurally(): void
+	{
+		$handler = new PluginConfigHandler();
+
+		$this->assertSame([], SchemaValidator::validate($handler->schema(), [
+			['class' => 'App\\Plugin\\FooPlugin', 'enabled' => '%env(FOO_PLUGIN)%'],
+		]));
+		$this->assertSame([], SchemaValidator::validate($handler->schema(), [
+			['class' => 'App\\Plugin\\FooPlugin', 'enabled' => 'yes'],
+		]));
+	}
+
+	public function testEnabledThatIsNeitherBoolNorStringIsReported(): void
 	{
 		$handler = new PluginConfigHandler();
 
 		$diagnostics = SchemaValidator::validate($handler->schema(), [
-			['class' => 'App\\Plugin\\FooPlugin', 'enabled' => 'true'],
+			['class' => 'App\\Plugin\\FooPlugin', 'enabled' => ['on']],
 		]);
 
 		$this->assertCount(1, $diagnostics);
-		$this->assertSame('schema.wrong_type', $diagnostics[0]->code);
+		$this->assertSame('schema.no_matching_variant', $diagnostics[0]->code);
 		$this->assertSame('[0].enabled', $diagnostics[0]->keyPath);
 	}
 

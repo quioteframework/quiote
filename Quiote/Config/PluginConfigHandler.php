@@ -27,8 +27,14 @@ use Quiote\Util\Toolkit;
  * (across all contributing files, applied in bootstrap order) wins if the same class is listed more
  * than once.
  *
- * Canonical schema: list<array{class: string, enabled: bool}>, in document
- * order.
+ * An `enabled` written as a `%env(...)%` placeholder cannot be decided while the file is being
+ * compiled, so such an entry survives compilation as a `{class, enabled}` pair and
+ * {@see EnvPlaceholder} turns the placeholder into the bool when the artifact is loaded. That is what
+ * lets a deployment turn a plugin on by setting a variable and restarting, with the same compiled
+ * cache.
+ *
+ * Canonical schema: list<array{class: string, enabled: bool|string}>, in
+ * document order, where a string `enabled` is an unresolved placeholder.
  * @since      1.0.0
  */
 class PluginConfigHandler extends XmlConfigHandler implements IArrayConfigHandler, ISchemaAwareConfigHandler, IPositionAwareConfigHandler, IDeclarationConfigHandler
@@ -37,13 +43,14 @@ class PluginConfigHandler extends XmlConfigHandler implements IArrayConfigHandle
 
 	/**
 	 * "enabled" is not required: hand-authored PHP/YAML may omit it,
-	 * defaulting to true, matching the XSD's own default.
+	 * defaulting to true, matching the XSD's own default. It is a bool or the
+	 * string form of a `%env(...)%` placeholder that is not resolved yet.
 	 */
 	public function schema(): Rule
 	{
 		return Rule::listOf(Rule::struct([
 			'class' => Rule::phpClass(),
-			'enabled' => Rule::bool(),
+			'enabled' => Rule::oneOf(Rule::bool(), Rule::string()),
 		], required: ['class']));
 	}
 
@@ -58,7 +65,21 @@ class PluginConfigHandler extends XmlConfigHandler implements IArrayConfigHandle
 	}
 
 	/**
-	 * @return list<array{class: string, enabled: bool}>
+	 * The `enabled` attribute as a bool, or unchanged when it is a `%env(...)%`
+	 * placeholder whose value only exists at load time.
+	 *
+	 * A placeholder keeps its case: environment variable names are
+	 * case-sensitive, and nothing here has to decide what the value means yet.
+	 */
+	private static function enabledFrom(?string $attribute): bool|string
+	{
+		$value = $attribute ?? 'true';
+
+		return EnvPlaceholder::contains($value) ? $value : (bool) Toolkit::literalize($value);
+	}
+
+	/**
+	 * @return list<array{class: string, enabled: bool|string}>
 	 */
 	public function toCanonicalArray(XmlConfigDomDocument $document): array
 	{
@@ -72,11 +93,10 @@ class PluginConfigHandler extends XmlConfigHandler implements IArrayConfigHandle
 			}
 
 			foreach ($configuration->get('plugins') as $plugin) {
-				$enabledAttr = strtolower((string) $plugin->getAttribute('enabled', 'true'));
 				$plugins[] = [
 					// XSD requires "class"; the (string) cast reflects that guarantee to PHPStan.
 					'class' => (string) $plugin->getAttribute('class'),
-					'enabled' => (bool) Toolkit::literalize($enabledAttr),
+					'enabled' => self::enabledFrom($plugin->getAttribute('enabled')),
 				];
 			}
 		}
@@ -85,7 +105,7 @@ class PluginConfigHandler extends XmlConfigHandler implements IArrayConfigHandle
 	}
 
 	/**
-	 * @return array{data: list<array{class: string, enabled: bool}>, positions: array<string, array{file: string, line: int}>}
+	 * @return array{data: list<array{class: string, enabled: bool|string}>, positions: array<string, array{file: string, line: int}>}
 	 */
 	public function toCanonicalArrayWithPositions(XmlConfigDomDocument $document, ElementPositionIndex $positions): array
 	{
@@ -100,10 +120,9 @@ class PluginConfigHandler extends XmlConfigHandler implements IArrayConfigHandle
 			}
 
 			foreach ($configuration->get('plugins') as $plugin) {
-				$enabledAttr = strtolower((string) $plugin->getAttribute('enabled', 'true'));
 				$plugins[] = [
 					'class' => (string) $plugin->getAttribute('class'),
-					'enabled' => (bool) Toolkit::literalize($enabledAttr),
+					'enabled' => self::enabledFrom($plugin->getAttribute('enabled')),
 				];
 
 				$position = $positions->forElement($plugin);
@@ -121,16 +140,32 @@ class PluginConfigHandler extends XmlConfigHandler implements IArrayConfigHandle
 	}
 
 	/**
-	 * @param list<array{class: string, enabled?: bool}> $config Hand-authored
+	 * Compiles the canonical array down to what the artifact holds: a class name
+	 * per enabled plugin, and a `{class, enabled}` pair for one whose `enabled`
+	 * is a `%env(...)%` placeholder, which nothing can decide yet.
+	 *
+	 * @param list<array{class: string, enabled?: bool|string}> $config Hand-authored
 	 *        PHP/YAML sources may omit `enabled` (defaults to true), matching
 	 *        the XSD's own default.
+	 * @return list<string|array{class: string, enabled: string}>
 	 */
 	public function executeArray(array $config, ?string $sourceRef = null): mixed
 	{
-		$declared = array_values(array_map(
-			static fn(array $plugin): string => $plugin['class'],
-			array_filter($config, static fn(array $plugin): bool => $plugin['enabled'] ?? true),
-		));
+		$declared = [];
+		foreach ($config as $plugin) {
+			$enabled = $plugin['enabled'] ?? true;
+
+			if (is_string($enabled) && EnvPlaceholder::contains($enabled)) {
+				$declared[] = ['class' => $plugin['class'], 'enabled' => $enabled];
+				continue;
+			}
+
+			// A hand-authored PHP/YAML source can write "yes"/"off" as a string where XML would have
+			// been literalized on the way in, so the same literals mean the same thing in every format.
+			if (is_string($enabled) ? (bool) Toolkit::literalize($enabled) : $enabled) {
+				$declared[] = $plugin['class'];
+			}
+		}
 
 		return $declared;
 	}
@@ -138,8 +173,12 @@ class PluginConfigHandler extends XmlConfigHandler implements IArrayConfigHandle
 	/**
 	 * Append the declared plugin classes to the `plugins` config key.
 	 *
-	 * @param      mixed $declaration The enabled classes, in declared order, that {@see executeArray()}
-	 *                    compiles.
+	 * An entry is either a class name -- a plugin whose `enabled` was decided at compile time -- or a
+	 * `{class, enabled}` pair whose `enabled` a `%env(...)%` placeholder has just been resolved into
+	 * by {@see EnvPlaceholder}, and which is dropped here if the environment said no.
+	 *
+	 * @param      mixed $declaration The classes and deferred entries, in declared order, that
+	 *                    {@see executeArray()} compiles.
 	 * @since      4.0.0
 	 */
 	public function apply(mixed $declaration, string $sourceRef): void
@@ -153,19 +192,70 @@ class PluginConfigHandler extends XmlConfigHandler implements IArrayConfigHandle
 		}
 
 		$declared = [];
-		foreach ($declaration as $index => $class) {
-			if (!is_string($class)) {
+		foreach ($declaration as $index => $entry) {
+			if (is_array($entry)) {
+				$class = self::deferredClass($entry, $index, $sourceRef);
+				if ($class !== null) {
+					$declared[] = $class;
+				}
+				continue;
+			}
+
+			if (!is_string($entry)) {
 				throw new ConfigurationException(sprintf(
 					'Entry %s of the compiled plugins declaration from "%s" must be a class name string, got %s.',
 					var_export($index, true),
 					$sourceRef,
-					get_debug_type($class)
+					get_debug_type($entry)
 				));
 			}
-			$declared[] = $class;
+			$declared[] = $entry;
 		}
 
 		Config::set('plugins', self::merge($declared, Config::getArray('plugins', [])), true);
+	}
+
+	/**
+	 * The class name of a `{class, enabled}` entry whose environment placeholder resolved to true, or
+	 * null when it resolved to false.
+	 *
+	 * The value has been through the environment by the time it gets here, so anything other than a
+	 * bool means a variable holds something that is not a boolean literal -- which is a deployment
+	 * mistake worth naming rather than quietly reading as truthy.
+	 *
+	 * Neither message repeats what the environment answered, only its type: the value reaching here
+	 * came out of a variable, an exception is logged and rendered, and a misconfiguration pointing
+	 * this at a credential is exactly the case that produces a wrong value.
+	 *
+	 * @param      array<array-key, mixed> $entry
+	 * @throws     ConfigurationException If the entry is not shaped as expected, or `enabled` did not
+	 *                                   resolve to a bool.
+	 */
+	private static function deferredClass(array $entry, int|string $index, string $sourceRef): ?string
+	{
+		$class = $entry['class'] ?? null;
+		if (!is_string($class) || !array_key_exists('enabled', $entry)) {
+			throw new ConfigurationException(sprintf(
+				'Entry %s of the compiled plugins declaration from "%s" must be a class name string or a '
+				. '{class, enabled} pair, got keys [%s].',
+				var_export($index, true),
+				$sourceRef,
+				implode(', ', array_map(strval(...), array_keys($entry)))
+			));
+		}
+
+		$enabled = $entry['enabled'];
+		if (!is_bool($enabled)) {
+			throw new ConfigurationException(sprintf(
+				'Plugin "%s" in "%s" has its "enabled" read from the environment, which answered a %s. '
+				. 'The variable must hold a boolean literal: true, false, on, off, yes or no.',
+				$class,
+				$sourceRef,
+				get_debug_type($enabled)
+			));
+		}
+
+		return $enabled ? $class : null;
 	}
 
 	/**

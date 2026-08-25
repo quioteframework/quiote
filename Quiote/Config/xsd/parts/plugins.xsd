@@ -12,7 +12,7 @@
 
 	<xs:complexType name="plugin">
 		<xs:attribute name="class" type="types_1_0:php_class" use="required" />
-		<xs:attribute name="enabled" type="types_1_0:boolean" use="optional" default="true" />
+		<xs:attribute name="enabled" type="types_1_0:boolean_or_env" use="optional" default="true" />
 	</xs:complexType>
 
 	<xs:complexType name="plugins">

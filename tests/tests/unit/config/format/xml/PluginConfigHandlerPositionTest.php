@@ -82,12 +82,14 @@ XML);
 		$result = $driver->loadWithPositions($path, 'test');
 
 		// Simulate a malformed hand-edit downstream (e.g. via a PHP override)
-		// producing a non-bool "enabled" -- the diagnostic's keyPath must be
-		// something the positions map can resolve back to a real line.
+		// producing an "enabled" that is neither a bool nor the string an
+		// unresolved %env(...)% placeholder travels as -- the diagnostic's
+		// keyPath must be something the positions map can resolve back to a
+		// real line.
 		$malformed = $result['data'];
 		$firstEntry = $malformed[0];
 		self::assertIsArray($firstEntry);
-		$firstEntry['enabled'] = 'true';
+		$firstEntry['enabled'] = 1;
 		$malformed[0] = $firstEntry;
 
 		$diagnostics = SchemaValidator::validate($handler->schema(), $malformed);
