@@ -92,6 +92,58 @@ class CompiledArtifactTest extends PhpUnitTestCase
 		CompiledArtifact::source(['a' => [['b' => static fn(): int => 1]]], '/tmp/foo.xml', 'TestHandler');
 	}
 
+	/**
+	 * A declaration reading the environment cannot be a bare literal: the environment has to be read
+	 * when the artifact is loaded, so a cache warmed on a build machine and shipped in an image reads
+	 * the deployment's variables rather than the build's.
+	 */
+	public function testAnEnvironmentPlaceholderIsResolvedAtLoadRatherThanBakedIn(): void
+	{
+		putenv('QUIOTE_TEST_ARTIFACT_FLAG=true');
+		try {
+			$source = CompiledArtifact::source(
+				['replay.enabled' => '%env(QUIOTE_TEST_ARTIFACT_FLAG)%'],
+				'/tmp/settings.xml',
+				'TestHandler'
+			);
+
+			$this->assertStringContainsString('\\Quiote\\Config\\EnvPlaceholder::resolve(', $source);
+			$this->assertStringContainsString("'%env(QUIOTE_TEST_ARTIFACT_FLAG)%'", $source);
+			$this->assertStringContainsString("'/tmp/settings.xml'", $source);
+			$this->assertSame(
+				['replay.enabled' => true],
+				$this->roundTrip(['replay.enabled' => '%env(QUIOTE_TEST_ARTIFACT_FLAG)%'])
+			);
+		} finally {
+			putenv('QUIOTE_TEST_ARTIFACT_FLAG');
+		}
+	}
+
+	/**
+	 * The wrapper is emitted only where it is needed, so an artifact that reads nothing from the
+	 * environment stays a plain literal that does nothing but hand back data.
+	 */
+	public function testADeclarationWithoutAPlaceholderStaysABareLiteral(): void
+	{
+		$source = CompiledArtifact::source(['core.debug' => true, 'core.app_name' => 'Demo']);
+
+		$this->assertStringNotContainsString('EnvPlaceholder', $source);
+		$this->assertStringContainsString('return array (', $source);
+	}
+
+	public function testAPlaceholderIsFoundInANestedDeclaration(): void
+	{
+		putenv('QUIOTE_TEST_ARTIFACT_NESTED=api.internal');
+		try {
+			$this->assertSame(
+				['session' => ['params' => ['host' => 'api.internal']]],
+				$this->roundTrip(['session' => ['params' => ['host' => '%env(QUIOTE_TEST_ARTIFACT_NESTED)%']]])
+			);
+		} finally {
+			putenv('QUIOTE_TEST_ARTIFACT_NESTED');
+		}
+	}
+
 	public function testAResourceIsRejected(): void
 	{
 		$handle = fopen('php://memory', 'rb');

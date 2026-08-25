@@ -21,6 +21,10 @@ use Quiote\Session\SessionPersistenceInterface;
  *     table: sessions
  * ```
  *
+ * The `%env(NAME)%` credentials are read from the process environment when the compiled
+ * configuration is loaded, not when it is compiled, so no key is written into the config
+ * cache -- see {@see \Quiote\Config\EnvPlaceholder}.
+ *
  * Cheaper than {@see AzureBlobSessionFactory} for small key/value-shaped
  * payloads. Bring your own PSR-18 client, bound in the container.
  *

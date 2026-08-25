@@ -26,6 +26,10 @@ use RuntimeException;
  *     # endpoint: 'https://minio.internal'   # any S3-compatible service
  * ```
  *
+ * The `%env(NAME)%` credentials are read from the process environment when the compiled
+ * configuration is loaded, not when it is compiled, so no key is written into the config
+ * cache -- see {@see \Quiote\Config\EnvPlaceholder}.
+ *
  * Bring your own PSR-18 client, bound in the container -- the same contract
  * quioteframework/filesystem-s3 uses. The bucket must already exist; creation
  * and lifecycle belong to infrastructure tooling, not a session backend.

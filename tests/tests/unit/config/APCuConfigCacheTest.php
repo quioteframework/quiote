@@ -86,6 +86,31 @@ class APCuConfigCacheTest extends PhpUnitTestCase
 	}
 
 	/**
+	 * A stored entry *is* the loaded value here -- there is no include to read the environment at --
+	 * so the environment has to be read on the way in, which is the same moment the file cache's
+	 * artifact reads it.
+	 */
+	public function testWriteCacheFileResolvesAnEnvironmentPlaceholderBeforeStoringIt(): void
+	{
+		$config = Config::getString('core.config_dir') . '/tests/importtest.xml';
+		$cacheName = ConfigCache::getCacheName($config);
+
+		if (file_exists($cacheName)) {
+			unlink($cacheName);
+		}
+
+		putenv('QUIOTE_TEST_APCU_FLAG=true');
+		try {
+			APCuConfigCache::writeCacheFile($config, $cacheName, ['replay.enabled' => '%env(QUIOTE_TEST_APCU_FLAG)%']);
+
+			$this->assertSame(['replay.enabled' => true], apcu_fetch($this->configKey($config)));
+			$this->assertSame(['replay.enabled' => true], APCuConfigCache::loadValue($config));
+		} finally {
+			putenv('QUIOTE_TEST_APCU_FLAG');
+		}
+	}
+
+	/**
 	 * Shared memory serializes what it stores, so a value it cannot reproduce faithfully has to go to
 	 * the file cache instead of being served as a broken clone.
 	 */

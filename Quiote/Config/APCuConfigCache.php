@@ -72,6 +72,12 @@ class APCuConfigCache extends ConfigCache
      * A value shared memory cannot reproduce faithfully ({@see isStorable()}) falls through to the file
      * cache rather than being stored as a broken clone.
      *
+     * `%env(...)%` placeholders are resolved before the value is stored, which is the same moment the
+     * file cache resolves them: there, the stored artifact holds the placeholder and the environment
+     * is read when the file is included, and here the stored entry *is* the loaded value, so it must
+     * already be resolved. Either way the environment is read once per process, and a variable
+     * changed under a running worker takes effect when that worker is replaced.
+     *
      * @param      mixed $value The declaration the handler compiled.
      * @param      ?string $generatedBy The handler class that compiled it; only the file cache records it.
      * @return     void
@@ -82,7 +88,11 @@ class APCuConfigCache extends ConfigCache
         if (self::isAvailable() && self::isStorable($value)) {
             // The pending context set by loadValue()'s cold path, so the key matches the one the
             // fetch will use.
-            \apcu_store(self::getConfigKey($config, self::$pendingContext), $value, self::$ttl);
+            \apcu_store(
+                self::getConfigKey($config, self::$pendingContext),
+                EnvPlaceholder::contains($value) ? EnvPlaceholder::resolve($value, $config) : $value,
+                self::$ttl
+            );
             return;
         }
 

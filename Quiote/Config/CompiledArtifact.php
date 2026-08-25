@@ -14,6 +14,10 @@ use Quiote\Exception\CacheException;
  * only thing including it can ever do is hand back a value -- and, unlike an `eval()`'d string, it is
  * opcache-cacheable, so an unchanged config costs nothing to read again.
  *
+ * The single exception is a declaration holding a `%env(...)%` placeholder, where the literal is
+ * wrapped in one {@see EnvPlaceholder::resolve()} call so the environment is read at load rather
+ * than baked in at compile time -- see {@see self::expression()}.
+ *
  * @since      4.0.0
  */
 final class CompiledArtifact
@@ -37,8 +41,28 @@ final class CompiledArtifact
             $path ?? '(unknown)',
             $generatedBy ?? '(unknown)',
             gmdate(\DateTime::ATOM),
-            'return ' . self::literal($value, $path) . ';'
+            'return ' . self::expression($value, $path) . ';'
         );
+    }
+
+    /**
+     * The expression the artifact returns: the literal itself, or the literal handed to
+     * {@see EnvPlaceholder::resolve()} when it still holds a `%env(...)%` placeholder.
+     *
+     * An artifact whose value needs the environment cannot be a bare literal -- that is what keeps
+     * the environment's answer out of the cache file, so a warmed cache shipped in an image reads
+     * the deployment's variables rather than the build machine's. The generated call is the one
+     * exception to "an artifact is data": its argument is still a literal, the only function it can
+     * name is this one, and it is emitted from here or not at all.
+     */
+    private static function expression(mixed $value, ?string $path): string
+    {
+        $literal = self::literal($value, $path);
+        if (!EnvPlaceholder::contains($value)) {
+            return $literal;
+        }
+
+        return sprintf('\\%s::resolve(%s, %s)', EnvPlaceholder::class, $literal, var_export($path, true));
     }
 
     /**

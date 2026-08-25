@@ -276,11 +276,16 @@ final class Toolkit
 	 * Literalize a string value.
 	 * Non-string input is returned unchanged.
 	 * @param      mixed $value The value to literalize.
+	 * @param      bool $expandDirectives Whether a leftover string also has its `%directive%`
+	 *                   references expanded. Pass false for text that did not come from a
+	 *                   configuration file -- {@see \Quiote\Config\EnvPlaceholder} literalizes what
+	 *                   the environment answered, and what a setting means should not depend on
+	 *                   whether a deployment's variable happens to hold a directive reference.
 	 * @return     mixed A literalized value.
 	 * @phpstan-return ($value is string ? null|bool|int|float|string : mixed)
 	 * @since      1.0.0
 	 */
-	public static function literalize($value)
+	public static function literalize($value, bool $expandDirectives = true)
 	{
 		if(!is_string($value)) {
 			return $value;
@@ -299,7 +304,7 @@ final class Toolkit
 		}
 
 		if(!is_numeric($value)) {
-			return self::expandDirectives($value);
+			return $expandDirectives ? self::expandDirectives($value) : $value;
 		}
 
 		return str_contains($value, '.') || stripos($value, 'e') !== false

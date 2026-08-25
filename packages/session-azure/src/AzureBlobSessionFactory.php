@@ -24,6 +24,10 @@ use RuntimeException;
  *     container: quiote-sessions
  * ```
  *
+ * The `%env(NAME)%` credentials are read from the process environment when the compiled
+ * configuration is loaded, not when it is compiled, so no key is written into the config
+ * cache -- see {@see \Quiote\Config\EnvPlaceholder}.
+ *
  * `auth` selects how requests are authorized: `shared_key` (default, needs
  * `account_key`), `workload_identity` (AKS, reads the webhook's own
  * environment variables), `cli` (a developer's `az login` session) or

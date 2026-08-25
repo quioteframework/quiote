@@ -24,6 +24,10 @@ use RuntimeException;
  *     object_prefix: 'sessions/'
  * ```
  *
+ * The `%env(NAME)%` credentials are read from the process environment when the compiled
+ * configuration is loaded, not when it is compiled, so no key is written into the config
+ * cache -- see {@see \Quiote\Config\EnvPlaceholder}.
+ *
  * Uses GCS's S3-compatible HMAC interoperability API, so the credentials are
  * an HMAC key pair rather than a service-account JSON file. Bring your own
  * PSR-18 client, bound in the container.

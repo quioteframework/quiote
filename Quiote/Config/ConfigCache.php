@@ -695,9 +695,10 @@ class ConfigCache
 	 *
 	 * The compiled artifact is data: this reads its value and hands it to the handler's
 	 * {@see IDeclarationConfigHandler::apply()}, which is the code that acts on it. A cache entry
-	 * therefore cannot execute anything, only describe wrong configuration -- which is the whole point
-	 * of the declaration contract, and why a handler that does not implement it is rejected here
-	 * rather than having its artifact included for effect.
+	 * therefore cannot execute anything beyond the one {@see EnvPlaceholder::resolve()} call
+	 * {@see CompiledArtifact} emits for a declaration that reads the environment, only describe wrong
+	 * configuration -- which is the whole point of the declaration contract, and why a handler that
+	 * does not implement it is rejected here rather than having its artifact included for effect.
 	 *
 	 * @param      string $config A filesystem path to a configuration file.
 	 * @param      string $context A context name.
