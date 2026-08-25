@@ -17,6 +17,7 @@ final readonly class Rule
 	 * @param array<string, Rule> $keys Struct only: known key => its Rule.
 	 * @param list<string> $required Struct only: keys from $keys that must be present.
 	 * @param list<string> $enumValues Enum only: the allowed string values.
+	 * @param list<Rule> $variants Union only: the alternative shapes, any one of which may match.
 	 */
 	private function __construct(
 		public SchemaType $type,
@@ -26,6 +27,7 @@ final readonly class Rule
 		public bool $closed = true,
 		public ?Rule $items = null,
 		public array $enumValues = [],
+		public array $variants = [],
 	) {
 	}
 
@@ -119,6 +121,29 @@ final readonly class Rule
 	public static function enumOf(array $values, bool $nullable = false): self
 	{
 		return new self(SchemaType::Enum, $nullable, enumValues: $values);
+	}
+
+	/**
+	 * Builds a rule for a value that may take any one of $variants' shapes.
+	 *
+	 * For a position that is genuinely alternative-shaped -- a bool that a
+	 * `%env(...)%` placeholder string stands in for until the compiled artifact
+	 * is loaded, say -- rather than one whose shape is unknown, which is what
+	 * {@see self::mixed()} is for. A value matching no variant is reported once,
+	 * against this position: the variants' own diagnostics would each describe a
+	 * shape the value was never meant to have.
+	 */
+	public static function oneOf(Rule ...$variants): self
+	{
+		// A union is nullable exactly when one of its variants is: the null check happens before the
+		// variants are ever tried, so a Rule::bool(nullable: true) in here has to be visible from the
+		// union itself or its null would be rejected on the way in.
+		$nullable = false;
+		foreach ($variants as $variant) {
+			$nullable = $nullable || $variant->nullable;
+		}
+
+		return new self(SchemaType::Union, $nullable, variants: array_values($variants));
 	}
 
 	/**

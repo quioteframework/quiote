@@ -32,6 +32,7 @@ final class SchemaValidator
 			SchemaType::Int => self::validateScalar($value, 'is_int', 'int', $path),
 			SchemaType::PhpClass => self::validatePhpClass($value, $path),
 			SchemaType::Enum => self::validateEnum($schema, $value, $path),
+			SchemaType::Union => self::validateUnion($schema, $value, $path),
 			SchemaType::ListOf => self::validateList($schema, $value, $path),
 			SchemaType::Dict => self::validateDict($schema, $value, $path),
 			SchemaType::Struct => self::validateStruct($schema, $value, $path),
@@ -70,6 +71,48 @@ final class SchemaValidator
 			return [Diagnostic::error('schema.invalid_enum_value', self::at($path, "must be one of: $allowed"), $path)];
 		}
 		return [];
+	}
+
+	/**
+	 * One diagnostic naming the alternatives, not one per variant: a union's
+	 * variants describe shapes the value was never meant to have, so reporting
+	 * each of their complaints would bury the one thing that is wrong.
+	 *
+	 * @return list<Diagnostic>
+	 */
+	private static function validateUnion(Rule $schema, mixed $value, string $path): array
+	{
+		foreach ($schema->variants as $variant) {
+			if (self::validate($variant, $value, $path) === []) {
+				return [];
+			}
+		}
+
+		$names = implode(', ', array_map(static fn(Rule $variant): string => self::typeName($variant), $schema->variants));
+
+		return [Diagnostic::error(
+			'schema.no_matching_variant',
+			self::at($path, "must be one of: $names; got " . get_debug_type($value)),
+			$path
+		)];
+	}
+
+	/**
+	 * A rule's kind, as it reads in a union's diagnostic.
+	 */
+	private static function typeName(Rule $rule): string
+	{
+		return match ($rule->type) {
+			SchemaType::Struct, SchemaType::Dict => 'map',
+			SchemaType::ListOf => 'list',
+			SchemaType::String => 'string',
+			SchemaType::Bool => 'bool',
+			SchemaType::Int => 'int',
+			SchemaType::PhpClass => 'PHP class name',
+			SchemaType::Enum => 'one of ' . implode('|', $rule->enumValues),
+			SchemaType::Union => 'nested union',
+			SchemaType::Mixed => 'anything',
+		};
 	}
 
 	/**

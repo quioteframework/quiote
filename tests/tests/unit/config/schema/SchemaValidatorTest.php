@@ -189,5 +189,58 @@ class SchemaValidatorTest extends PhpUnitTestCase
 		$this->assertSame('schema.wrong_type', $diagnostics[0]->code);
 		$this->assertSame('plugins', $diagnostics[0]->keyPath);
 	}
+
+	public function testUnionAcceptsAnyOfItsVariants(): void
+	{
+		$schema = Rule::oneOf(Rule::bool(), Rule::string());
+
+		$this->assertSame([], SchemaValidator::validate($schema, true));
+		$this->assertSame([], SchemaValidator::validate($schema, '%env(FLAG)%'));
+	}
+
+	/**
+	 * One diagnostic, not one per variant: each variant's own complaint describes a shape the value
+	 * was never meant to have, and listing them all buries what is actually wrong.
+	 */
+	public function testUnionReportsOneDiagnosticNamingTheAlternatives(): void
+	{
+		$schema = Rule::oneOf(Rule::bool(), Rule::string());
+
+		$diagnostics = SchemaValidator::validate($schema, 42, 'plugins[0].enabled');
+
+		$this->assertCount(1, $diagnostics);
+		$this->assertSame('schema.no_matching_variant', $diagnostics[0]->code);
+		$this->assertSame('plugins[0].enabled', $diagnostics[0]->keyPath);
+		$this->assertStringContainsString('bool, string', $diagnostics[0]->message);
+		$this->assertStringContainsString('got int', $diagnostics[0]->message);
+	}
+
+	public function testUnionRejectsNullUnlessAVariantIsNullable(): void
+	{
+		$diagnostics = SchemaValidator::validate(Rule::oneOf(Rule::bool(), Rule::string()), null);
+
+		$this->assertSame('schema.null_not_allowed', $diagnostics[0]->code);
+	}
+
+	/**
+	 * The null check runs before any variant is tried, so a nullable variant has to be visible from
+	 * the union itself or its null would never reach it.
+	 */
+	public function testUnionAcceptsNullWhenAVariantIsNullable(): void
+	{
+		$this->assertSame([], SchemaValidator::validate(Rule::oneOf(Rule::bool(), Rule::string(nullable: true)), null));
+	}
+
+	public function testUnionOfStructsPicksWhicheverMatches(): void
+	{
+		$schema = Rule::oneOf(
+			Rule::struct(['class' => Rule::phpClass()], required: ['class']),
+			Rule::string(),
+		);
+
+		$this->assertSame([], SchemaValidator::validate($schema, ['class' => 'Foo\\Bar']));
+		$this->assertSame([], SchemaValidator::validate($schema, 'Foo\\Bar'));
+		$this->assertCount(1, SchemaValidator::validate($schema, ['enabled' => true]));
+	}
 }
 ?>

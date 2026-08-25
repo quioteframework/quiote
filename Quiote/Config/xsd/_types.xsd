@@ -75,4 +75,18 @@
 		<xs:restriction base="types_1_0:boolean" />
 	</xs:simpleType>
 
+	<!-- An %env(NAME)% / %env(NAME, fallback)% reference to the process environment, resolved when the
+	     compiled configuration is loaded rather than when it is compiled. See
+	     Quiote\Config\EnvPlaceholder. -->
+	<xs:simpleType name="env_placeholder">
+		<xs:restriction base="xs:string">
+			<xs:pattern value="%env\(\s*[A-Za-z_][A-Za-z0-9_]*\s*(,[^)]*)?\)%" />
+		</xs:restriction>
+	</xs:simpleType>
+
+	<!-- A boolean attribute a deployment may want to decide from the environment instead. -->
+	<xs:simpleType name="boolean_or_env">
+		<xs:union memberTypes="types_1_0:boolean types_1_0:env_placeholder" />
+	</xs:simpleType>
+
 </xs:schema>
