@@ -12,6 +12,7 @@ use Quiote\Runtime\Worker\WorkerLoop;
 use Quiote\Runtime\Worker\WorkerRuntimeInfo;
 use Quiote\Runtime\Worker\WorkerRuntimeInterface;
 use Quiote\Runtime\Worker\WorkerRuntimeRegistry;
+use Quiote\Support\Environment\Environment;
 use Quiote\Util\WorkerManager;
 use RuntimeException;
 
@@ -51,8 +52,8 @@ class Kernel
      */
     public static function create(array $options = []): self
     {
-        $env = $options['env'] ?? getenv('QUIOTE_ENV') ?: 'prod';
-        $context = $options['context'] ?? getenv('QUIOTE_CONTEXT') ?: 'web';
+        $env = $options['env'] ?? Environment::instance()->get('QUIOTE_ENV') ?: 'prod';
+        $context = $options['context'] ?? Environment::instance()->get('QUIOTE_CONTEXT') ?: 'web';
         $kernel = new self(is_string($env) ? $env : 'prod', is_string($context) ? $context : 'web');
         if (isset($options['app_dir']) && is_string($options['app_dir'])) {
             $kernel->appDir = $options['app_dir'];
@@ -158,7 +159,7 @@ class Kernel
         $source = 'the "worker_runtime" kernel option';
 
         if ($requested === null) {
-            $fromEnv = getenv('QUIOTE_WORKER_RUNTIME');
+            $fromEnv = Environment::instance()->get('QUIOTE_WORKER_RUNTIME');
             if (is_string($fromEnv) && $fromEnv !== '') {
                 $requested = $fromEnv;
                 $source = '$QUIOTE_WORKER_RUNTIME';
@@ -220,7 +221,7 @@ class Kernel
      */
     private function cleanupInterval(): int
     {
-        $fromEnv = getenv('QUIOTE_MAX_REQUESTS');
+        $fromEnv = Environment::instance()->get('QUIOTE_MAX_REQUESTS');
         if (is_string($fromEnv) && $fromEnv !== '' && is_numeric($fromEnv)) {
             return max(1, (int) $fromEnv);
         }

@@ -200,7 +200,7 @@ final class Quiote
 			$doPrewarm = $options['prewarm'] ?? false;
 			if(!$doPrewarm) {
 				if(defined('QUIOTE_USE_APCU_CONFIG_CACHE') && QUIOTE_USE_APCU_CONFIG_CACHE) {
-					$envPrewarm = getenv('QUIOTE_APCU_PREWARM');
+					$envPrewarm = \Quiote\Support\Environment\Environment::instance()->get('QUIOTE_APCU_PREWARM');
 					if($envPrewarm !== false && in_array(strtolower($envPrewarm), ['1','true','yes','on'], true)) {
 						$doPrewarm = true;
 					}

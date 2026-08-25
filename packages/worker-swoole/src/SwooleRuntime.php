@@ -8,6 +8,7 @@ use Quiote\Config\Config;
 use Quiote\Runtime\Worker\WorkerLoop;
 use Quiote\Runtime\Worker\WorkerRuntimeCapabilities;
 use Quiote\Runtime\Worker\WorkerRuntimeInterface;
+use Quiote\Support\Environment\Environment;
 use RuntimeException;
 use Swoole\Http\Request as SwooleHttpRequest;
 use Swoole\Http\Response as SwooleHttpResponse;
@@ -56,7 +57,7 @@ final class SwooleRuntime implements WorkerRuntimeInterface
     {
         return extension_loaded('swoole')
             && PHP_SAPI === 'cli'
-            && getenv('QUIOTE_WORKER_RUNTIME') === 'swoole';
+            && Environment::instance()->get('QUIOTE_WORKER_RUNTIME') === 'swoole';
     }
 
     /** The registry alias: "swoole". */

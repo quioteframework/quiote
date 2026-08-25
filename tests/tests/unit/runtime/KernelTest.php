@@ -143,6 +143,27 @@ final class KernelTest extends TestCase
         $this->assertSame('console', $this->read($kernel, 'contextName'));
     }
 
+    /**
+     * A dotenv bootstrap populates `$_ENV` without calling putenv(), so the kernel's own defaults
+     * have to come from the environment seam rather than a bare getenv() -- otherwise a `.env` that
+     * names the environment is silently ignored and the app boots as "prod".
+     */
+    public function testTheEnvironmentComesFromADotenvBootstrapToo(): void
+    {
+        $previous = $_ENV['QUIOTE_ENV'] ?? null;
+        $_ENV['QUIOTE_ENV'] = 'staging';
+
+        try {
+            $this->assertSame('staging', $this->read(Kernel::create(), 'env'));
+        } finally {
+            if ($previous === null) {
+                unset($_ENV['QUIOTE_ENV']);
+            } else {
+                $_ENV['QUIOTE_ENV'] = $previous;
+            }
+        }
+    }
+
     public function testExplicitOptionsWinOverTheEnvironment(): void
     {
         putenv('QUIOTE_ENV=staging');

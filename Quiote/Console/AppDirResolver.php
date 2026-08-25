@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Quiote\Console;
 
 use Quiote\Exception\QuioteException;
+use Quiote\Support\Environment\Environment;
 
 /**
  * Resolves the app directory (+ optionally the environment) for a CLI
@@ -43,9 +44,9 @@ final class AppDirResolver
     /** @return array{appDir: ?string, env: ?string} */
     public static function resolve(?string $appDirOption = null, ?string $envOption = null): array
     {
-        $env = $envOption ?: (getenv('QUIOTE_ENV') ?: null);
+        $env = $envOption ?: (Environment::instance()->get('QUIOTE_ENV') ?: null);
 
-        $appDirOption ??= (getenv('QUIOTE_APP_DIR') ?: null);
+        $appDirOption ??= (Environment::instance()->get('QUIOTE_APP_DIR') ?: null);
         if ($appDirOption !== null) {
             return ['appDir' => self::realOrThrow($appDirOption), 'env' => $env];
         }
