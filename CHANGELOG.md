@@ -1,3 +1,20 @@
+## [4.2.0-RC2] - 2026-08-26
+
+### 🚀 Features
+
+- *(config)* Resolve %env(NAME)% placeholders in compiled config at load time
+- *(config)* Add Rule::oneOf union schema type
+- *(config)* Let a plugin's enabled setting defer to the environment
+
+### 🐛 Bug Fixes
+
+- *(ci)* Scope the framework release notes by range, not by --current
+- *(support)* Make SystemEnvironmentReader see $_ENV, not just getenv()
+- *(runtime)* Read framework env vars through the environment seam
+
+### 📚 Documentation
+
+- *(upgrading)* Correct the RC install recipes against the published versions
 ## [4.2.0-RC1] - 2026-08-20
 
 ### 🚀 Features
