@@ -8,6 +8,7 @@ use Nyholm\Psr7\Factory\Psr17Factory;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Quiote\Action\Action;
 use Quiote\Config\Config;
@@ -16,10 +17,14 @@ use Quiote\Controller\Controller;
 use Quiote\DI\Container;
 use Quiote\Execution\ActionDescriptor;
 use Quiote\Execution\ActionInitContext;
+use Quiote\Logging\Log;
+use Quiote\Middleware\ErrorHandlingMiddleware;
 use Quiote\Replay\Attribute\NoRecord;
 use Quiote\Replay\Cassette\Cassette;
 use Quiote\Replay\Cassette\CassetteId;
 use Quiote\Replay\Recording\RecorderMiddleware;
+use Quiote\Replay\Recording\RecordingLogBuffer;
+use Quiote\Replay\Recording\RecordingLogSink;
 use Quiote\Replay\Store\CassetteStoreInterface;
 use Quiote\Request\RequestState;
 use Quiote\Request\WebRequest;
@@ -39,7 +44,10 @@ final class RecorderMiddlewareTest extends TestCase
         foreach (self::REPLAY_KEYS as $key) {
             Config::remove($key);
         }
+        Config::remove('replay.max_log_entries');
         \Quiote\Replay\Recording\EffectSourceRegistry::reset();
+        RecordingLogBuffer::reset();
+        Log::reset();
         parent::tearDown();
     }
 
@@ -103,6 +111,43 @@ final class RecorderMiddlewareTest extends TestCase
             static function (): void {
             },
         );
+    }
+
+    /**
+     * A real, mutable RequestState: publish() replaces what current() answers, matching
+     * production wiring -- unlike {@see requestStatePublishing()}'s fixed/no-op pair, needed to
+     * prove RecorderMiddleware reads back a value ErrorHandlingMiddleware published during the
+     * same request.
+     */
+    private function mutableRequestState(ServerRequestInterface $request): RequestState
+    {
+        $current = WebRequest::fromPsr($request);
+
+        return new RequestState(
+            static function () use (&$current): WebRequest {
+                return $current;
+            },
+            static function (WebRequest|ServerRequestInterface $replacement) use (&$current): void {
+                $current = $replacement instanceof WebRequest ? $replacement : WebRequest::fromPsr($replacement);
+            },
+        );
+    }
+
+    /** Relays a PSR-15 middleware and its next handler as a single handler, for a mini pipeline. */
+    private function relay(MiddlewareInterface $middleware, RequestHandlerInterface $next): RequestHandlerInterface
+    {
+        return new class($middleware, $next) implements RequestHandlerInterface {
+            public function __construct(
+                private readonly MiddlewareInterface $middleware,
+                private readonly RequestHandlerInterface $next,
+            ) {
+            }
+
+            public function handle(ServerRequestInterface $request): ResponseInterface
+            {
+                return $this->middleware->process($request, $this->next);
+            }
+        };
     }
 
     /**
@@ -206,6 +251,114 @@ final class RecorderMiddlewareTest extends TestCase
         $this->assertSame(500, $cassette->response['status']);
     }
 
+    /**
+     * Reproduces the bug this pair of classes fixes: a real 500 produced by
+     * ErrorHandlingMiddleware catching an application exception -- not one that escapes the
+     * whole stack -- previously left `cassette.exception` null even though `response.status`
+     * was 500. ErrorHandlingMiddleware now publishes the exception it caught onto RequestState
+     * (see its own publishCaughtException()), and RecorderMiddleware's finishRecording() reads
+     * it back when its own catch never fired.
+     */
+    public function testCassetteCapturesTheExceptionErrorHandlingMiddlewareCaughtAndRendered(): void
+    {
+        $this->enable('always');
+        Config::set('core.developer_exceptions', false);
+        $store = $this->spyStore();
+        $request = new ServerRequest('GET', '/widgets');
+        $requestState = $this->mutableRequestState($request);
+        $context = $this->context($store, $requestState);
+
+        $recorder = new RecorderMiddleware($context, $store);
+        $errorHandling = new ErrorHandlingMiddleware(null, $context);
+        $innerHandler = new class implements RequestHandlerInterface {
+            public function handle(ServerRequestInterface $request): ResponseInterface
+            {
+                throw new RuntimeException('boom');
+            }
+        };
+
+        $response = $recorder->process($request, $this->relay($errorHandling, $innerHandler));
+
+        $this->assertSame(500, $response->getStatusCode());
+        $this->assertCount(1, $store->put);
+        $cassette = $store->put[0][1];
+        $this->assertSame(500, $cassette->response['status']);
+        $this->assertNotNull($cassette->exception);
+        $this->assertSame(RuntimeException::class, $cassette->exception['class']);
+        $this->assertSame('boom', $cassette->exception['message']);
+    }
+
+    public function testCapturesApplicationLogEntriesEmittedDuringTheRequest(): void
+    {
+        Log::addSink(new RecordingLogSink());
+        $this->enable('always');
+        $store = $this->spyStore();
+        $middleware = new RecorderMiddleware($this->context($store), $store);
+        $handler = new class implements RequestHandlerInterface {
+            public function handle(ServerRequestInterface $request): ResponseInterface
+            {
+                Log::create('App.Test')->error('something happened');
+
+                return new Response(200);
+            }
+        };
+
+        $middleware->process(new ServerRequest('GET', '/'), $handler);
+
+        $this->assertCount(1, $store->put);
+        $log = $store->put[0][1]->log;
+        $this->assertIsArray($log);
+        $this->assertCount(1, $log);
+        $entry = $log[0];
+        $this->assertIsArray($entry);
+        $this->assertSame('error', $entry['level']);
+        $this->assertSame('something happened', $entry['message']);
+        $this->assertSame('App.Test', $entry['category']);
+        $this->assertFalse($store->put[0][1]->meta['log_truncated']);
+    }
+
+    public function testLogEntriesPastMaxLogEntriesAreDroppedAndReportedAsTruncated(): void
+    {
+        Log::addSink(new RecordingLogSink());
+        $this->enable('always');
+        Config::set('replay.max_log_entries', 1, true, false);
+        $store = $this->spyStore();
+        $middleware = new RecorderMiddleware($this->context($store), $store);
+        $handler = new class implements RequestHandlerInterface {
+            public function handle(ServerRequestInterface $request): ResponseInterface
+            {
+                Log::create('App.Test')->error('first');
+                Log::create('App.Test')->error('second');
+
+                return new Response(200);
+            }
+        };
+
+        $middleware->process(new ServerRequest('GET', '/'), $handler);
+
+        $cassette = $store->put[0][1];
+        $this->assertIsArray($cassette->log);
+        $this->assertCount(1, $cassette->log);
+        $entry = $cassette->log[0];
+        $this->assertIsArray($entry);
+        $this->assertSame('first', $entry['message']);
+        $this->assertTrue($cassette->meta['log_truncated']);
+    }
+
+    public function testLogIsEmptyWhenNoSinkIsRegistered(): void
+    {
+        // No RecordingLogSink registered: capture is attempted (the buffer still starts and
+        // finishes) but nothing was fed into it, so the section is an empty list -- distinct
+        // from #[NoRecord]'s null, which means "deliberately not captured at all".
+        $this->enable('always');
+        $store = $this->spyStore();
+        $middleware = new RecorderMiddleware($this->context($store), $store);
+
+        $middleware->process(new ServerRequest('GET', '/'), $this->handler(new Response(200)));
+
+        $this->assertSame([], $store->put[0][1]->log);
+    }
+
     public function testErrorPolicyDropsA200Response(): void
     {
         $this->enable('error');
@@ -288,6 +441,7 @@ final class RecorderMiddlewareTest extends TestCase
         $this->assertArrayNotHasKey('headers', $cassette->request);
         $this->assertNull($cassette->session);
         $this->assertNull($cassette->exception);
+        $this->assertNull($cassette->log);
     }
 
     public function testExceedingMaxBytesTruncatesTheRequestBody(): void

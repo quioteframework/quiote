@@ -42,7 +42,11 @@ use Throwable;
  * Registered `phase: 'bootstrap', priority: 1100` -- between `StealthMiddleware`
  * (1200) and `ErrorHandlingMiddleware` (1000) -- so it observes the *rendered*
  * error response and also catches an exception that escapes error handling
- * entirely. Being outermost means the PSR-7 request this middleware receives
+ * entirely. The common case -- an exception `ErrorHandlingMiddleware` itself
+ * catches and renders -- never reaches this middleware's own try/catch, since
+ * `$handler->handle()` returns a normal response either way; the exception
+ * detail for that case is read back from `ErrorHandlingMiddleware`'s own
+ * `RequestState` publish in {@see finishRecording()} instead. Being outermost means the PSR-7 request this middleware receives
  * back never reflects attributes inner middleware attached (`withAttribute()`
  * clones don't propagate outward), so resolved routing/validation state is
  * read from {@see RequestState::current()} instead -- see the two small
@@ -139,19 +143,25 @@ final class RecorderMiddleware implements MiddlewareInterface, ResetInterface
             $source->activate($rawId, $session->ledger());
         }
 
+        $logBufferId = RecordingLogBuffer::start(Config::getInt('replay.max_log_entries', 500));
+
         try {
             $response = $handler->handle($request);
         } catch (Throwable $e) {
+            [$log, $logTruncated] = RecordingLogBuffer::finish($logBufferId);
             $this->deactivate($sources, $rawId);
             if ($policy->shouldKeep(500, true, $sampleRate, $this->randomness, $headerPresent, $rolled)) {
+                $session->setLog($log, $logTruncated);
                 $this->finishRecording($session, $request, null, $e, $redactor, $policy, $rawId, $sources !== []);
             }
             throw $e;
         }
 
+        [$log, $logTruncated] = RecordingLogBuffer::finish($logBufferId);
         $this->deactivate($sources, $rawId);
 
         if ($policy->shouldKeep($response->getStatusCode(), false, $sampleRate, $this->randomness, $headerPresent, $rolled)) {
+            $session->setLog($log, $logTruncated);
             $this->finishRecording($session, $request, $response, null, $redactor, $policy, $rawId, $sources !== []);
         }
 
@@ -309,6 +319,20 @@ final class RecorderMiddleware implements MiddlewareInterface, ResetInterface
         bool $effectsInstrumented,
     ): void {
         $current = $this->currentRequest($request);
+
+        if ($exception === null) {
+            // ErrorHandlingMiddleware sits inside this one and catches an application exception
+            // before it ever escapes to the try/catch in process() -- it renders a normal
+            // response and returns, so the finishRecording() call on the success path below
+            // would otherwise never see the exception that produced a 500 body. It publishes the
+            // exception it caught onto RequestState (see its publishCaughtException()) for
+            // exactly this read.
+            $published = $current->getAttribute(Throwable::class);
+            if ($published instanceof Throwable) {
+                $exception = $published;
+            }
+        }
+
         $descriptorAttr = $current->getAttribute(ActionDescriptor::class);
         $descriptor = $descriptorAttr instanceof ActionDescriptor ? $descriptorAttr : null;
         $execStateAttr = $current->getAttribute(ExecutionState::class);
@@ -400,6 +424,10 @@ final class RecorderMiddleware implements MiddlewareInterface, ResetInterface
                 'effects_truncated' => $session->effectsTruncated(),
                 'request_body_truncated' => $session->requestBodyTruncated(),
                 'response_body_truncated' => $session->responseBodyTruncated(),
+                // True when `replay.max_log_entries` dropped a log entry emitted during the
+                // request. Without it a reader cannot tell a quiet request apart from one whose
+                // logging was cut off -- same rationale as effects_truncated above.
+                'log_truncated' => $session->logTruncated(),
             ],
             request: $request,
             resolved: $session->resolved(),
@@ -410,7 +438,7 @@ final class RecorderMiddleware implements MiddlewareInterface, ResetInterface
             effects: $session->boundedEffects(),
             response: $session->response() ?? [],
             exception: $session->exception(),
-            log: null,
+            log: $noRecord ? null : $session->log(),
         );
     }
 

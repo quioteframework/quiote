@@ -12,7 +12,9 @@ use Quiote\Exception\Rendering\ExceptionRendererRegistry;
 use Quiote\Exception\Rendering\SafeRenderer;
 use Throwable;
 use Quiote\Config\Config;
+use Quiote\Context;
 use Quiote\Event\Events;
+use Quiote\Request\RequestState;
 use Quiote\Support\CorrelationId;
 use Quiote\Event\Lifecycle\ExceptionCaughtEvent;
 use Symfony\Component\Routing\Exception\MethodNotAllowedException;
@@ -30,8 +32,17 @@ class ErrorHandlingMiddleware implements MiddlewareInterface
 
     private \Quiote\Logging\CategoryLogger $categoryLogger;
 
-    /** @param callable(Throwable $e, ServerRequestInterface $r):void|null $logger */
-    public function __construct(?callable $logger = null)
+    /**
+     * @param callable(Throwable $e, ServerRequestInterface $r):void|null $logger
+     *
+     * $context is optional (and untyped callers, e.g. every existing test, keep
+     * constructing this with just $logger) so that a caught exception can be
+     * published onto {@see RequestState} for {@see \Quiote\Replay\Recording\RecorderMiddleware} --
+     * outermost in the stack -- to read back in `finishRecording()`. Without this, a
+     * request recorder only ever observes an exception that escapes this middleware
+     * entirely, which this middleware exists precisely to prevent.
+     */
+    public function __construct(?callable $logger = null, private readonly ?Context $context = null)
     {
         $this->logger = $logger;
         $this->categoryLogger = \Quiote\Logging\Log::for($this);
@@ -65,7 +76,24 @@ class ErrorHandlingMiddleware implements MiddlewareInterface
             return $handler->handle($request);
         } catch (Throwable $e) {
             $this->categoryLogger->error($this->buildDiagnosticLogLine($e, $request));
+            $this->publishCaughtException($request, $e);
             return $this->renderExceptionResponse($request, $e);
+        }
+    }
+
+    /**
+     * Publishes the caught exception as a request attribute via {@see RequestState},
+     * the same seam {@see \Quiote\Middleware\RoutingMiddleware} and
+     * {@see \Quiote\Middleware\DispatchMiddleware} already use to surface state to
+     * middleware sitting outside the PSR-7 clone chain. tryGet(), not get(): a test
+     * double's fabricated Context/Container legitimately has no RequestState bound,
+     * and that must stay a no-op rather than a crash.
+     */
+    private function publishCaughtException(ServerRequestInterface $request, Throwable $e): void
+    {
+        $requestState = $this->context?->getContainer()->tryGet(RequestState::class);
+        if ($requestState instanceof RequestState) {
+            $requestState->publish($request->withAttribute(Throwable::class, $e));
         }
     }
 

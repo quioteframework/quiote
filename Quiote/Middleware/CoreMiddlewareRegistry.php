@@ -95,7 +95,8 @@ final class CoreMiddlewareRegistry
                     // normally a no-op. This matters only when TelemetryMiddleware never ran
                     // (a stack replaced via replaceCoreStack()) while a span is still active.
                     \Quiote\Telemetry\Trace::current()->recordException($e)->setStatusError($e->getMessage());
-                }
+                },
+                $context,
             ),
             SessionMiddleware::class => static fn(): SessionMiddleware => new SessionMiddleware($controller),
             TelemetryMiddleware::class => static fn(): TelemetryMiddleware => new TelemetryMiddleware(),

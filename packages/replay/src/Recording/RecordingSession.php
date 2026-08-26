@@ -46,6 +46,11 @@ final class RecordingSession
     /** @var array<string, mixed>|null */
     private ?array $exception = null;
 
+    /** @var list<array<string, mixed>>|null */
+    private ?array $log = null;
+
+    private bool $logTruncated = false;
+
     private readonly EffectLedger $ledger;
 
     /**
@@ -115,6 +120,13 @@ final class RecordingSession
         $this->exception = $exception;
     }
 
+    /** @param list<array<string, mixed>> $log */
+    public function setLog(array $log, bool $truncated): void
+    {
+        $this->log = $log;
+        $this->logTruncated = $truncated;
+    }
+
     /** @return array<string, mixed>|null */
     public function request(): ?array
     {
@@ -149,6 +161,17 @@ final class RecordingSession
     public function exception(): ?array
     {
         return $this->exception;
+    }
+
+    /** @return list<array<string, mixed>>|null */
+    public function log(): ?array
+    {
+        return $this->log;
+    }
+
+    public function logTruncated(): bool
+    {
+        return $this->logTruncated;
     }
 
     public function requestBodyTruncated(): bool

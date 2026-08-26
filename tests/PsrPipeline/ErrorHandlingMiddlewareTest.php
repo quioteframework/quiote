@@ -2,9 +2,12 @@
 use PHPUnit\Framework\TestCase;
 use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest;
+use Quiote\Context;
+use Quiote\DI\Container;
 use Quiote\Exception\Rendering\ExceptionRenderer;
 use Quiote\Exception\Rendering\ExceptionRendererRegistry;
 use Quiote\Middleware\ErrorHandlingMiddleware;
+use Quiote\Request\RequestState;
 use Psr\Http\Server\RequestHandlerInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -76,6 +79,71 @@ final class ErrorHandlingMiddlewareTest extends TestCase
         } finally {
             ExceptionRendererRegistry::reset();
         }
+    }
+
+    /**
+     * The seam packages/replay's RecorderMiddleware reads to see an exception that
+     * ErrorHandlingMiddleware itself catches and renders -- see RecorderMiddlewareTest's
+     * testCassetteCapturesTheExceptionErrorHandlingMiddlewareCaughtAndRendered() for the
+     * end-to-end case this exists for.
+     */
+    public function testPublishesTheCaughtExceptionOntoRequestStateWhenAContextIsProvided(): void
+    {
+        \Quiote\Config\Config::set('core.developer_exceptions', false);
+        $request = new ServerRequest('GET', 'http://localhost/');
+        $current = \Quiote\Request\WebRequest::fromPsr($request);
+        $requestState = new RequestState(
+            static function () use (&$current) {
+                return $current;
+            },
+            static function ($replacement) use (&$current): void {
+                $current = $replacement instanceof \Quiote\Request\WebRequest
+                    ? $replacement
+                    : \Quiote\Request\WebRequest::fromPsr($replacement);
+            },
+        );
+        $container = new Container();
+        $container->set(RequestState::class, $requestState);
+        $context = $this->createStub(Context::class);
+        $context->method('getContainer')->willReturn($container);
+
+        $mw = new ErrorHandlingMiddleware(null, $context);
+        $handler = new class implements RequestHandlerInterface {
+            public function handle(ServerRequestInterface $r): ResponseInterface
+            {
+                throw new RuntimeException('bad');
+            }
+        };
+
+        $mw->process($request, $handler);
+
+        $published = $requestState->current()->getAttribute(Throwable::class);
+        $this->assertInstanceOf(RuntimeException::class, $published);
+        $this->assertSame('bad', $published->getMessage());
+    }
+
+    /**
+     * tryGet(), not get(): a test double's fabricated Context/Container legitimately has no
+     * RequestState bound, and that must stay a no-op rather than a crash.
+     */
+    public function testDoesNotCrashWhenNoRequestStateIsBoundInTheContainer(): void
+    {
+        \Quiote\Config\Config::set('core.developer_exceptions', false);
+        $container = new Container();
+        $context = $this->createStub(Context::class);
+        $context->method('getContainer')->willReturn($container);
+
+        $mw = new ErrorHandlingMiddleware(null, $context);
+        $handler = new class implements RequestHandlerInterface {
+            public function handle(ServerRequestInterface $r): ResponseInterface
+            {
+                throw new RuntimeException('bad');
+            }
+        };
+
+        $resp = $mw->process(new ServerRequest('GET', 'http://localhost/'), $handler);
+
+        $this->assertSame(500, $resp->getStatusCode());
     }
 
     public function testNoRegisteredSafeRendererFallsBackToDefaultSafeRenderer(): void

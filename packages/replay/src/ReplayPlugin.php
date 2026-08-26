@@ -16,10 +16,14 @@ use Quiote\Replay\Console\CassettePruneCommand;
 use Quiote\Replay\Console\CassetteShowCommand;
 use Quiote\Replay\Console\ReplayCommand;
 use Quiote\Replay\Index\CassetteIndexRegistry;
+use Quiote\Logging\Log;
+use Quiote\Logging\LogRegistry;
 use Quiote\Replay\Recording\ActiveEffectLedger;
 use Quiote\Replay\Recording\EffectLedgerRegistry;
 use Quiote\Replay\Recording\EffectSourceRegistry;
 use Quiote\Replay\Recording\RecorderMiddleware;
+use Quiote\Replay\Recording\RecordingLogBuffer;
+use Quiote\Replay\Recording\RecordingLogSink;
 use Quiote\Replay\Store\CassetteStoreInterface;
 use Quiote\Replay\Store\CassetteStoreRegistry;
 use Quiote\Replay\Store\FileCassetteStore;
@@ -62,6 +66,7 @@ final class ReplayPlugin implements PluginInterface
         $registrar->configDefault('replay.retention_days', 14);
         $registrar->configDefault('replay.max_bytes', 2_097_152);
         $registrar->configDefault('replay.max_effects', 2000);
+        $registrar->configDefault('replay.max_log_entries', 500);
         $registrar->configDefault('replay.capture_body', true);
         $registrar->configDefault('replay.capture_session', true);
         $registrar->configDefault('replay.redact.headers', ['authorization', 'cookie', 'set-cookie', 'proxy-authorization', 'x-api-key']);
@@ -104,6 +109,18 @@ final class ReplayPlugin implements PluginInterface
             Container::SCOPE_SINGLETON,
         );
 
+        // Feeds RecorderMiddleware's `log` cassette section; see RecordingLogSink's own
+        // docblock for why this is a plain boot-time sink registration rather than
+        // something wired per request. Guarded by a scan of the current sink list, not a
+        // static flag: `register()` runs again every time a test (or a re-booted worker)
+        // boots this plugin, and `LogRegistry::sinks()` has no de-duplication of its own --
+        // a flag that stays true across a `Log::reset()` would leave this sink silently
+        // missing forever after, while re-adding unconditionally would duplicate every
+        // buffered log line once per boot.
+        if (!self::hasRecordingLogSink()) {
+            Log::addSink(new RecordingLogSink());
+        }
+
         $registrar->attributedMiddleware(
             RecorderMiddleware::class,
             static function (Context $context): RecorderMiddleware {
@@ -128,7 +145,19 @@ final class ReplayPlugin implements PluginInterface
             EffectLedgerRegistry::reset();
             EffectSourceRegistry::reset();
             ActiveEffectLedger::reset();
+            RecordingLogBuffer::reset();
         });
+    }
+
+    private static function hasRecordingLogSink(): bool
+    {
+        foreach (LogRegistry::sinks() as $sink) {
+            if ($sink instanceof RecordingLogSink) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static function makeStore(Container $container): CassetteStoreInterface
