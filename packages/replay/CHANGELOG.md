@@ -1,3 +1,12 @@
+## [4.1.0-RC2] - 2026-08-26
+
+### 🚀 Features
+
+- *(replay)* Disable CSRF validation during replay by default
+
+### 🐛 Bug Fixes
+
+- *(replay)* Capture parsed body fields for multipart/form-data requests
 ## [4.1.0-RC1] - 2026-08-26
 
 ### 🚀 Features
