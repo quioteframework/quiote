@@ -127,15 +127,47 @@ exception carved out for the framework's own filesystem registry.
 The eight `quioteframework/replay*` packages are tagged `4.0.0-RC1` and
 `quioteframework/cloud-azure` is tagged `4.1.0-RC1`. A prerelease is *in range* for a `^4.0`
 constraint, but stability is filtered separately, so a project on the default
-`minimum-stability: stable` will not resolve them. Opt in per package:
+`minimum-stability: stable` will not resolve them.
+
+**A `@RC` flag covers only the package it is written on, not that package's own
+requirements.** `quioteframework/replay` has no RC dependencies, so pinning it alone works:
 
 ```
 composer require quioteframework/replay:^4.0@RC
-composer require quioteframework/cloud-azure:^4.1@RC
 ```
 
-Or set `"minimum-stability": "RC"` with `"prefer-stable": true`, which keeps every other
-dependency on stable releases.
+Every other replay package requires `quioteframework/replay` in turn, which is RC-only, so the
+same command for one of those fails — `found quioteframework/replay[...] but it does not match
+your minimum-stability`. Two ways through, both verified against these published versions:
+
+```jsonc
+// 1. Raise the floor, keep everything else stable.
+{
+    "require": { "quioteframework/replay-azure": "^4.0" },
+    "minimum-stability": "RC",
+    "prefer-stable": true
+}
+```
+
+```jsonc
+// 2. Stay on stable and name each RC package explicitly.
+{
+    "require": {
+        "quioteframework/replay-azure": "^4.0@RC",
+        "quioteframework/replay": "^4.0@RC",
+        "quioteframework/replay-storage": "^4.0@RC",
+        "quioteframework/cloud-azure": "^4.1@RC"
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
+```
+
+**Option 1 does not give you `cloud-azure` 4.1.0-RC1.** `prefer-stable` picks that package's
+older stable `v4.0.0` — which predates the Azure AD credential path — and the build succeeds,
+quietly, without it. If you need workload identity or `az login`, pin `cloud-azure` the way
+option 2 does even when the rest of your config follows option 1. Dropping `prefer-stable`
+instead would pull *every* dependency to its newest prerelease, which is worse.
 
 - **`replay*`** is new, so there is nothing to migrate. It is an RC because it has never run
   outside this monorepo's own test suite. Recording is off unless configured; `quiote replay`
