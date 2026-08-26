@@ -269,4 +269,196 @@ final class TriadViewResolver
 		$legacy = $this->legacyViewFileFor($entry, $canonicalViewToken);
 		return is_file($legacy) ? $legacy : null;
 	}
+
+	/**
+	 * Every view token an action's `execute*()` methods return as a bare
+	 * string literal, in declaration order and de-duplicated.
+	 *
+	 * This is the dominant real pattern -- an action's view comes from the
+	 * string its `execute*()` method returns, not from a
+	 * `getDefaultViewName()` override ({@see resolveViewToken()}, which most
+	 * actions never override). A literal `return 'Success';` is statically
+	 * decidable, so the triad it implies can be checked like any declared one.
+	 *
+	 * Read from tokens rather than reflection because there is no reflection
+	 * API for a method body, and rather than by executing the method because
+	 * running app business logic to find out which templates exist is not a
+	 * trade worth making.
+	 *
+	 * Deliberately literal-only. Everything a token scan cannot decide --
+	 * `return $view;`, `return View::NONE;` (`null`, meaning no view at all),
+	 * a class constant, a concatenation, a ternary, an array
+	 * `[$module, $view]` form -- yields no token rather than a guess, so this
+	 * can miss a real gap but never invent one. Returns inside a nested
+	 * closure or anonymous class are skipped too: they belong to that scope,
+	 * not to the action.
+	 *
+	 * @param ReflectionClass<object> $action
+	 * @return list<string>
+	 */
+	public function literalReturnViewTokens(ReflectionClass $action): array
+	{
+		if (!$action->isSubclassOf(Action::class)) {
+			return [];
+		}
+
+		$tokens = [];
+		foreach ($this->actionExecuteMethodsFor($action) as $method) {
+			foreach ($this->literalReturnsIn($method) as $token) {
+				if ($token !== '' && !in_array($token, $tokens, true)) {
+					$tokens[] = $token;
+				}
+			}
+		}
+		return $tokens;
+	}
+
+	/**
+	 * The `execute*()` methods an action can be dispatched to -- `execute()`
+	 * plus the `execute{Method}()` variants `ActionResolver` looks for.
+	 *
+	 * Framework-declared methods are skipped: `Quiote\Action\Action`'s own
+	 * bodies are not app code and cannot name an app view. An app-level base
+	 * action is kept, since a subclass really is dispatched to its methods.
+	 *
+	 * @template TAction of object
+	 * @param ReflectionClass<TAction> $action
+	 * @return list<ReflectionMethod>
+	 */
+	public function actionExecuteMethodsFor(ReflectionClass $action): array
+	{
+		$methods = [];
+		foreach ($action->getMethods(ReflectionMethod::IS_PUBLIC | ReflectionMethod::IS_PROTECTED) as $method) {
+			if ($method->isAbstract()) {
+				continue;
+			}
+			$name = $method->getName();
+			if ($name !== 'execute' && preg_match('/^execute[A-Z]/', $name) !== 1) {
+				continue;
+			}
+			if (str_starts_with($method->getDeclaringClass()->getName(), 'Quiote\\')) {
+				continue;
+			}
+			$methods[] = $method;
+		}
+		return $methods;
+	}
+
+	/**
+	 * The string literals a method returns directly, at its own scope.
+	 *
+	 * Matches only `return` followed by one string literal and a `;`, so a
+	 * returned expression of any other shape contributes nothing. Brace depth
+	 * is tracked so a `return` inside a closure or anonymous class declared in
+	 * the body is attributed to that scope and ignored; arrow functions need no
+	 * handling, having no `return` keyword to find.
+	 *
+	 * @return list<string>
+	 */
+	private function literalReturnsIn(ReflectionMethod $method): array
+	{
+		$file = $method->getFileName();
+		$start = $method->getStartLine();
+		$end = $method->getEndLine();
+		if ($file === false || $start === false || $end === false) {
+			return [];
+		}
+		$source = @file($file);
+		if ($source === false) {
+			return [];
+		}
+		$body = implode('', array_slice($source, $start - 1, $end - $start + 1));
+
+		$tokens = @token_get_all('<?php ' . $body);
+		$literals = [];
+		$depth = 0;
+		$nestedScopeDepths = [];
+		$pendingNestedScope = false;
+
+		for ($i = 0, $count = count($tokens); $i < $count; $i++) {
+			$token = $tokens[$i];
+
+			if (is_string($token)) {
+				if ($token === '{') {
+					$depth++;
+					if ($pendingNestedScope) {
+						$nestedScopeDepths[] = $depth;
+						$pendingNestedScope = false;
+					}
+				} elseif ($token === '}') {
+					if ($nestedScopeDepths !== [] && end($nestedScopeDepths) === $depth) {
+						array_pop($nestedScopeDepths);
+					}
+					$depth--;
+				}
+				continue;
+			}
+
+			// A `function` keyword here can only open a closure or a nested
+			// declaration: the method's own signature sits on the first line,
+			// which is consumed before any `{` is seen -- so it is caught by
+			// the same branch and its body correctly becomes depth 1, the
+			// method's own scope, rather than a nested one.
+			if ($token[0] === T_FUNCTION || $token[0] === T_CLASS) {
+				$pendingNestedScope = $depth > 0;
+				continue;
+			}
+
+			if ($token[0] !== T_RETURN || $nestedScopeDepths !== []) {
+				continue;
+			}
+
+			$literal = $this->soleStringLiteralAfter($tokens, $i);
+			if ($literal !== null) {
+				$literals[] = $literal;
+			}
+		}
+
+		return $literals;
+	}
+
+	/**
+	 * The value of the one string literal between a `return` and its `;`, or
+	 * null when the returned expression is anything else.
+	 *
+	 * @param list<array{int, string, int}|string> $tokens
+	 */
+	private function soleStringLiteralAfter(array $tokens, int $returnIndex): ?string
+	{
+		$literal = null;
+		for ($i = $returnIndex + 1, $count = count($tokens); $i < $count; $i++) {
+			$token = $tokens[$i];
+
+			if (is_string($token)) {
+				// The terminator: a literal seen and nothing else in between is
+				// the whole returned expression.
+				return $token === ';' ? $literal : null;
+			}
+			if ($token[0] === T_WHITESPACE || $token[0] === T_COMMENT || $token[0] === T_DOC_COMMENT) {
+				continue;
+			}
+			if ($token[0] === T_CONSTANT_ENCAPSED_STRING && $literal === null) {
+				$literal = $this->unquote($token[1]);
+				continue;
+			}
+			// A second literal, a variable, a constant, an operator: not a bare
+			// literal return.
+			return null;
+		}
+		return null;
+	}
+
+	/**
+	 * The content of a single- or double-quoted literal, with escapes for the
+	 * quote character and the backslash itself resolved. A view token is a
+	 * bare identifier in practice, so nothing here needs to interpret `\n` or
+	 * an interpolation -- an interpolated string is not a
+	 * T_CONSTANT_ENCAPSED_STRING and never reaches this.
+	 */
+	private function unquote(string $literal): string
+	{
+		$quote = substr($literal, 0, 1);
+		$inner = substr($literal, 1, -1);
+		return str_replace(['\\' . $quote, '\\\\'], [$quote, '\\'], $inner);
+	}
 }

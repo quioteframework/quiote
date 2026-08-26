@@ -56,6 +56,21 @@ final class TriadDiagnosticsScannerTest extends PhpUnitTestCase
 	}
 
 	/**
+	 * Every diagnostic for a symbol, since one action can now reach several
+	 * views and so carry one diagnostic per missing view.
+	 *
+	 * @param list<Diagnostic> $diagnostics
+	 * @return list<Diagnostic>
+	 */
+	private function allFor(array $diagnostics, string $symbol): array
+	{
+		return array_values(array_filter(
+			$diagnostics,
+			static fn(Diagnostic $diagnostic): bool => $diagnostic->symbol === $symbol,
+		));
+	}
+
+	/**
 	 * @param list<Diagnostic> $diagnostics
 	 */
 	private function findFor(array $diagnostics, string $symbol): ?Diagnostic
@@ -154,10 +169,56 @@ final class TriadDiagnosticsScannerTest extends PhpUnitTestCase
 		$this->assertSame(Diagnostic::CODE_MISSING_TEMPLATE, $diagnostic->code);
 	}
 
-	public function testDoesNotFlagAnActionThatNeverOverridesGetDefaultViewName(): void
+	public function testDoesNotTreatTheInheritedDefaultViewNameAsADeclaration(): void
 	{
-		// Inherits the base Action's 'Input' constant -- not a real
-		// declaration, so it must never be treated as one.
-		$this->assertNull($this->findFor($this->scan(), 'Widget.NoAutoView'));
+		// NoAutoViewAction never overrides getDefaultViewName(), so it inherits
+		// the base Action's 'Input' constant. That is not a declaration, and
+		// treating it as one would flag a missing *Input view on nearly every
+		// action in a real app.
+		foreach ($this->allFor($this->scan(), 'Widget.NoAutoView') as $diagnostic) {
+			$this->assertStringNotContainsString('Input', $diagnostic->message);
+		}
+	}
+
+	public function testFlagsAViewReturnedAsALiteralByAnExecuteMethod(): void
+	{
+		// The dominant real pattern: the view comes from the string an
+		// execute*() method returns, not from a getDefaultViewName() override.
+		// NoAutoViewAction returns 'Success' and has no matching view.
+		$diagnostic = $this->findFor($this->scan(), 'Widget.NoAutoView');
+
+		$this->assertNotNull($diagnostic);
+		$this->assertSame(Diagnostic::CODE_MISSING_VIEW, $diagnostic->code);
+		$this->assertStringContainsString('NoAutoViewSuccessView', $diagnostic->message);
+	}
+
+	public function testReportsEachDistinctViewTokenSeparately(): void
+	{
+		// executeRead() returns 'Listing', executeWrite() returns 'Listing' or
+		// 'Error'. Two distinct views are missing, and naming only the first
+		// would hide the second until the first was fixed.
+		$diagnostics = $this->allFor($this->scan(), 'Widget.MultiView');
+		$messages = implode("\n", array_map(static fn(Diagnostic $d): string => $d->message, $diagnostics));
+
+		$this->assertCount(2, $diagnostics);
+		$this->assertStringContainsString('MultiViewListingView', $messages);
+		$this->assertStringContainsString('MultiViewErrorView', $messages);
+	}
+
+	public function testDoesNotReportTheSameViewTwiceWhenDeclaredAndReturned(): void
+	{
+		// NoViewAction both overrides getDefaultViewName() -> 'Success' and
+		// returns 'Success' from executeRead(). That is one missing view, not
+		// two ways of describing it.
+		$this->assertCount(1, $this->allFor($this->scan(), 'Widget.NoView'));
+	}
+
+	public function testStaysSilentOnViewNamesItCannotDecide(): void
+	{
+		// A variable, a method call, View::NONE (null, meaning render nothing),
+		// and literals belonging to a nested closure or anonymous class. None
+		// of these is a view name this action reaches, so guessing at one would
+		// be a false report -- the scanner can miss a gap, never invent one.
+		$this->assertSame([], $this->allFor($this->scan(), 'Widget.DynamicView'));
 	}
 }

@@ -98,14 +98,62 @@ final class TriadDiagnosticsScanner
 			// Unreachable: the guard above already returned unless one of the two exists.
 			return [];
 		}
-		$viewToken = $this->views->resolveViewToken($reflection);
-		if ($viewToken === null) {
-			return [];
-		}
-
 		$namespacePrefix = Config::getString('core.namespace_prefix', 'App');
-		$canonicalViewToken = $this->views->canonicalViewToken($entry, $viewToken);
 
+		$diagnostics = [];
+		$seen = [];
+		foreach ($this->viewTokensFor($reflection) as $viewToken) {
+			$canonicalViewToken = $this->views->canonicalViewToken($entry, $viewToken);
+			// Two raw tokens can canonicalise to the same view -- a declared
+			// default that an execute*() method also returns literally, or two
+			// spellings the module's quiote.view.name directive folds together.
+			// Diagnose the view, not each way of naming it.
+			if (isset($seen[$canonicalViewToken])) {
+				continue;
+			}
+			$seen[$canonicalViewToken] = true;
+			foreach ($this->diagnoseViewToken($entry, $symbol, $canonicalViewToken, $namespacePrefix) as $diagnostic) {
+				$diagnostics[] = $diagnostic;
+			}
+		}
+		return $diagnostics;
+	}
+
+	/**
+	 * Every view this action can resolve to that static analysis can name: the
+	 * `getDefaultViewName()` override, if it has one, plus each view token its
+	 * `execute*()` methods return as a bare string literal.
+	 *
+	 * The literal returns are what most actions actually use -- an override is
+	 * the rarer case -- so an action with several `execute*()` methods, or one
+	 * returning a different token per branch, contributes one candidate per
+	 * distinct token rather than a single default.
+	 *
+	 * @param ReflectionClass<object> $reflection
+	 * @return list<string>
+	 */
+	private function viewTokensFor(ReflectionClass $reflection): array
+	{
+		$tokens = [];
+		$declared = $this->views->resolveViewToken($reflection);
+		if ($declared !== null) {
+			$tokens[] = $declared;
+		}
+		foreach ($this->views->literalReturnViewTokens($reflection) as $token) {
+			if (!in_array($token, $tokens, true)) {
+				$tokens[] = $token;
+			}
+		}
+		return $tokens;
+	}
+
+	/**
+	 * The view/template checks for one canonical view token.
+	 *
+	 * @return list<Diagnostic>
+	 */
+	private function diagnoseViewToken(ModuleActionEntry $entry, string $symbol, string $canonicalViewToken, string $namespacePrefix): array
+	{
 		if ($this->views->resolveExistingViewFile($entry, $canonicalViewToken, $namespacePrefix) === null) {
 			$viewClass = $this->views->viewClassFor($entry, $canonicalViewToken, $namespacePrefix);
 			return [new Diagnostic(
