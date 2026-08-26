@@ -3,10 +3,15 @@
 ### 🚀 Features
 
 - *(replay)* Let replay override the request URI and impersonate a live session
+- *(replay)* Let replay override query string and body params too
 
 ### 🐛 Bug Fixes
 
 - *(replay)* Capture the exception and log entries a recorded request actually produced
+
+### ⚙️ Miscellaneous Tasks
+
+- *(release)* Prepare 4.3.0-RC1
 ## [4.0.0-RC1] - 2026-08-20
 
 ### 🚀 Features
