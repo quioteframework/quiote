@@ -1,3 +1,8 @@
+## [4.2.0] - 2026-08-26
+
+### ⚙️ Miscellaneous Tasks
+
+- *(release)* Bump the framework version to 4.2.0
 ## [4.2.0-RC2] - 2026-08-26
 
 ### 🚀 Features
