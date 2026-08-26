@@ -1,5 +1,17 @@
 ## [4.2.0] - 2026-08-26
 
+### 🚀 Features
+
+- *(routing)* Diagnose the views an action returns, not just the one it declares
+
+### 🐛 Bug Fixes
+
+- *(ci)* Scope package release notes by range, not by --current
+
+### 📚 Documentation
+
+- Prep v4.2.0
+
 ### ⚙️ Miscellaneous Tasks
 
 - *(release)* Bump the framework version to 4.2.0
