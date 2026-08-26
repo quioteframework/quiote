@@ -204,6 +204,50 @@ final class ReplayCommandTest extends TestCase
         $this->assertStringContainsString('no replayable request', $tester->getDisplay());
     }
 
+    /**
+     * `--as-session` is validated (see `ReplayEngine::applySessionOverride()`'s own docblock for
+     * why an unshaped value must refuse rather than replay anonymously) before anything is
+     * dispatched -- proving the option is actually wired from the command through to the engine,
+     * end to end, without depending on whether the sandbox "testing" context happens to declare a
+     * `session` factory slot (it does; see ReplayEngineTest for the "no SessionManager at all"
+     * case, which needs a fabricated context to exercise deterministically).
+     */
+    public function testAsSessionFailsWithAClearMessageWhenTheIdIsNotShapedLikeOne(): void
+    {
+        Config::set('replay.allow_live', true, true, false);
+        $this->putCassette('AAA', ['method' => 'GET', 'uri' => '/'], ['status' => 200]);
+
+        $tester = new CommandTester(new ReplayCommand());
+        $exitCode = $tester->execute(['id' => 'AAA', '--context' => 'testing', '--as-session' => 'too-short']);
+
+        $this->assertSame(1, $exitCode);
+        $this->assertStringContainsString('not shaped like a session id', $tester->getDisplay());
+    }
+
+    /**
+     * The exact override mechanics (the app dispatches against the given URI, not the recorded
+     * one) are proven against a mocked handler in ReplayEngineTest; this only proves the command
+     * actually forwards `--uri` through to the engine rather than silently ignoring it.
+     */
+    public function testUriOptionIsForwardedToTheEngine(): void
+    {
+        Config::set('replay.allow_live', true, true, false);
+        $this->putCassette(
+            'AAA',
+            ['method' => 'GET', 'uri' => '/orders/23940239', 'headers' => [], 'cookies' => [], 'body' => ['encoding' => 'utf8', 'content' => '', 'truncated' => false], 'server' => []],
+            ['status' => 999, 'headers' => [], 'body' => ['encoding' => 'utf8', 'content' => 'deliberately-wrong', 'truncated' => false]],
+            'testing',
+        );
+
+        $tester = new CommandTester(new ReplayCommand());
+        $tester->execute(['id' => 'AAA', '--uri' => '/', '--json' => true]);
+
+        $payload = $this->decodedJson($tester);
+        $this->assertArrayHasKey('replayed_status', $payload);
+        $this->assertIsInt($payload['replayed_status']);
+        $this->assertSame(999, $payload['recorded_status']);
+    }
+
     public function testDispatchesForRealAgainstTheTestingContextAndReportsJson(): void
     {
         // Whatever the sandbox app's "testing" context does with a bare GET / is not asserted
