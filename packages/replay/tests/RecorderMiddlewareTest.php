@@ -815,6 +815,75 @@ final class RecorderMiddlewareTest extends TestCase
         $this->assertCount(1, $store->put);
     }
 
+    /**
+     * php://input is unconditionally empty for a multipart/form-data POST on every SAPI -- PHP
+     * consumes it into $_POST/$_FILES during request bootstrap, before this middleware ever runs
+     * -- so a form field submitted alongside an upload (or a CSRF token submitted as a field
+     * rather than a header) has nowhere to survive except getParsedBody(), captured separately
+     * from the (always-empty) raw body.
+     */
+    public function testCapturesParsedBodyFieldsForAMultipartRequest(): void
+    {
+        $this->enable('always');
+        $store = $this->spyStore();
+        $middleware = new RecorderMiddleware($this->context($store), $store);
+        $request = (new ServerRequest('POST', '/orders/new'))
+            ->withHeader('Content-Type', 'multipart/form-data; boundary=----x')
+            ->withParsedBody(['_csrf_token' => 'the-token', 'BusinessUnits' => ['1', '2']]);
+
+        $middleware->process($request, $this->handler(new Response(200)));
+
+        $this->assertCount(1, $store->put);
+        $this->assertSame(
+            ['_csrf_token' => 'the-token', 'BusinessUnits' => ['1', '2']],
+            $store->put[0][1]->request['parsed_body'],
+        );
+    }
+
+    public function testParsedBodyFieldsAreRedactedTheSameWayOtherParamsAre(): void
+    {
+        $this->enable('always');
+        $store = $this->spyStore();
+        $middleware = new RecorderMiddleware($this->context($store), $store);
+        $request = (new ServerRequest('POST', '/login'))
+            ->withHeader('Content-Type', 'multipart/form-data; boundary=----x')
+            ->withParsedBody(['password' => 'hunter2', 'username' => 'alice']);
+
+        $middleware->process($request, $this->handler(new Response(200)));
+
+        $parsedBody = $store->put[0][1]->request['parsed_body'];
+        $this->assertIsArray($parsedBody);
+        $this->assertSame('[REDACTED]', $parsedBody['password']);
+        $this->assertSame('alice', $parsedBody['username']);
+    }
+
+    public function testParsedBodyIsNullForANonMultipartRequest(): void
+    {
+        $this->enable('always');
+        $store = $this->spyStore();
+        $middleware = new RecorderMiddleware($this->context($store), $store);
+        $request = (new ServerRequest('POST', '/widgets'))
+            ->withHeader('Content-Type', 'application/x-www-form-urlencoded')
+            ->withParsedBody(['a' => '1']);
+
+        $middleware->process($request, $this->handler(new Response(200)));
+
+        $this->assertNull($store->put[0][1]->request['parsed_body']);
+    }
+
+    public function testParsedBodyIsNullForAMultipartRequestWithNoParsedFields(): void
+    {
+        $this->enable('always');
+        $store = $this->spyStore();
+        $middleware = new RecorderMiddleware($this->context($store), $store);
+        $request = (new ServerRequest('POST', '/orders/new'))
+            ->withHeader('Content-Type', 'multipart/form-data; boundary=----x');
+
+        $middleware->process($request, $this->handler(new Response(200)));
+
+        $this->assertNull($store->put[0][1]->request['parsed_body']);
+    }
+
     public function testAnUploadIsHashedWithoutMaterializingItAndIsLeftRewound(): void
     {
         $this->enable('always');

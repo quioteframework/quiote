@@ -192,9 +192,41 @@ final class RecorderMiddleware implements MiddlewareInterface, ResetInterface
             'headers' => $redactor->redactHeaders($request->getHeaders()),
             'cookies' => $redactor->redactCookies($request->getCookieParams()),
             'body' => self::encodeBody((string)$request->getBody()),
+            'parsed_body' => $this->captureParsedBody($request, $redactor),
             'uploads' => $this->captureUploads($request),
             'server' => self::allowlistedServerParams($request->getServerParams()),
         ];
+    }
+
+    /**
+     * The already-parsed form fields of a `multipart/form-data` request, captured separately from
+     * `body` because that raw body is never readable here: PHP consumes `php://input` into
+     * `$_POST`/`$_FILES` during request bootstrap, on every SAPI, before any of this middleware's
+     * code runs -- `(string)$request->getBody()` above is unconditionally empty for this content
+     * type, always, not just sometimes. Without this, every non-file field submitted alongside an
+     * upload was silently lost from the cassette, indistinguishable from a request that
+     * legitimately posted nothing -- including a CSRF token submitted as a form field rather than
+     * a header, which made every recorded multipart POST unreplayable (a 403 from
+     * `quioteframework/csrf`'s validation middleware, not from anything the recorded request
+     * itself triggered).
+     *
+     * Left null for every other content type: their raw body is captured correctly above, and
+     * duplicating it here as a second representation would only invite the two to drift.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function captureParsedBody(ServerRequestInterface $request, Redactor $redactor): ?array
+    {
+        if (!str_contains(strtolower($request->getHeaderLine('Content-Type')), 'multipart/form-data')) {
+            return null;
+        }
+
+        $parsed = $request->getParsedBody();
+        if (!is_array($parsed) || $parsed === []) {
+            return null;
+        }
+
+        return $redactor->redactParams($parsed);
     }
 
     /** @return list<array<string, mixed>> */

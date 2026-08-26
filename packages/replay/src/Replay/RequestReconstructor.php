@@ -80,6 +80,18 @@ final class RequestReconstructor
             );
             $request = $request->withCookieParams($cookies);
 
+            // A multipart/form-data request's raw body is never recorded (see
+            // RecorderMiddleware::captureParsedBody()'s own docblock for why that isn't
+            // recoverable even in principle) -- its form fields are restored from this instead,
+            // the same shape the app itself reads them in via getParsedBody(). Reconstructing an
+            // actual multipart-encoded byte string is unnecessary: nothing downstream re-parses
+            // the raw body once it is already set here, PayloadParsingMiddleware included, which
+            // only parses when getParsedBody() is not already populated.
+            $parsedBody = $data['parsed_body'] ?? null;
+            if (is_array($parsedBody) && $parsedBody !== []) {
+                $request = $request->withParsedBody($parsedBody);
+            }
+
             return WebRequest::fromPsr($request);
         } catch (\InvalidArgumentException $e) {
             throw new ReplayException(sprintf(

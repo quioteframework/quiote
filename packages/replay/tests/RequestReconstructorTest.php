@@ -154,6 +154,50 @@ final class RequestReconstructorTest extends TestCase
         $this->assertSame('whole', (string)$request->getBody());
     }
 
+    /**
+     * The concrete motivating case: a multipart/form-data POST's raw body is unconditionally empty
+     * (see RecorderMiddleware::captureParsedBody()'s docblock) -- its fields are restored from
+     * `parsed_body` instead, into exactly the shape getParsedBody() hands the app.
+     */
+    public function testRestoresParsedBodyFieldsForAMultipartRequest(): void
+    {
+        $request = RequestReconstructor::fromCassette($this->cassetteWithRequest([
+            'method' => 'POST',
+            'uri' => '/orders/new',
+            'headers' => ['Content-Type' => ['multipart/form-data; boundary=----x']],
+            'body' => ['encoding' => 'utf8', 'content' => '', 'truncated' => false],
+            'parsed_body' => ['_csrf_token' => 'the-token', 'BusinessUnits' => ['1', '2']],
+        ]));
+
+        $this->assertSame(
+            ['_csrf_token' => 'the-token', 'BusinessUnits' => ['1', '2']],
+            $request->getParsedBody(),
+        );
+    }
+
+    public function testNoParsedBodyKeyLeavesParsedBodyNull(): void
+    {
+        $request = RequestReconstructor::fromCassette($this->cassetteWithRequest([
+            'method' => 'POST',
+            'uri' => '/widgets',
+            'body' => ['encoding' => 'utf8', 'content' => '{"a":1}', 'truncated' => false],
+        ]));
+
+        $this->assertNull($request->getParsedBody());
+    }
+
+    public function testAnEmptyParsedBodyArrayLeavesParsedBodyNull(): void
+    {
+        $request = RequestReconstructor::fromCassette($this->cassetteWithRequest([
+            'method' => 'POST',
+            'uri' => '/widgets',
+            'body' => ['encoding' => 'utf8', 'content' => '', 'truncated' => false],
+            'parsed_body' => [],
+        ]));
+
+        $this->assertNull($request->getParsedBody());
+    }
+
     public function testAnUnusableUriIsReportedAsACassetteProblem(): void
     {
         // PSR-7 validates what the cassette supplies, and an escaping InvalidArgumentException was
