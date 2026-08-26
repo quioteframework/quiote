@@ -31,7 +31,10 @@ use Throwable;
  * same operation `quiote cassette:fetch` performs under its own name. `--uri`, `--query`, `--body`
  * and `--as-session` override what was recorded -- see {@see ReplayEngine::replay()}'s docblock
  * for the `key=value` override shape and for why `--as-session` requires a real, live session id
- * rather than accepting arbitrary "who to be" input.
+ * rather than accepting arbitrary "who to be" input. CSRF validation is off by default (see
+ * `--enforce-csrf`) for the same reason `--as-session` exists: a recorded CSRF token is validated
+ * against current server state by design, so replaying it is only ever incidentally possible, not
+ * a case worth failing on by default.
  */
 #[AsCommand(name: 'replay', description: 'Re-run a recorded cassette against the live app and report drift')]
 final class ReplayCommand extends AbstractAppCommand
@@ -56,6 +59,7 @@ final class ReplayCommand extends AbstractAppCommand
             ->addOption('query', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Override/add a query string param before replaying (key=value, repeatable; key[]=value appends), e.g. --query page=2')
             ->addOption('body', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Override/add a body param before replaying (key=value, repeatable; key[]=value appends) -- works for a form-urlencoded or a JSON recorded body; e.g. a recorded BusinessUnits[]=162345 this environment does not have: --body "BusinessUnits[]=1" --body "BusinessUnits[]=2"')
             ->addOption('as-session', null, InputOption::VALUE_REQUIRED, 'Replay authenticated as the real, live session with this id (looked up in this context\'s own session store) instead of whatever the cassette recorded -- session content is never captured in a cassette, so this is the only way to replay an authenticated request')
+            ->addOption('enforce-csrf', null, InputOption::VALUE_NONE, 'Do not disable CSRF validation (quioteframework/csrf) for this replay -- it is off by default because a CSRF token is validated against current server state by design, so a recorded one is only ever replayable by coincidence')
             ->addOption('json', null, InputOption::VALUE_NONE, 'Output as JSON');
     }
 
@@ -121,6 +125,7 @@ final class ReplayCommand extends AbstractAppCommand
                 self::stringOption($input, 'as-session'),
                 self::arrayOption($input, 'query'),
                 self::arrayOption($input, 'body'),
+                (bool)$input->getOption('enforce-csrf'),
             );
         } catch (ReplayException $e) {
             $io->error($e->getMessage());

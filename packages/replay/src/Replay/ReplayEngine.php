@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Quiote\Replay\Replay;
 
 use Nyholm\Psr7\Factory\Psr17Factory;
+use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Quiote\Config\Config;
 use Quiote\Context;
@@ -78,6 +79,14 @@ final class ReplayEngine
      *        `key`/`key[]` at the top level (the value is JSON-decoded when it parses as JSON, so
      *        `--body count=3` and `--body active=true` set a number/bool rather than a string),
      *        and re-encodes. See {@see applyBodyOverrides()}.
+     * @param bool $enforceCsrf CSRF validation (`quioteframework/csrf`) is disabled for the
+     *        duration of dispatch unless this is true. A CSRF token is deliberately validated
+     *        against *current* server-side state -- that is the entire point of it existing -- so a
+     *        recorded token is exactly as replayable as the anti-replay mechanism it is designed to
+     *        be: it works only by coincidence (the same session, not yet rotated), never by design.
+     *        Replay exists to reproduce what the application's own logic did, not to re-prove the
+     *        request still holds a valid anti-forgery token, so this is off by default; set it when
+     *        the CSRF layer itself is what you are trying to reproduce. See {@see withCsrfPolicy()}.
      * @throws ReplayException if the cassette has no replayable request; if isolation is impossible
      *         for the registered effect sources; if `$asSessionId` is malformed or this context has
      *         no session configured; if an override is not in `key=value` form; or, in live mode, if
@@ -92,6 +101,7 @@ final class ReplayEngine
         ?string $asSessionId = null,
         array $queryOverrides = [],
         array $bodyOverrides = [],
+        bool $enforceCsrf = false,
     ): ReplayResult {
         $request = RequestReconstructor::fromCassette($cassette);
         if ($uriOverride !== null) {
@@ -110,7 +120,10 @@ final class ReplayEngine
 
         if ($mode === ReplayMode::Isolated) {
             try {
-                $isolated = (new IsolatedReplay())->run($context, $cassette, $request);
+                $isolated = self::withCsrfPolicy(
+                    $enforceCsrf,
+                    static fn(): IsolatedReplayResult => (new IsolatedReplay())->run($context, $cassette, $request),
+                );
             } catch (ReplayException $e) {
                 throw $e;
             } catch (Throwable $e) {
@@ -147,7 +160,10 @@ final class ReplayEngine
         }
 
         try {
-            $response = $context->getRequestHandler()->handle($request);
+            $response = self::withCsrfPolicy(
+                $enforceCsrf,
+                static fn(): \Psr\Http\Message\ResponseInterface => $context->getRequestHandler()->handle($request),
+            );
         } catch (Throwable $e) {
             throw new ReplayException(sprintf(
                 'Replaying cassette "%s" threw %s: %s',
@@ -167,6 +183,40 @@ final class ReplayEngine
     public static function isSafeMethod(string $method): bool
     {
         return in_array(strtoupper($method), self::SAFE_METHODS, true);
+    }
+
+    /**
+     * Runs $dispatch with `core.csrf.enabled` forced off, restoring whatever it was afterward --
+     * unless $enforceCsrf, in which case $dispatch just runs as-is.
+     *
+     * A config toggle rather than anything naming `quioteframework/csrf`'s own classes: this
+     * package carries no dependency on it (the same reason {@see IsolatedReplay} names no ORM/DB
+     * driver), and `CsrfValidationMiddleware` already reads this exact key on every request, so
+     * there is nothing else to wire. Harmless when the csrf package is not installed at all --
+     * nothing ever reads the key.
+     *
+     * @template T
+     * @param callable(): T $dispatch
+     * @return T
+     */
+    private static function withCsrfPolicy(bool $enforceCsrf, callable $dispatch): mixed
+    {
+        if ($enforceCsrf) {
+            return $dispatch();
+        }
+
+        $hadValue = Config::has('core.csrf.enabled');
+        $previous = $hadValue ? Config::getBool('core.csrf.enabled') : null;
+        Config::set('core.csrf.enabled', false, true, false);
+        try {
+            return $dispatch();
+        } finally {
+            if ($hadValue) {
+                Config::set('core.csrf.enabled', $previous, true, false);
+            } else {
+                Config::remove('core.csrf.enabled');
+            }
+        }
     }
 
     /**

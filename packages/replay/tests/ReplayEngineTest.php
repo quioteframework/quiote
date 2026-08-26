@@ -20,6 +20,7 @@ final class ReplayEngineTest extends TestCase
     protected function tearDown(): void
     {
         Config::remove('replay.allow_live');
+        Config::remove('core.csrf.enabled');
         parent::tearDown();
     }
 
@@ -421,6 +422,91 @@ final class ReplayEngineTest extends TestCase
         $this->expectException(ReplayException::class);
         $this->expectExceptionMessageMatches('/no "session" factory slot/');
         (new ReplayEngine())->replay($context, $cassette, mode: ReplayMode::Live, asSessionId: 'a-real-live-session-id-1234');
+    }
+
+    public function testCsrfValidationIsDisabledDuringDispatchByDefault(): void
+    {
+        Config::set('replay.allow_live', true, true, false);
+        Config::remove('core.csrf.enabled');
+        $handler = new class implements RequestHandlerInterface {
+            public ?bool $seen = null;
+
+            public function handle(ServerRequestInterface $request): ResponseInterface
+            {
+                $this->seen = Config::getBool('core.csrf.enabled', true);
+
+                return new Response(200);
+            }
+        };
+        $context = $this->createStub(Context::class);
+        $context->method('getRequestHandler')->willReturn($handler);
+        $cassette = $this->cassette(['method' => 'GET', 'uri' => '/'], ['status' => 200, 'headers' => [], 'body' => []]);
+
+        (new ReplayEngine())->replay($context, $cassette, mode: ReplayMode::Live);
+
+        $this->assertFalse($handler->seen);
+        // Restored to "never configured" afterward, not left at false.
+        $this->assertFalse(Config::has('core.csrf.enabled'));
+    }
+
+    public function testCsrfValidationIsRestoredToItsPreviousValueAfterDispatch(): void
+    {
+        Config::set('replay.allow_live', true, true, false);
+        Config::set('core.csrf.enabled', true, true, false);
+        [$context] = $this->contextReturning(new Response(200));
+        $cassette = $this->cassette(['method' => 'GET', 'uri' => '/'], ['status' => 200, 'headers' => [], 'body' => []]);
+
+        (new ReplayEngine())->replay($context, $cassette, mode: ReplayMode::Live);
+
+        $this->assertTrue(Config::getBool('core.csrf.enabled'));
+        Config::remove('core.csrf.enabled');
+    }
+
+    public function testEnforceCsrfLeavesTheConfiguredValueUntouchedDuringDispatch(): void
+    {
+        Config::set('replay.allow_live', true, true, false);
+        Config::set('core.csrf.enabled', true, true, false);
+        $handler = new class implements RequestHandlerInterface {
+            public ?bool $seen = null;
+
+            public function handle(ServerRequestInterface $request): ResponseInterface
+            {
+                $this->seen = Config::getBool('core.csrf.enabled', false);
+
+                return new Response(200);
+            }
+        };
+        $context = $this->createStub(Context::class);
+        $context->method('getRequestHandler')->willReturn($handler);
+        $cassette = $this->cassette(['method' => 'GET', 'uri' => '/'], ['status' => 200, 'headers' => [], 'body' => []]);
+
+        (new ReplayEngine())->replay($context, $cassette, mode: ReplayMode::Live, enforceCsrf: true);
+
+        $this->assertTrue($handler->seen);
+        Config::remove('core.csrf.enabled');
+    }
+
+    public function testCsrfValidationIsDisabledDuringIsolatedDispatchByDefault(): void
+    {
+        Config::remove('core.csrf.enabled');
+        $handler = new class implements RequestHandlerInterface {
+            public ?bool $seen = null;
+
+            public function handle(ServerRequestInterface $request): ResponseInterface
+            {
+                $this->seen = Config::getBool('core.csrf.enabled', true);
+
+                return new Response(200);
+            }
+        };
+        $context = $this->createStub(Context::class);
+        $context->method('getRequestHandler')->willReturn($handler);
+        $cassette = $this->cassette(['method' => 'GET', 'uri' => '/'], ['status' => 200, 'headers' => [], 'body' => []]);
+
+        (new ReplayEngine())->replay($context, $cassette);
+
+        $this->assertFalse($handler->seen);
+        $this->assertFalse(Config::has('core.csrf.enabled'));
     }
 
     public function testAnExceptionDuringDispatchIsWrappedWithTheCassetteId(): void
