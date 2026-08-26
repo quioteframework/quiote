@@ -28,9 +28,10 @@ use Throwable;
  * {@see ResolvesCassetteViaIndexes}: the local cache, then whichever store `replay.store` names,
  * then -- given `--key`/`--date`/`--hour`, or none at all if a `log-analytics` index is configured
  * -- the cassette-index chain. `--save` fetches and caches the cassette without replaying it, the
- * same operation `quiote cassette:fetch` performs under its own name. `--uri` and `--as-session`
- * override what was recorded -- see {@see ReplayEngine::replay()}'s docblock for why the latter
- * requires a real, live session id rather than accepting arbitrary "who to be" input.
+ * same operation `quiote cassette:fetch` performs under its own name. `--uri`, `--query`, `--body`
+ * and `--as-session` override what was recorded -- see {@see ReplayEngine::replay()}'s docblock
+ * for the `key=value` override shape and for why `--as-session` requires a real, live session id
+ * rather than accepting arbitrary "who to be" input.
  */
 #[AsCommand(name: 'replay', description: 'Re-run a recorded cassette against the live app and report drift')]
 final class ReplayCommand extends AbstractAppCommand
@@ -52,6 +53,8 @@ final class ReplayCommand extends AbstractAppCommand
             ->addOption('as-test', null, InputOption::VALUE_NONE, 'Emit a committed regression test (replay.tests_path, default tests/Replay/) alongside a copy of the cassette')
             ->addOption('expect-fixed', null, InputOption::VALUE_NONE, 'With --as-test, emit an inverted skeleton (markTestIncomplete) for the intended, fixed behaviour instead of asserting the recorded response')
             ->addOption('uri', null, InputOption::VALUE_REQUIRED, 'Replay against this URI instead of the one recorded -- e.g. when a recorded path segment (/orders/23940239) does not exist in this environment')
+            ->addOption('query', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Override/add a query string param before replaying (key=value, repeatable; key[]=value appends), e.g. --query page=2')
+            ->addOption('body', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Override/add a body param before replaying (key=value, repeatable; key[]=value appends) -- works for a form-urlencoded or a JSON recorded body; e.g. a recorded BusinessUnits[]=162345 this environment does not have: --body "BusinessUnits[]=1" --body "BusinessUnits[]=2"')
             ->addOption('as-session', null, InputOption::VALUE_REQUIRED, 'Replay authenticated as the real, live session with this id (looked up in this context\'s own session store) instead of whatever the cassette recorded -- session content is never captured in a cassette, so this is the only way to replay an authenticated request')
             ->addOption('json', null, InputOption::VALUE_NONE, 'Output as JSON');
     }
@@ -116,6 +119,8 @@ final class ReplayCommand extends AbstractAppCommand
                 $input->getOption('live') ? ReplayMode::Live : ReplayMode::Isolated,
                 self::stringOption($input, 'uri'),
                 self::stringOption($input, 'as-session'),
+                self::arrayOption($input, 'query'),
+                self::arrayOption($input, 'body'),
             );
         } catch (ReplayException $e) {
             $io->error($e->getMessage());

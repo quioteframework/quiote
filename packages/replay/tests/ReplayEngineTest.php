@@ -265,6 +265,118 @@ final class ReplayEngineTest extends TestCase
         (new ReplayEngine())->replay($context, $cassette, mode: ReplayMode::Live, uriOverride: 'http:///a b');
     }
 
+    public function testQueryOverrideMergesOntoTheRecordedQueryString(): void
+    {
+        Config::set('replay.allow_live', true, true, false);
+        [$context, $handler] = $this->contextReturning(new Response(200));
+        $cassette = $this->cassette(['method' => 'GET', 'uri' => '/widgets?page=1&sort=name'], ['status' => 200, 'headers' => [], 'body' => []]);
+
+        (new ReplayEngine())->replay($context, $cassette, mode: ReplayMode::Live, queryOverrides: ['page=2']);
+
+        $this->assertNotNull($handler->lastRequest);
+        parse_str($handler->lastRequest->getUri()->getQuery(), $query);
+        $this->assertSame(['page' => '2', 'sort' => 'name'], $query);
+    }
+
+    public function testQueryOverrideSupportsBracketArraySyntaxAcrossRepeatedFlags(): void
+    {
+        Config::set('replay.allow_live', true, true, false);
+        [$context, $handler] = $this->contextReturning(new Response(200));
+        $cassette = $this->cassette(['method' => 'GET', 'uri' => '/orders'], ['status' => 200, 'headers' => [], 'body' => []]);
+
+        (new ReplayEngine())->replay($context, $cassette, mode: ReplayMode::Live, queryOverrides: [
+            'BusinessUnits[]=162345',
+            'BusinessUnits[]=2415134',
+        ]);
+
+        $this->assertNotNull($handler->lastRequest);
+        parse_str($handler->lastRequest->getUri()->getQuery(), $query);
+        $this->assertSame(['BusinessUnits' => ['162345', '2415134']], $query);
+    }
+
+    /**
+     * The concrete motivating case: a recorded form-urlencoded POST body carrying ids
+     * (BusinessUnits[]=162345&BusinessUnits[]=2415134) this environment does not have.
+     */
+    public function testBodyOverrideMergesOntoAFormUrlencodedBody(): void
+    {
+        Config::set('replay.allow_live', true, true, false);
+        [$context, $handler] = $this->contextReturning(new Response(200));
+        $cassette = $this->cassette(
+            [
+                'method' => 'POST',
+                'uri' => '/orders',
+                'headers' => ['Content-Type' => ['application/x-www-form-urlencoded']],
+                'body' => ['encoding' => 'utf8', 'content' => 'BusinessUnits%5B%5D=1&name=old', 'truncated' => false],
+            ],
+            ['status' => 200, 'headers' => [], 'body' => []],
+        );
+
+        (new ReplayEngine())->replay($context, $cassette, mode: ReplayMode::Live, force: true, bodyOverrides: [
+            'BusinessUnits[]=162345',
+            'BusinessUnits[]=2415134',
+            'name=new',
+        ]);
+
+        $this->assertNotNull($handler->lastRequest);
+        parse_str((string)$handler->lastRequest->getBody(), $body);
+        $this->assertSame(['BusinessUnits' => ['162345', '2415134'], 'name' => 'new'], $body);
+    }
+
+    public function testBodyOverrideMergesOntoAJsonBodyWithScalarCoercion(): void
+    {
+        Config::set('replay.allow_live', true, true, false);
+        [$context, $handler] = $this->contextReturning(new Response(200));
+        $cassette = $this->cassette(
+            [
+                'method' => 'POST',
+                'uri' => '/orders',
+                'headers' => ['Content-Type' => ['application/json']],
+                'body' => ['encoding' => 'utf8', 'content' => '{"businessUnitIds":[1],"active":false,"name":"old"}', 'truncated' => false],
+            ],
+            ['status' => 200, 'headers' => [], 'body' => []],
+        );
+
+        (new ReplayEngine())->replay($context, $cassette, mode: ReplayMode::Live, force: true, bodyOverrides: [
+            'businessUnitIds[]=162345',
+            'businessUnitIds[]=2415134',
+            'active=true',
+            'name=new',
+        ]);
+
+        $this->assertNotNull($handler->lastRequest);
+        $decoded = json_decode((string)$handler->lastRequest->getBody(), true);
+        $this->assertSame(
+            ['businessUnitIds' => [162345, 2415134], 'active' => true, 'name' => 'new'],
+            $decoded,
+        );
+    }
+
+    /**
+     * Only the JSON body path validates shape explicitly (see assignJsonOverride()/splitOverride());
+     * a form-urlencoded body's merge goes through parse_str(), which is already lenient about a
+     * bare key with no "=" (it becomes a key with an empty value) the same way a real query string
+     * or form body is.
+     */
+    public function testBodyOverrideRejectsAnEntryWithNoEqualsForAJsonBody(): void
+    {
+        Config::set('replay.allow_live', true, true, false);
+        [$context] = $this->contextReturning(new Response(200));
+        $cassette = $this->cassette(
+            [
+                'method' => 'POST',
+                'uri' => '/orders',
+                'headers' => ['Content-Type' => ['application/json']],
+                'body' => ['encoding' => 'utf8', 'content' => '{}', 'truncated' => false],
+            ],
+            ['status' => 200],
+        );
+
+        $this->expectException(ReplayException::class);
+        $this->expectExceptionMessageMatches('/key=value/');
+        (new ReplayEngine())->replay($context, $cassette, mode: ReplayMode::Live, force: true, bodyOverrides: ['not-a-pair']);
+    }
+
     public function testAsSessionOverridesTheCookieForTheConfiguredSessionManagerCookieName(): void
     {
         Config::set('replay.allow_live', true, true, false);

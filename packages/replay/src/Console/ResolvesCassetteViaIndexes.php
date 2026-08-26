@@ -156,4 +156,21 @@ trait ResolvesCassetteViaIndexes
 
         return is_string($value) && $value !== '' ? $value : null;
     }
+
+    /**
+     * A repeatable (`InputOption::VALUE_IS_ARRAY`) option's values, as a plain list of strings.
+     * Symfony hands back `array<int, mixed>` for one of these regardless of how the option itself
+     * was declared, so this narrows it the same way {@see stringOption()} narrows a single value.
+     *
+     * @return list<string>
+     */
+    private static function arrayOption(InputInterface $input, string $name): array
+    {
+        $value = $input->getOption($name);
+        if (!is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_filter($value, static fn(mixed $v): bool => is_string($v) && $v !== ''));
+    }
 }

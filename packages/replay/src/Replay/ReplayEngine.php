@@ -65,10 +65,23 @@ final class ReplayEngine
      *        performs a real lookup against the real session backend even under
      *        {@see ReplayMode::Isolated}, since session storage is not one of the subsystems
      *        {@see IsolatedReplay} isolates.
+     * @param list<string> $queryOverrides Each entry is one `key=value` pair (or `key[]=value` to
+     *        append to an array) merged onto the URI's query string, overriding a matching
+     *        recorded key -- e.g. a recorded filter id this environment doesn't have. Parsed and
+     *        rebuilt together via `parse_str()`/`http_build_query()`, so PHP's own bracket-array
+     *        syntax works exactly as it does in a real query string.
+     * @param list<string> $bodyOverrides Same `key=value`/`key[]=value` shape as $queryOverrides,
+     *        merged onto the request body instead -- e.g. a recorded
+     *        `BusinessUnits[]=162345&BusinessUnits[]=2415134` this environment doesn't have. Which
+     *        merge strategy runs depends on the request's own `Content-Type`: a form-urlencoded
+     *        body merges the same way $queryOverrides does; a JSON body decodes, assigns each
+     *        `key`/`key[]` at the top level (the value is JSON-decoded when it parses as JSON, so
+     *        `--body count=3` and `--body active=true` set a number/bool rather than a string),
+     *        and re-encodes. See {@see applyBodyOverrides()}.
      * @throws ReplayException if the cassette has no replayable request; if isolation is impossible
      *         for the registered effect sources; if `$asSessionId` is malformed or this context has
-     *         no session configured; or, in live mode, if `replay.allow_live` is off or the method
-     *         is not a safe one and `$force` is false.
+     *         no session configured; if an override is not in `key=value` form; or, in live mode, if
+     *         `replay.allow_live` is off or the method is not a safe one and `$force` is false.
      */
     public function replay(
         Context $context,
@@ -77,10 +90,18 @@ final class ReplayEngine
         ReplayMode $mode = ReplayMode::Isolated,
         ?string $uriOverride = null,
         ?string $asSessionId = null,
+        array $queryOverrides = [],
+        array $bodyOverrides = [],
     ): ReplayResult {
         $request = RequestReconstructor::fromCassette($cassette);
         if ($uriOverride !== null) {
             $request = self::applyUriOverride($request, $uriOverride);
+        }
+        if ($queryOverrides !== []) {
+            $request = self::applyQueryOverrides($request, $queryOverrides);
+        }
+        if ($bodyOverrides !== []) {
+            $request = self::applyBodyOverrides($request, $bodyOverrides);
         }
         if ($asSessionId !== null) {
             $request = self::applySessionOverride($context, $request, $asSessionId);
@@ -164,6 +185,125 @@ final class ReplayEngine
         }
 
         return $request->withUri($uri);
+    }
+
+    /**
+     * Merges $overrides onto the URI's existing query string via `parse_str()`/`http_build_query()`
+     * -- see {@see replay()}'s own docblock for the `key=value`/`key[]=value` shape this accepts.
+     *
+     * @param list<string> $overrides
+     */
+    private static function applyQueryOverrides(ServerRequestInterface $request, array $overrides): ServerRequestInterface
+    {
+        $uri = $request->getUri();
+        parse_str($uri->getQuery(), $existing);
+        $merged = self::mergeFormEncoded($existing, $overrides);
+
+        return $request->withUri($uri->withQuery(http_build_query($merged, '', '&', PHP_QUERY_RFC3986)));
+    }
+
+    /**
+     * Merges $overrides onto the request body -- see {@see replay()}'s own docblock for the two
+     * merge strategies this picks between based on `Content-Type`.
+     *
+     * @param list<string> $overrides
+     * @throws ReplayException if an override is not in `key=value` form.
+     */
+    private static function applyBodyOverrides(ServerRequestInterface $request, array $overrides): ServerRequestInterface
+    {
+        $contentType = $request->getHeaderLine('Content-Type');
+        $raw = (string)$request->getBody();
+
+        if (str_contains($contentType, 'application/json')) {
+            $decoded = json_decode($raw !== '' ? $raw : '{}', true);
+            if (!is_array($decoded)) {
+                $decoded = [];
+            }
+            // Tracks which `key[]` base keys this batch has already reset, so the first
+            // `key[]=...` in a batch replaces whatever array was recorded (matching the form path's
+            // array_replace() below, which replaces the whole key rather than appending to it) and
+            // every subsequent one in the same batch accumulates onto it.
+            $resetBases = [];
+            foreach ($overrides as $override) {
+                [$key, $value] = self::splitOverride($override);
+                self::assignJsonOverride($decoded, $key, $value, $resetBases);
+            }
+            $newBody = json_encode($decoded, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
+        } else {
+            parse_str($raw, $existing);
+            $newBody = http_build_query(self::mergeFormEncoded($existing, $overrides), '', '&', PHP_QUERY_RFC3986);
+        }
+
+        return $request->withBody((new Psr17Factory())->createStream($newBody));
+    }
+
+    /**
+     * @param array<array-key, mixed> $existing Already parsed (e.g. via `parse_str()`).
+     * @param list<string> $overrides `key=value`/`key[]=value` pairs, in the same shape `parse_str()`
+     *        itself accepts -- every override is joined into one string and parsed together, so
+     *        several `key[]=...` occurrences accumulate into one array exactly as they would in a
+     *        real query string or form body, rather than each replacing the last.
+     * @return array<array-key, mixed>
+     */
+    private static function mergeFormEncoded(array $existing, array $overrides): array
+    {
+        parse_str(implode('&', $overrides), $incoming);
+
+        return array_replace($existing, $incoming);
+    }
+
+    /**
+     * Assigns $value onto $decoded at $key, JSON-decoding it first when it parses as JSON -- so
+     * `--body count=3` sets an int and `--body active=true` sets a bool rather than the literal
+     * string. A `key[]` suffix appends to (or, the first time this base key is seen in the current
+     * batch -- tracked via $resetBases -- replaces) an array at the base key, the same shape
+     * `parse_str()` gives a form body's `key[]=...`, so both merge strategies accept one syntax.
+     *
+     * @param array<array-key, mixed> $decoded
+     * @param array<string, true> $resetBases Base keys already reset in this call's batch; mutated.
+     */
+    private static function assignJsonOverride(array &$decoded, string $key, string $value, array &$resetBases): void
+    {
+        $coerced = self::coerceJsonScalar($value);
+        if (str_ends_with($key, '[]')) {
+            $base = substr($key, 0, -2);
+            $bucket = $decoded[$base] ?? null;
+            if (!isset($resetBases[$base]) || !is_array($bucket)) {
+                $bucket = [];
+                $resetBases[$base] = true;
+            }
+            $bucket[] = $coerced;
+            $decoded[$base] = $bucket;
+
+            return;
+        }
+        $decoded[$key] = $coerced;
+    }
+
+    private static function coerceJsonScalar(string $value): mixed
+    {
+        try {
+            return json_decode($value, true, 512, JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            return $value;
+        }
+    }
+
+    /**
+     * @return array{0: string, 1: string}
+     * @throws ReplayException if $override carries no `=`.
+     */
+    private static function splitOverride(string $override): array
+    {
+        $pos = strpos($override, '=');
+        if ($pos === false) {
+            throw new ReplayException(sprintf(
+                '--query/--body override "%s" must be in key=value form.',
+                $override,
+            ));
+        }
+
+        return [substr($override, 0, $pos), substr($override, $pos + 1)];
     }
 
     /**
