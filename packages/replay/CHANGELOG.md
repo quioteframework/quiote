@@ -1,3 +1,12 @@
+## [4.1.0-RC1] - 2026-08-26
+
+### 🚀 Features
+
+- *(replay)* Let replay override the request URI and impersonate a live session
+
+### 🐛 Bug Fixes
+
+- *(replay)* Capture the exception and log entries a recorded request actually produced
 ## [4.0.0-RC1] - 2026-08-20
 
 ### 🚀 Features
