@@ -76,7 +76,7 @@ class ErrorHandlingMiddleware implements MiddlewareInterface
             return $handler->handle($request);
         } catch (Throwable $e) {
             $this->categoryLogger->error($this->buildDiagnosticLogLine($e, $request));
-            $this->publishCaughtException($request, $e);
+            $this->publishCaughtException($e);
             return $this->renderExceptionResponse($request, $e);
         }
     }
@@ -88,12 +88,22 @@ class ErrorHandlingMiddleware implements MiddlewareInterface
      * middleware sitting outside the PSR-7 clone chain. tryGet(), not get(): a test
      * double's fabricated Context/Container legitimately has no RequestState bound,
      * and that must stay a no-op rather than a crash.
+     *
+     * Attaches the exception to `$requestState->current()`, NOT to `process()`'s own `$request`
+     * parameter: this middleware is outermost, so that `$request` is the pre-routing request as
+     * this middleware itself received it, before RoutingMiddleware/DispatchMiddleware ever ran.
+     * Publishing `$request->withAttribute(...)` published that stale, attribute-less request as
+     * the new "current" one, discarding whatever those inner middleware had already published --
+     * a recorder reading RequestState after the fact then saw no matched route/action at all for
+     * every request that errored, which defeated the entire point of also publishing the
+     * exception here. `current()` already carries everything published so far; this only adds to
+     * it.
      */
-    private function publishCaughtException(ServerRequestInterface $request, Throwable $e): void
+    private function publishCaughtException(Throwable $e): void
     {
         $requestState = $this->context?->getContainer()->tryGet(RequestState::class);
         if ($requestState instanceof RequestState) {
-            $requestState->publish($request->withAttribute(Throwable::class, $e));
+            $requestState->publish($requestState->current()->withAttribute(Throwable::class, $e));
         }
     }
 

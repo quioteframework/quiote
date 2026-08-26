@@ -123,6 +123,57 @@ final class ErrorHandlingMiddlewareTest extends TestCase
     }
 
     /**
+     * Regression: publishing the exception used to attach it to process()'s own $request
+     * parameter -- the pre-routing request this outermost middleware itself received -- rather
+     * than to RequestState::current(). That republished a stale, attribute-less request as the
+     * new "current" one, discarding whatever RoutingMiddleware/DispatchMiddleware had already
+     * published before the exception was thrown (module/action/route_name -- exactly what
+     * RecorderMiddleware's `resolved` cassette section reads back). A request that errors must
+     * still resolve to its real route, not to null, once the exception is also on it.
+     */
+    public function testPublishingTheExceptionPreservesAttributesRoutingAlreadyPublished(): void
+    {
+        \Quiote\Config\Config::set('core.developer_exceptions', false);
+        $request = new ServerRequest('GET', 'http://localhost/widgets');
+        // Simulates what RoutingMiddleware publishes before dispatch reaches (and throws from)
+        // the action -- current() already reflects this by the time ErrorHandlingMiddleware
+        // catches anything, since routing sits inside it in the real pipeline.
+        $routed = \Quiote\Request\WebRequest::fromPsr($request)
+            ->withAttribute('module', 'Widgets')
+            ->withAttribute('action', 'Show');
+        $current = $routed;
+        $requestState = new RequestState(
+            static function () use (&$current) {
+                return $current;
+            },
+            static function ($replacement) use (&$current): void {
+                $current = $replacement instanceof \Quiote\Request\WebRequest
+                    ? $replacement
+                    : \Quiote\Request\WebRequest::fromPsr($replacement);
+            },
+        );
+        $container = new Container();
+        $container->set(RequestState::class, $requestState);
+        $context = $this->createStub(Context::class);
+        $context->method('getContainer')->willReturn($container);
+
+        $mw = new ErrorHandlingMiddleware(null, $context);
+        $handler = new class implements RequestHandlerInterface {
+            public function handle(ServerRequestInterface $r): ResponseInterface
+            {
+                throw new RuntimeException('bad');
+            }
+        };
+
+        $mw->process($request, $handler);
+
+        $afterward = $requestState->current();
+        $this->assertSame('Widgets', $afterward->getAttribute('module'));
+        $this->assertSame('Show', $afterward->getAttribute('action'));
+        $this->assertInstanceOf(RuntimeException::class, $afterward->getAttribute(Throwable::class));
+    }
+
+    /**
      * tryGet(), not get(): a test double's fabricated Context/Container legitimately has no
      * RequestState bound, and that must stay a no-op rather than a crash.
      */
