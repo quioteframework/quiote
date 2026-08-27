@@ -1,3 +1,12 @@
+## [unreleased]
+
+### 🚀 Features
+
+- *(exception-notifier)* Add exception notification plugin with Teams and webhook channels
+
+### 🐛 Bug Fixes
+
+- *(tests)* Stop PdoSessionPersistencePostgresTest hanging when Postgres is unreachable
 ## [4.3.0] - 2026-08-27
 
 ### ⚙️ Miscellaneous Tasks
