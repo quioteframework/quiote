@@ -1,5 +1,6 @@
 <?php
 
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Quiote\Session\PdoSessionPersistence;
 use Quiote\Test\Database\DatabaseContainers;
@@ -12,6 +13,7 @@ use Quiote\Test\Database\DatabaseContainers;
  * correct id, correct cookie, correct row -- was never loaded back. Every request
  * against Postgres silently started a fresh anonymous session instead.
  */
+#[Group('integration')]
 class PdoSessionPersistencePostgresTest extends TestCase
 {
     private PDO $pdo;
@@ -73,6 +75,7 @@ class PdoSessionPersistencePostgresTest extends TestCase
             sprintf('pgsql:host=%s;port=%d;dbname=%s', $info['host'], $info['port'], $info['database']),
             $info['username'],
             $info['password'],
+            [PDO::ATTR_TIMEOUT => 2],
         );
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
