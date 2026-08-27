@@ -1,3 +1,6 @@
+## [4.1.0] - 2026-08-27
+
+Promotes 4.1.0-RC2 unchanged: identical content, released at a stable stability level.
 ## [4.1.0-RC2] - 2026-08-26
 
 ### 🚀 Features
