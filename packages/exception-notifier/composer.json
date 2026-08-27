@@ -1,0 +1,32 @@
+{
+	"name": "quioteframework/exception-notifier",
+	"description": "Exception notification plugin for Quiote: Microsoft Teams (Adaptive Card) and generic webhook channels, with an extendable channel driver seam.",
+	"keywords": ["quiote", "exceptions", "notifications", "teams", "webhook", "alerting"],
+	"homepage": "https://github.com/quioteframework/exception-notifier",
+	"type": "library",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "Quiote Contributors",
+			"homepage": "https://github.com/quioteframework/quiote/graphs/contributors"
+		}
+	],
+	"support": {
+		"issues": "https://github.com/quioteframework/quiote/issues"
+	},
+	"require": {
+		"php": ">=8.5.0",
+		"quioteframework/quiote": "^4.0"
+	},
+	"autoload": {
+		"psr-4": {
+			"Quiote\\ExceptionNotifier\\": "src/"
+		}
+	},
+	"extra": {
+		"branch-alias": {
+			"dev-main": "4.0.x-dev"
+		},
+		"quiote-monorepo-note": "Developed in-tree under quioteframework/quiote's packages/exception-notifier/; split to this standalone repo via splitsh/lite on tag push. PRs go to the monorepo, not here."
+	}
+}

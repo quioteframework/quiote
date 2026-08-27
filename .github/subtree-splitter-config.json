@@ -234,6 +234,11 @@
 			"name": "replay-azure",
 			"directory": "packages/replay-azure",
 			"target": "git@github.com:quioteframework/replay-azure.git"
+		},
+		{
+			"name": "exception-notifier",
+			"directory": "packages/exception-notifier",
+			"target": "git@github.com:quioteframework/exception-notifier.git"
 		}
 	]
 }

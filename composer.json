@@ -111,7 +111,8 @@
 		"quioteframework/replay-cycle": "^4.0",
 		"quioteframework/replay-pdo": "^4.0",
 		"quioteframework/replay-storage": "^4.0",
-		"quioteframework/replay-azure": "^4.0"
+		"quioteframework/replay-azure": "^4.0",
+		"quioteframework/exception-notifier": "^4.0"
 	},
 	"suggest": {
 		"phpunit/phpunit": "Install phpunit if you want to run your tests",
@@ -166,7 +167,8 @@
 		"quioteframework/replay-cycle": "Records Cycle queries into the replay effect ledger, via Cycle's own PSR-3 logger seam (Quiote\\Replay\\Adapter\\Cycle\\*)",
 		"quioteframework/replay-pdo": "Enables the 'pdo' cassette store, keeping cassettes in the app's own database instead of a pod's ephemeral filesystem (Quiote\\Replay\\Store\\Pdo\\*)",
 		"quioteframework/replay-storage": "A ListableCassetteStoreInterface over any Quiote\\Storage\\ListableObjectStoreClientInterface -- Azure Blob, S3 or GCS (Quiote\\Replay\\Store\\Storage\\*); pulled in automatically by replay-azure",
-		"quioteframework/replay-azure": "Enables the 'azure-blob' cassette store, keeping cassettes in Azure Blob Storage instead of a pod's ephemeral filesystem (Quiote\\Replay\\Store\\Azure\\*)"
+		"quioteframework/replay-azure": "Enables the 'azure-blob' cassette store, keeping cassettes in Azure Blob Storage instead of a pod's ephemeral filesystem (Quiote\\Replay\\Store\\Azure\\*)",
+		"quioteframework/exception-notifier": "Notifies Microsoft Teams (Adaptive Card) and/or a generic webhook when ErrorHandlingMiddleware catches an exception, with an extendable channel driver seam (Quiote\\ExceptionNotifier\\ExceptionNotifierPlugin)"
 	},
 	"scripts": {
 		"test": "php -d apc.enable_cli=0 vendor/bin/phpunit --no-coverage",
