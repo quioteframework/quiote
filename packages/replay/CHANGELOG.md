@@ -1,3 +1,8 @@
+## [4.1.1] - 2026-08-31
+
+### 🐛 Bug Fixes
+
+- *(replay)* Substitute an unavailable store instead of aborting the pipeline
 ## [4.1.0] - 2026-08-27
 
 Promotes 4.1.0-RC2 unchanged: identical content, released at a stable stability level.

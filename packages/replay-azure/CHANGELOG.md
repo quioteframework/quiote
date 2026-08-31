@@ -1,3 +1,8 @@
+## [4.0.1] - 2026-08-31
+
+### 🐛 Bug Fixes
+
+- *(replay-azure)* Fall back to the framework's HTTP client factory
 ## [4.0.0-RC1] - 2026-08-19
 
 ### 🚀 Features
