@@ -18,6 +18,7 @@ use Quiote\Replay\Recording\RecorderMiddleware;
 use Quiote\Replay\ReplayPlugin;
 use Quiote\Replay\Store\CassetteStoreInterface;
 use Quiote\Replay\Store\FileCassetteStore;
+use Quiote\Replay\Store\UnavailableCassetteStore;
 use Quiote\Support\Clock\ClockInterface;
 use Quiote\Support\Clock\SystemClock;
 use Quiote\Support\Random\RandomnessInterface;
@@ -118,6 +119,30 @@ final class ReplayPluginTest extends TestCase
 
         $this->expectException(RuntimeException::class);
         $container->get(CassetteStoreInterface::class);
+    }
+
+    public function testRecorderMiddlewareFactoryBuildsAnUnavailableStoreInsteadOfThrowingWhenTheStoreCannotBeBuilt(): void
+    {
+        Config::set('replay.store', 'not-a-real-store', true, false);
+        PluginManager::add(new ReplayPlugin());
+        PluginManager::bootFromConfig();
+
+        $container = new Container();
+        $container->set(ClockInterface::class, new SystemClock());
+        $container->set(RandomnessInterface::class, new SystemRandomness());
+        PluginManager::configureContainer($container);
+
+        $context = $this->createStub(Context::class);
+        $context->method('getContainer')->willReturn($container);
+
+        $factory = MiddlewareCatalog::attributedFactory(RecorderMiddleware::class);
+        $this->assertNotNull($factory);
+
+        // The factory itself must not throw: a misconfigured store must not abort pipeline
+        // construction for every request. Resolving the interface directly (as the console
+        // commands do) still throws hard -- see testUnrecognisedStoreAliasThrows.
+        $middleware = $factory($context);
+        $this->assertInstanceOf(RecorderMiddleware::class, $middleware);
     }
 
     public function testRecorderMiddlewareFactoryBuildsAWorkingInstance(): void

@@ -27,9 +27,11 @@ use Quiote\Replay\Recording\RecordingLogSink;
 use Quiote\Replay\Store\CassetteStoreInterface;
 use Quiote\Replay\Store\CassetteStoreRegistry;
 use Quiote\Replay\Store\FileCassetteStore;
+use Quiote\Replay\Store\UnavailableCassetteStore;
 use Quiote\Support\Clock\ClockInterface;
 use Quiote\Support\Random\RandomnessInterface;
 use RuntimeException;
+use Throwable;
 
 /**
  * Registers the replay configuration defaults, the cassette store, the
@@ -126,7 +128,7 @@ final class ReplayPlugin implements PluginInterface
             static function (Context $context): RecorderMiddleware {
                 return new RecorderMiddleware(
                     $context,
-                    $context->getContainer()->get(CassetteStoreInterface::class),
+                    self::resolveStore($context->getContainer()),
                     $context->getContainer()->get(ClockInterface::class),
                     $context->getContainer()->get(RandomnessInterface::class),
                 );
@@ -158,6 +160,33 @@ final class ReplayPlugin implements PluginInterface
         }
 
         return false;
+    }
+
+    /**
+     * This runs inside the middleware *factory*, which the pipeline invokes with no guard of its
+     * own, so an exception here aborts pipeline construction for every request -- a misconfigured
+     * recorder taking down the application it exists to diagnose. Worse, it happens before
+     * {@see RecorderMiddleware}'s `put()` guard, the only place that reports a storage failure, so
+     * the failure mode is a request that dies with no cassette and no log line at all.
+     *
+     * Reported once here, at boot, with the alias that failed named; the substitute store then
+     * reports again on each recording attempt through that same `put()` guard. The console
+     * commands keep resolving `CassetteStoreInterface` from the container directly and still fail
+     * hard -- a developer running `cassette:list` against a broken store wants the exception.
+     */
+    private static function resolveStore(Container $container): CassetteStoreInterface
+    {
+        try {
+            return $container->get(CassetteStoreInterface::class);
+        } catch (Throwable $e) {
+            Log::create(self::class)->error(sprintf(
+                'Cassette store "%s" could not be built, so no cassettes will be recorded: %s',
+                Config::getString('replay.store', 'file'),
+                $e->getMessage(),
+            ));
+
+            return new UnavailableCassetteStore($e);
+        }
     }
 
     private static function makeStore(Container $container): CassetteStoreInterface
