@@ -8,6 +8,8 @@ use Nyholm\Psr7\Factory\Psr17Factory;
 use Psr\Http\Client\ClientInterface;
 use Quiote\Config\Config;
 use Quiote\DI\Container;
+use Quiote\Http\Client\HttpClientConfig;
+use Quiote\Http\Client\HttpClientFactory;
 use Quiote\Logging\Log;
 use Quiote\Plugin\Attribute\Plugin as PluginAttribute;
 use Quiote\Plugin\PluginInterface;
@@ -26,7 +28,6 @@ use Quiote\Storage\Azure\AzureBlobContainerClient;
 use Quiote\Storage\Azure\AzureCredentialFactory;
 use Quiote\Storage\Azure\AzureMonitorQueryClient;
 use Quiote\Storage\Azure\AzureTokenProviderFactory;
-use RuntimeException;
 
 /**
  * Registers the `azure-blob` cassette store alias and its `CassetteStoreInterface` binding, and
@@ -47,8 +48,16 @@ use RuntimeException;
 #[PluginAttribute(name: 'quioteframework/replay-azure')]
 final class ReplayAzurePlugin implements PluginInterface
 {
+    private const HTTP_CLIENT = 'replay-azure';
+
     public function register(PluginRegistrar $registrar): void
     {
+        // Blob PUTs and AAD token fetches are worth retrying: a dropped cassette is a lost
+        // diagnostic, and the recorder has no second chance at the request that produced it.
+        $registrar->httpClient(self::HTTP_CLIENT, static function (HttpClientConfig $config): void {
+            $config->retry(2);
+        });
+
         $registrar->configDefault('replay.store.azure.container', 'quiote-cassettes');
         $registrar->configDefault('replay.store.azure.account', '');
         $registrar->configDefault('replay.store.azure.auth', 'shared_key');
@@ -170,15 +179,18 @@ final class ReplayAzurePlugin implements PluginInterface
 
     private static function requireHttpClient(Container $container): ClientInterface
     {
+        // An explicit binding still wins, for an application that wants this store's traffic to go
+        // through a client of its own choosing.
         $httpClient = $container->tryGet(ClientInterface::class);
-        if (!$httpClient instanceof ClientInterface) {
-            throw new RuntimeException(sprintf(
-                'quioteframework/replay-azure needs a %s bound in the container -- none found. '
-                . 'Bind your PSR-18 client, the same way quioteframework/session-azure expects.',
-                ClientInterface::class,
-            ));
+        if ($httpClient instanceof ClientInterface) {
+            return $httpClient;
         }
 
-        return $httpClient;
+        // Otherwise the framework's own named-client factory, which Context registers
+        // unconditionally and which builds an unconfigured name with default settings -- so this
+        // store works out of the box. Requiring a hand-written container binding first was most of
+        // the reason a misconfigured `replay.store: azure-blob` looked like it silently did
+        // nothing; see the `replay-azure` named client this plugin configures in register().
+        return $container->get(HttpClientFactory::class)->client(self::HTTP_CLIENT);
     }
 }

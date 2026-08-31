@@ -8,6 +8,7 @@ use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Quiote\Config\Config;
 use Quiote\DI\Container;
+use Quiote\Http\Client\HttpClientFactory;
 use Quiote\Plugin\PluginManager;
 use Quiote\Replay\Index\CassetteIndexRegistry;
 use Quiote\Replay\Store\Azure\ReplayAzurePlugin;
@@ -169,6 +170,58 @@ final class ReplayAzurePluginTest extends TestCase
         PluginManager::configureContainer($container);
 
         $this->assertInstanceOf(ObjectStoreCassetteStore::class, $container->get(CassetteStoreInterface::class));
+    }
+
+    public function testRegistersANamedHttpClientConfig(): void
+    {
+        PluginManager::add(new ReplayAzurePlugin());
+        PluginManager::bootFromConfig();
+
+        $factory = new HttpClientFactory();
+        PluginManager::configureHttpClients($factory);
+
+        $this->assertTrue($factory->has('replay-azure'));
+    }
+
+    public function testTheAzureStoreFallsBackToTheHttpClientFactoryWhenNoClientIsBound(): void
+    {
+        // Previously this threw a RuntimeException demanding a hand-registered ClientInterface
+        // binding; a misconfigured `replay.store: azure-blob` then looked like it silently did
+        // nothing, since the throw happened inside the middleware factory before anything reported
+        // it. Now the framework's own named-client factory (which Context registers
+        // unconditionally) covers the no-binding case, so the store just works.
+        Config::set('replay.store', 'azure-blob', true, false);
+        Config::set('replay.store.azure.account', 'examplestore', true, false);
+
+        PluginManager::add(new ReplayAzurePlugin());
+        PluginManager::add(new ReplayPlugin());
+        PluginManager::bootFromConfig();
+
+        $container = new Container();
+        PluginManager::configureContainer($container);
+
+        $this->assertInstanceOf(ObjectStoreCassetteStore::class, $container->get(CassetteStoreInterface::class));
+    }
+
+    public function testAnExplicitlyBoundHttpClientStillWinsOverTheNamedClientFactory(): void
+    {
+        Config::set('replay.store', 'azure-blob', true, false);
+        Config::set('replay.store.azure.account', 'examplestore', true, false);
+
+        PluginManager::add(new ReplayAzurePlugin());
+        PluginManager::add(new ReplayPlugin());
+        PluginManager::bootFromConfig();
+
+        $container = new Container();
+        $container->set(ClientInterface::class, new PluginTestNeverCalledHttpClient());
+        PluginManager::configureContainer($container);
+
+        // Building the store itself makes no network call, so a real assertion needs the index
+        // chain, which constructs the same object client via requireHttpClient(): if the explicit
+        // binding were ignored in favour of a real transport, this would attempt a live request and
+        // fail rather than merely construct successfully.
+        $indexes = CassetteIndexRegistry::build($container);
+        $this->assertCount(3, $indexes);
     }
 
     public function testLoadOrderNoLongerMatters(): void
