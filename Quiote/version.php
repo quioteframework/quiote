@@ -11,9 +11,9 @@
 \Quiote\Config\Config::set('quiote.name', 'Quiote');
 
 \Quiote\Config\Config::set('quiote.major_version', '4');
-\Quiote\Config\Config::set('quiote.minor_version', '3');
+\Quiote\Config\Config::set('quiote.minor_version', '4');
 \Quiote\Config\Config::set('quiote.micro_version', '0');
-\Quiote\Config\Config::set('quiote.status', '');
+\Quiote\Config\Config::set('quiote.status', 'RC1');
 \Quiote\Config\Config::set('quiote.branch', 'main');
 
 // Config::has() is true for a directive set to '', and a stable release leaves
