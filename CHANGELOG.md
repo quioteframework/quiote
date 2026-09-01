@@ -1,3 +1,8 @@
+## [4.4.0-RC2] - 2026-09-01
+
+### 🚀 Features
+
+- *(console)* Show a plugin's declaration source in plugins:list
 ## [4.4.0-RC1] - 2026-09-01
 
 ### 🚀 Features
