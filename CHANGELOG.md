@@ -1,67 +1,28 @@
 ## [4.3.0] - 2026-08-27
 
-### ⚙️ Miscellaneous Tasks
-
-- *(release)* Bump the framework version to 4.3.0
-## [4.3.0-RC2] - 2026-08-26
-
-### 🚀 Features
-
-- *(replay)* Disable CSRF validation during replay by default
-
-### 🐛 Bug Fixes
-
-- *(replay)* Capture parsed body fields for multipart/form-data requests
-- *(core)* Stop the caught-exception publish from discarding routing state
-## [4.3.0-RC1] - 2026-08-26
-
 ### 🚀 Features
 
 - *(replay)* Let replay override the request URI and impersonate a live session
 - *(replay)* Let replay override query string and body params too
+- *(replay)* Disable CSRF validation during replay by default
 
 ### 🐛 Bug Fixes
 
 - *(replay)* Capture the exception and log entries a recorded request actually produced
+- *(replay)* Capture parsed body fields for multipart/form-data requests
+- *(core)* Stop the caught-exception publish from discarding routing state
+
+### 📚 Documentation
+
+- Fold the query/body override change into the v4.3.0-RC1 changelogs
+- Prep v4.3.0
 
 ### ⚙️ Miscellaneous Tasks
 
 - *(release)* Prepare 4.3.0-RC1
+- *(release)* Prepare 4.3.0-RC2
+- *(release)* Bump the framework version to 4.3.0
 ## [4.2.0] - 2026-08-26
-
-### 🚀 Features
-
-- *(routing)* Diagnose the views an action returns, not just the one it declares
-
-### 🐛 Bug Fixes
-
-- *(ci)* Scope package release notes by range, not by --current
-
-### 📚 Documentation
-
-- Prep v4.2.0
-
-### ⚙️ Miscellaneous Tasks
-
-- *(release)* Bump the framework version to 4.2.0
-## [4.2.0-RC2] - 2026-08-26
-
-### 🚀 Features
-
-- *(config)* Resolve %env(NAME)% placeholders in compiled config at load time
-- *(config)* Add Rule::oneOf union schema type
-- *(config)* Let a plugin's enabled setting defer to the environment
-
-### 🐛 Bug Fixes
-
-- *(ci)* Scope the framework release notes by range, not by --current
-- *(support)* Make SystemEnvironmentReader see $_ENV, not just getenv()
-- *(runtime)* Read framework env vars through the environment seam
-
-### 📚 Documentation
-
-- *(upgrading)* Correct the RC install recipes against the published versions
-## [4.2.0-RC1] - 2026-08-20
 
 ### 🚀 Features
 
@@ -87,6 +48,10 @@
 - *(replay)* Add a cassette-index chain to resolve a bare id to a cassette
 - *(replay)* Build isolated replay mode, and make it the default
 - *(replay)* Isolate Propulsion by substituting the connection
+- *(config)* Resolve %env(NAME)% placeholders in compiled config at load time
+- *(config)* Add Rule::oneOf union schema type
+- *(config)* Let a plugin's enabled setting defer to the environment
+- *(routing)* Diagnose the views an action returns, not just the one it declares
 
 ### 🐛 Bug Fixes
 
@@ -112,6 +77,10 @@
 - *(replay)* Treat a cassette as untrusted input on the replay path
 - *(replay)* Select the cassette store by config, not by plugin load order
 - *(storage)* Read ETags and oversized lengths correctly, and test the package
+- *(ci)* Scope the framework release notes by range, not by --current
+- *(support)* Make SystemEnvironmentReader see $_ENV, not just getenv()
+- *(runtime)* Read framework env vars through the environment seam
+- *(ci)* Scope package release notes by range, not by --current
 
 ### 🚜 Refactor
 
@@ -132,6 +101,12 @@
 - Add UPGRADING.md and make cloud-azure an RC
 - Prep v4.2.0-RC1
 - *(storage)* Record the ObjectMetadata fixes in the changelog
+- Refresh the v4.2.0-RC1 changelog for the storage fixes
+- *(release)* Split the cloud-azure and db-doctrine baselines
+- *(upgrading)* Correct the RC install recipes against the published versions
+- Prep v4.2.0-RC2
+- Prep v4.2.0
+- Fold the triad scanner change into the v4.2.0 changelog
 
 ### 🧪 Testing
 
@@ -140,6 +115,7 @@
 ### ⚙️ Miscellaneous Tasks
 
 - *(ci)* Add new replay packages to package split
+- *(release)* Bump the framework version to 4.2.0
 ## [4.1.0] - 2026-08-14
 
 ### 🚀 Features
@@ -156,114 +132,6 @@
 
 - *(view)* Replace TemplateLayer's magic accessors with typed methods
 ## [4.0.0] - 2026-08-11
-
-### 🐛 Bug Fixes
-
-- *(db-propulsion)* Resolve the connection fresh on every getConnection()/getResource() call
-- *(db-eloquent)* Follow the referenced database when its handle rotates in layer mode
-- Bump quiote version to 4.0.0
-## [4.0.0-RC6] - 2026-08-10
-
-### 🐛 Bug Fixes
-
-- *(logging)* Re-resolve category loggers when the configuration changes
-- *(util)* Return the matching method from Toolkit::overloadHelper()
-- *(db)* Make reset() honour the Database teardown contract
-- *(testing)* Make ViewTestCase's assertions compare what they document
-- *(db-propulsion)* Stop discarding live connections on every initialize()
-
-### 🚜 Refactor
-
-- *(validation)* [**breaking**] Rename xmlOnlyValidate() to validateDeclaredOnly()
-- *(exception)* [**breaking**] Drop QuioteException's exception-page helpers
-- *(i18n)* Drop DateTimeFacade's unreachable non-intl fallbacks
-- *(execution)* [**breaking**] Remove ViewResolver and ActionExecutionSession
-- *(validator)* [**breaking**] Remove four uncalled deprecated methods
-- *(util)* Decompose FormPopulationEngine into its responsibilities
-- *(execution)* Extract slot parameter overlay and caching
-
-### 📚 Documentation
-
-- *(renderer)* Describe what PhpRenderer actually gives a template
-- *(migrating)* Record the 4.0 removals and the validation rename
-- Prep v4.0.0-RC6
-
-### 🧪 Testing
-
-- *(session,queue)* Cover the Redis and object-store backends without Docker
-- *(db)* Cover the adapter parameter mapping and worker lifecycle
-- *(runtime)* Cover Kernel's runtime selection and the error backstop
-- *(execution)* Cover slot dispatch, deferred slots and validation diagnostics
-- *(testing,renderer)* Cover the test-support toolkit and the PHP renderer
-- *(user)* Cover what SecurityUser does when the session backend fails
-- *(util,validator)* Cover the worker manager, silencer and validators
-- *(util)* Pin form population's behaviour at the document level
-- *(util)* Cover the XHTML repairs and form matching directly
-## [4.0.0-RC5] - 2026-08-09
-
-### 🚀 Features
-
-- *(middleware)* Add core.stealth_mode to hide framework-identifying headers
-- *(docs)* Add the API reference generator package with source discovery
-- *(docs)* Generate the API reference from reflection and docblocks
-- *(middleware)* Clear resettable middleware state at the request boundary
-
-### 🐛 Bug Fixes
-
-- *(config)* A factory being switched off is not the same as being optional
-- *(session)* Read a Postgres bytea session blob as a stream, not a string
-- *(routing)* Stop RoutingValue::reset() unsetting a shared static property
-- *(execution)* Restore slot parameters from the validated request
-- *(analysis)* Clear the last 60 PHPStan level 9 errors project-wide
-- *(middleware)* Drop the _original_psr_request attribute
-- *(docs)* Stop the root namespace listing itself as a section
-- *(auth)* Scope the token-derived marker to the request that presented the token
-- *(user)* Rotate the session id when a token identity becomes a session login
-
-### 📚 Documentation
-
-- *(api)* Document every public method and class across the framework
-- *(session)* Drop the token-derived marker from the exists() rationale
-## [4.0.0-RC4] - 2026-08-07
-
-### 🚀 Features
-
-- *(translation)* QuioteLocale answers its own text direction again
-- *(translation)* QuioteLocale names a currency in its own locale
-
-### 🐛 Bug Fixes
-
-- *(rector)* [**breaking**] Close the residue reporter's two blind spots
-- *(di)* [**breaking**] An omitted scope means what the binding declares, not process lifetime
-- *(validator)* Build declared validators through the container, propagate exports
-- *(validator)* Carry a validator's synthetic name into its own parameters
-- *(auth)* Carry a stateless passport's validated claims onto SecurityUser
-## [4.0.0-RC3] - 2026-08-05
-
-### 🐛 Bug Fixes
-
-- *(testing)* Clear the shared models through the locator
-- *(composer)* [**breaking**] Require the CSRF package by version, not by stability alone
-- *(renderer)* [**breaking**] Resolve a snake_case assign against the camelCase container role
-
-### 📚 Documentation
-
-- *(migrating)* Note that output_types assigns resolve through the container
-
-### ⚙️ Miscellaneous Tasks
-
-- *(release)* Prepare 4.0.0-RC3
-## [4.0.0-RC2] - 2026-08-05
-
-### 🐛 Bug Fixes
-
-- *(packages)* [**breaking**] Require the framework by version, not by "*"
-
-### ⚙️ Miscellaneous Tasks
-
-- *(release)* Regenerate the 4.0.0-RC1 changelog section
-- *(release)* Prepare 4.0.0-RC2
-## [4.0.0-RC1] - 2026-08-05
 
 ### 🚀 Features
 
@@ -282,6 +150,12 @@
 - *(rector)* Rewrite Context::getUser() to an injected user
 - *(context)* [**breaking**] Delete Context::handle() in favour of the PSR-15 handler
 - *(context)* [**breaking**] Bind the optional components so their absence explains itself
+- *(translation)* QuioteLocale answers its own text direction again
+- *(translation)* QuioteLocale names a currency in its own locale
+- *(middleware)* Add core.stealth_mode to hide framework-identifying headers
+- *(docs)* Add the API reference generator package with source discovery
+- *(docs)* Generate the API reference from reflection and docblocks
+- *(middleware)* Clear resettable middleware state at the request boundary
 
 ### 🐛 Bug Fixes
 
@@ -319,6 +193,32 @@
 - *(rector)* Never add a constructor to a class other classes extend
 - *(renderer)* Call the assign resolvers in the Twig and PHPTAL renderers
 - *(rector)* Stop reporting the methods Context still declares as residue
+- *(packages)* [**breaking**] Require the framework by version, not by "*"
+- *(testing)* Clear the shared models through the locator
+- *(composer)* [**breaking**] Require the CSRF package by version, not by stability alone
+- *(renderer)* [**breaking**] Resolve a snake_case assign against the camelCase container role
+- *(rector)* [**breaking**] Close the residue reporter's two blind spots
+- *(di)* [**breaking**] An omitted scope means what the binding declares, not process lifetime
+- *(validator)* Build declared validators through the container, propagate exports
+- *(validator)* Carry a validator's synthetic name into its own parameters
+- *(auth)* Carry a stateless passport's validated claims onto SecurityUser
+- *(config)* A factory being switched off is not the same as being optional
+- *(session)* Read a Postgres bytea session blob as a stream, not a string
+- *(routing)* Stop RoutingValue::reset() unsetting a shared static property
+- *(execution)* Restore slot parameters from the validated request
+- *(analysis)* Clear the last 60 PHPStan level 9 errors project-wide
+- *(middleware)* Drop the _original_psr_request attribute
+- *(docs)* Stop the root namespace listing itself as a section
+- *(auth)* Scope the token-derived marker to the request that presented the token
+- *(user)* Rotate the session id when a token identity becomes a session login
+- *(logging)* Re-resolve category loggers when the configuration changes
+- *(util)* Return the matching method from Toolkit::overloadHelper()
+- *(db)* Make reset() honour the Database teardown contract
+- *(testing)* Make ViewTestCase's assertions compare what they document
+- *(db-propulsion)* Stop discarding live connections on every initialize()
+- *(db-propulsion)* Resolve the connection fresh on every getConnection()/getResource() call
+- *(db-eloquent)* Follow the referenced database when its handle rotates in layer mode
+- Bump quiote version to 4.0.0
 
 ### 💼 Other
 
@@ -362,6 +262,13 @@
 - *(context)* [**breaking**] Bind the user, and let CurrentUser resolve it
 - *(context)* [**breaking**] RequestState owns the request, and Context stops accessing it
 - *(context)* [**breaking**] Make the context's state private and its docblocks current
+- *(validation)* [**breaking**] Rename xmlOnlyValidate() to validateDeclaredOnly()
+- *(exception)* [**breaking**] Drop QuioteException's exception-page helpers
+- *(i18n)* Drop DateTimeFacade's unreachable non-intl fallbacks
+- *(execution)* [**breaking**] Remove ViewResolver and ActionExecutionSession
+- *(validator)* [**breaking**] Remove four uncalled deprecated methods
+- *(util)* Decompose FormPopulationEngine into its responsibilities
+- *(execution)* Extract slot parameter overlay and caching
 
 ### 📚 Documentation
 
@@ -369,6 +276,12 @@
 - *(migrating)* Document the package-level 3.2 breaking changes
 - *(rector)* Correct the rule-set config's installation and coverage notes
 - *(config)* State that loadValue() is only for configs that return data
+- *(migrating)* Note that output_types assigns resolve through the container
+- *(api)* Document every public method and class across the framework
+- *(session)* Drop the token-derived marker from the exists() rationale
+- *(renderer)* Describe what PhpRenderer actually gives a template
+- *(migrating)* Record the 4.0 removals and the validation rename
+- Prep v4.0.0-RC6
 
 ### ⚡ Performance
 
@@ -386,12 +299,24 @@
 - *(db-propulsion)* Stop naming a connection class the adapter already picks
 - *(benchmarks)* Measure registering validators from a declaration
 - *(rector)* Name the sites the rules skip, and cover the reporter itself
+- *(session,queue)* Cover the Redis and object-store backends without Docker
+- *(db)* Cover the adapter parameter mapping and worker lifecycle
+- *(runtime)* Cover Kernel's runtime selection and the error backstop
+- *(execution)* Cover slot dispatch, deferred slots and validation diagnostics
+- *(testing,renderer)* Cover the test-support toolkit and the PHP renderer
+- *(user)* Cover what SecurityUser does when the session backend fails
+- *(util,validator)* Cover the worker manager, silencer and validators
+- *(util)* Pin form population's behaviour at the document level
+- *(util)* Cover the XHTML repairs and form matching directly
 
 ### ⚙️ Miscellaneous Tasks
 
 - Raise PHPStan baseline to level 9 across the repo
 - *(rector)* Register the package for the subtree split, and stop implying it is published
 - *(release)* Prepare 4.0.0-RC1
+- *(release)* Regenerate the 4.0.0-RC1 changelog section
+- *(release)* Prepare 4.0.0-RC2
+- *(release)* Prepare 4.0.0-RC3
 ## [3.1.0] - 2026-07-29
 
 ### 🐛 Bug Fixes
