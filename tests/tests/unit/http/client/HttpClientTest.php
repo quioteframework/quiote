@@ -58,6 +58,22 @@ class HttpClientTest extends TestCase
         $this->assertSame('https://api.example.com/users/1', (string) $this->recordedRequest($transport)->getUri());
     }
 
+    /**
+     * A channel that holds a whole target URL (e.g. a webhook) as its base URI posts to "" against
+     * it. That must hit the base URI byte-for-byte unchanged -- appending even a harmless-looking
+     * trailing slash after a query string would corrupt anything depending on its exact bytes, such
+     * as a signed URL's HMAC covering the whole query string.
+     */
+    public function testEmptyRelativeUriResolvesToTheBaseUriUnchanged(): void
+    {
+        $transport = new RecordingTransport(new Response(200));
+        $baseUri = 'https://webhook.example/path?api-version=1&sig=AbC%2Fdef';
+        $this->client($transport, fn(HttpClientConfig $c) => $c->baseUri($baseUri))
+            ->post('', ['body' => '{}']);
+
+        $this->assertSame($baseUri, (string) $this->recordedRequest($transport)->getUri());
+    }
+
     public function testAbsoluteUriIgnoresBaseUri(): void
     {
         $transport = new RecordingTransport(new Response(200));

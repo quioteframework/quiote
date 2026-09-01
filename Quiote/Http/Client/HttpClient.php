@@ -113,8 +113,20 @@ final class HttpClient implements ClientInterface
         return $request;
     }
 
+    /**
+     * A bare `post('', ...)`/`get('', ...)` -- the way a channel posting to a whole webhook URL
+     * held as this client's base URI, rather than a path under it, calls this client -- must return
+     * the base URI untouched. Falling through to the join below would append a literal `/` after
+     * its query string (there being no path segment left to attach it to), corrupting anything that
+     * depends on the query string's exact bytes: a Microsoft Power Automate/Logic Apps trigger URL's
+     * `sig=` HMAC covers the whole query string, so the appended slash invalidates the signature and
+     * the request is rejected with 401 even though the URL was correct.
+     */
     private function resolveUri(string $uri): string
     {
+        if ($uri === '') {
+            return $this->baseUri;
+        }
         if ($this->baseUri === '' || preg_match('#^https?://#i', $uri)) {
             return $uri;
         }
