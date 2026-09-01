@@ -1,4 +1,4 @@
-## [4.0.0] - 2026-08-11
+## [4.0.1] - 2026-09-01
 
 ### 🚀 Features
 
@@ -27,3 +27,7 @@
 ### 🧪 Testing
 
 - *(db)* Cover the adapter parameter mapping and worker lifecycle
+
+### ⚙️ Miscellaneous Tasks
+
+- Fix dev-main branch-alias for every package with a release
