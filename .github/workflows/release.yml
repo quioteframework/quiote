@@ -111,7 +111,7 @@ jobs:
           # shellcheck disable=SC2086
           "/tmp/git-cliff-${GIT_CLIFF_VERSION}/git-cliff" \
             --tag-pattern '^v[0-9]' \
-            --ignore-tags '-RC[0-9]+$' \
+            --ignore-tags='-RC[0-9]+$' \
             $SCOPE \
             --tag "${TAG}" \
             --strip header \

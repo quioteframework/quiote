@@ -107,7 +107,7 @@ jobs:
           "/tmp/git-cliff-${GIT_CLIFF_VERSION}/git-cliff" \
             --include-path "packages/${PKG_NAME}/**" \
             --tag-pattern "^packages/${PKG_NAME}/v" \
-            --ignore-tags '-RC[0-9]+$' \
+            --ignore-tags='-RC[0-9]+$' \
             $SCOPE \
             --tag "${TAG##*/}" \
             --strip header -o /tmp/release-notes.md
