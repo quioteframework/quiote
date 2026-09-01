@@ -149,6 +149,69 @@ class MiddlewarePipeline implements RequestHandlerInterface
         return CoreMiddlewareRegistry::guardedClasses();
     }
 
+    public const CODE_REGISTERED_OVERRIDES_ATTRIBUTE = 'REGISTERED_OVERRIDES_ATTRIBUTE';
+
+    /**
+     * Computes the resolved order of the default (non-overridden) middleware stack -- core
+     * middleware plus attribute-scanned and config-driven app/plugin middleware -- purely from
+     * static registries, without a Context and without constructing a single middleware
+     * instance. {@see doBuild()} instantiates in exactly this order, so it calls this rather than
+     * duplicating the scan/merge/resolve steps; `quiote middleware:list` reads it the same way,
+     * so the two can never disagree.
+     *
+     * Excludes {@see MiddlewareCatalog::hasCoreStackOverride()}'s replacement stack and
+     * externally {@see MiddlewareCatalog::register()}-ed middleware -- the former only exists by
+     * invoking an app-supplied factory, and the latter's position depends on splicing into an
+     * already-built stack (see {@see insertRegistered()}), not on phase/priority ordering.
+     *
+     * @return array{ordered: list<array{definition: \Quiote\Middleware\Compiler\MiddlewareDefinition, enabled: bool}>, diagnostics: list<Diagnostic>}
+     */
+    public static function resolveOrder(): array
+    {
+        $diagnostics = [];
+
+        // Order is derived from each class's #[Middleware] attribute (phase +
+        // before/after + priority), not a hand-maintained sequence. App middleware opts in
+        // via MiddlewareCatalog::registerAttributed(). If the same FQCN is also
+        // passed to MiddlewareCatalog::register(), register() wins outright: it's
+        // excluded here and spliced in at build time by insertRegistered() instead.
+        $registered = MiddlewareCatalog::getRegistered();
+        $attributedCandidates = array_merge(CoreMiddlewareRegistry::CORE, MiddlewareCatalog::getAttributedCandidates());
+        foreach ($attributedCandidates as $fqcn) {
+            if (isset($registered[$fqcn])) {
+                $diagnostics[] = new Diagnostic(
+                    Diagnostic::SEVERITY_WARNING,
+                    self::CODE_REGISTERED_OVERRIDES_ATTRIBUTE,
+                    sprintf('"%s" is both attribute-scannable and MiddlewareCatalog::register()-ed; register() wins for placement.', $fqcn),
+                    $fqcn,
+                );
+            }
+        }
+        $candidates = array_filter(
+            $attributedCandidates,
+            static fn(string $fqcn): bool => !isset($registered[$fqcn])
+        );
+
+        $scanner = new MiddlewareAttributeScanner();
+        $definitions = $scanner->scan($candidates);
+        $diagnostics = array_merge($diagnostics, $scanner->getDiagnostics());
+
+        $definitions = self::mergeConfigDefinitions($definitions);
+
+        $resolver = new MiddlewareOrderResolver();
+        $ordered = $resolver->resolve($definitions);
+        $diagnostics = array_merge($diagnostics, $resolver->getDiagnostics());
+
+        return [
+            'ordered' => array_values(array_map(static function (MiddlewareDefinition $definition): array {
+                $fqcn = $definition->fqcn;
+                $enabled = MiddlewareCatalog::hasOverride($fqcn) ? MiddlewareCatalog::isEnabled($fqcn) : $definition->enabled;
+                return ['definition' => $definition, 'enabled' => $enabled];
+            }, $ordered)),
+            'diagnostics' => array_values($diagnostics),
+        ];
+    }
+
     private function doBuild(): void
     {
         $this->debugStack = [];
@@ -207,48 +270,17 @@ class MiddlewarePipeline implements RequestHandlerInterface
 
             $factories = CoreMiddlewareRegistry::factories($context);
 
-            // Order is derived from each class's #[Middleware] attribute (phase +
-            // before/after + priority), not a hand-maintained sequence. App middleware opts in
-            // via MiddlewareCatalog::registerAttributed(). If the same FQCN is also
-            // passed to MiddlewareCatalog::register(), register() wins outright: it's
-            // excluded here and spliced in below by insertRegistered() instead.
-            $registered = MiddlewareCatalog::getRegistered();
-            $attributedCandidates = array_merge(array_keys($factories), MiddlewareCatalog::getAttributedCandidates());
-            foreach ($attributedCandidates as $fqcn) {
-                if (isset($registered[$fqcn])) {
-                    \Quiote\Logging\Log::for($this)->warning(
-                        "[MiddlewarePipeline] \"$fqcn\" is both attribute-scannable and "
-                        . 'MiddlewareCatalog::register()-ed; register() wins for placement.'
-                    );
-                }
-            }
-            $candidates = array_filter(
-                $attributedCandidates,
-                static fn(string $fqcn): bool => !isset($registered[$fqcn])
-            );
-
-            $scanner = new MiddlewareAttributeScanner();
-            $definitions = $scanner->scan($candidates);
-            foreach ($scanner->getDiagnostics() as $diagnostic) {
+            $resolved = self::resolveOrder();
+            foreach ($resolved['diagnostics'] as $diagnostic) {
                 $level = $diagnostic->severity === Diagnostic::SEVERITY_ERROR ? 'error' : 'warning';
-                \Quiote\Logging\Log::for($this)->{$level}('[MiddlewarePipeline] middleware scan: ' . $diagnostic->message);
+                \Quiote\Logging\Log::for($this)->{$level}('[MiddlewarePipeline] middleware: ' . $diagnostic->message);
             }
 
-            $definitions = $this->mergeConfigDefinitions($definitions);
-
-            $resolver = new MiddlewareOrderResolver();
-            $ordered = $resolver->resolve($definitions);
-            foreach ($resolver->getDiagnostics() as $diagnostic) {
-                $level = $diagnostic->severity === Diagnostic::SEVERITY_ERROR ? 'error' : 'warning';
-                \Quiote\Logging\Log::for($this)->{$level}('[MiddlewarePipeline] middleware order: ' . $diagnostic->message);
-            }
-
-            foreach ($ordered as $definition) {
-                $fqcn = $definition->fqcn;
-                $enabled = MiddlewareCatalog::hasOverride($fqcn) ? MiddlewareCatalog::isEnabled($fqcn) : $definition->enabled;
-                if (!$enabled) {
+            foreach ($resolved['ordered'] as $entry) {
+                if (!$entry['enabled']) {
                     continue;
                 }
+                $fqcn = $entry['definition']->fqcn;
                 $factory = $factories[$fqcn]
                     ?? MiddlewareCatalog::attributedFactory($fqcn)
                     ?? fn() => $context->getContainer()->get($fqcn);
@@ -300,7 +332,7 @@ class MiddlewarePipeline implements RequestHandlerInterface
      * @param MiddlewareDefinition[] $scanned
      * @return MiddlewareDefinition[]
      */
-    private function mergeConfigDefinitions(array $scanned): array
+    private static function mergeConfigDefinitions(array $scanned): array
     {
         $byFqcn = [];
         foreach ($scanned as $definition) {

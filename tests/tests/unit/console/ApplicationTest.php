@@ -61,6 +61,8 @@ final class ApplicationTest extends TestCase
             ['about'],
             ['routes:list'],
             ['routes:compile'],
+            ['plugins:list'],
+            ['middleware:list'],
             ['openapi:generate'],
             ['cache:warmup'],
             ['make:action'],

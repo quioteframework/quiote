@@ -102,8 +102,12 @@ final class PluginManager
      * A plugin's diagnostics/logging name: {@see NamedPlugin::name()} if the
      * plugin implements it (needed when the name can't be a compile-time
      * constant), otherwise {@see PluginAttribute}'s `name` argument.
+     *
+     * Public so introspection tools (e.g. `quiote plugins:list`) resolve the
+     * same display name PluginManager uses internally, rather than
+     * duplicating this lookup.
      */
-    private static function resolveName(PluginInterface $plugin): string
+    public static function resolveName(PluginInterface $plugin): string
     {
         if ($plugin instanceof NamedPlugin) {
             return $plugin->name();
