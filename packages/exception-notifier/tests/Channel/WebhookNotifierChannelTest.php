@@ -59,9 +59,10 @@ final class WebhookNotifierChannelTest extends TestCase
 
         $request = $this->recordedRequest($transport);
         $this->assertSame('POST', $request->getMethod());
-        // HttpClient joins the base URI with a relative path via "/" + ltrim,
-        // so posting to "" against this base URI yields a trailing slash.
-        $this->assertSame('https://hooks.example/notify/', (string) $request->getUri());
+        // Posting to "" against a base URI that is the whole webhook URL must hit that URL
+        // unchanged -- appending anything, even a trailing slash, would corrupt a signed query
+        // string (e.g. a Power Automate trigger URL's HMAC-covered `sig=`).
+        $this->assertSame('https://hooks.example/notify', (string) $request->getUri());
         $this->assertSame('application/json', $request->getHeaderLine('Content-Type'));
         $this->assertSame('secret', $request->getHeaderLine('X-Api-Key'));
 

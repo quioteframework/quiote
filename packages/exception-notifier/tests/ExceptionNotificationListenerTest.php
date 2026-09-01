@@ -9,6 +9,7 @@ use Quiote\Event\Lifecycle\ExceptionCaughtEvent;
 use Quiote\ExceptionNotifier\ExceptionNotificationListener;
 use Quiote\ExceptionNotifier\ExceptionNotificationThrottle;
 use Quiote\Http\Client\HttpClientFactory;
+use Quiote\Logging\LogContext;
 use Quiote\Support\Clock\FrozenClock;
 use Quiote\Test\Http\Client\RecordingTransport;
 
@@ -44,7 +45,16 @@ final class ExceptionNotificationListenerTest extends TestCase
                 Config::set($key, $value);
             }
         }
+        LogContext::clear();
         parent::tearDown();
+    }
+
+    /** @return array<string, mixed> */
+    private function decodedPayload(RecordingTransport $transport): array
+    {
+        $body = json_decode((string) $transport->lastRequest()?->getBody(), true);
+        self::assertIsArray($body);
+        return $body;
     }
 
     private function httpClientFactory(RecordingTransport $transport): HttpClientFactory
@@ -250,5 +260,72 @@ final class ExceptionNotificationListenerTest extends TestCase
         $listener($this->event(new RuntimeException('boom')));
 
         $this->assertCount(1, $transport->requests);
+    }
+
+    public function testCorrelationIdComesFromTheAmbientRequestIdWhenNoHeaderIsPresent(): void
+    {
+        Config::set('exception_notifier.channels', [
+            ['driver' => 'webhook', 'name' => 'a', 'webhook_url' => 'https://a.example/hook'],
+        ]);
+        LogContext::enrich(['rid' => 'the-ambient-rid']);
+
+        $transport = new RecordingTransport(200);
+        $clock = new FrozenClock(1000.0);
+        $listener = new ExceptionNotificationListener(
+            $this->httpClientFactory($transport),
+            new ExceptionNotificationThrottle($clock, 60),
+            $clock,
+        );
+
+        $listener($this->event(new RuntimeException('boom')));
+
+        $this->assertSame('the-ambient-rid', $this->decodedPayload($transport)['correlation_id']);
+    }
+
+    public function testAnInboundCorrelationHeaderIsUsedWhenNoAmbientRequestIdIsSet(): void
+    {
+        Config::set('exception_notifier.channels', [
+            ['driver' => 'webhook', 'name' => 'a', 'webhook_url' => 'https://a.example/hook'],
+        ]);
+
+        $transport = new RecordingTransport(200);
+        $clock = new FrozenClock(1000.0);
+        $listener = new ExceptionNotificationListener(
+            $this->httpClientFactory($transport),
+            new ExceptionNotificationThrottle($clock, 60),
+            $clock,
+        );
+
+        $event = new ExceptionCaughtEvent(
+            new RuntimeException('boom'),
+            (new ServerRequest('GET', 'https://example.com/boom'))->withHeader('Correlation-Id', 'from-header'),
+        );
+        $listener($event);
+
+        $this->assertSame('from-header', $this->decodedPayload($transport)['correlation_id']);
+    }
+
+    public function testTheAmbientRequestIdWinsOverAnInboundCorrelationHeader(): void
+    {
+        Config::set('exception_notifier.channels', [
+            ['driver' => 'webhook', 'name' => 'a', 'webhook_url' => 'https://a.example/hook'],
+        ]);
+        LogContext::enrich(['rid' => 'the-ambient-rid']);
+
+        $transport = new RecordingTransport(200);
+        $clock = new FrozenClock(1000.0);
+        $listener = new ExceptionNotificationListener(
+            $this->httpClientFactory($transport),
+            new ExceptionNotificationThrottle($clock, 60),
+            $clock,
+        );
+
+        $event = new ExceptionCaughtEvent(
+            new RuntimeException('boom'),
+            (new ServerRequest('GET', 'https://example.com/boom'))->withHeader('Correlation-Id', 'from-header'),
+        );
+        $listener($event);
+
+        $this->assertSame('the-ambient-rid', $this->decodedPayload($transport)['correlation_id']);
     }
 }

@@ -9,6 +9,7 @@ use Quiote\Event\Lifecycle\ExceptionCaughtEvent;
 use Quiote\Http\Client\HttpClientFactory;
 use Quiote\Logging\CategoryLogger;
 use Quiote\Logging\Log;
+use Quiote\Logging\LogContext;
 use Quiote\Support\Clock\ClockInterface;
 use Quiote\Support\CorrelationId;
 use Throwable;
@@ -122,7 +123,8 @@ final class ExceptionNotificationListener
     private function buildContext(ExceptionCaughtEvent $event, int $status): ExceptionNotificationContext
     {
         $request = $event->request;
-        $correlationId = CorrelationId::fromRequest($request, 'Correlation-Id')
+        $correlationId = $this->currentRequestId()
+            ?? CorrelationId::fromRequest($request, 'Correlation-Id')
             ?? CorrelationId::fromRequest($request, 'X-Correlation-ID');
 
         return new ExceptionNotificationContext(
@@ -132,6 +134,21 @@ final class ExceptionNotificationListener
             correlationId: $correlationId,
             timestamp: ($this->clock ?? $this->resolveContainer()->get(ClockInterface::class))->microtime(),
         );
+    }
+
+    /**
+     * The current request's own correlation id -- the same value
+     * {@see \Quiote\Runtime\ContextRequestHandler::openRequestScope()} stamps into every log line
+     * for this request as `rid`. Preferred over the two hardcoded header lookups below: those only
+     * ever find a value when an inbound request happened to carry one of those two exact header
+     * names, missing the common case of Quiote generating its own id (a configurable header name,
+     * or no inbound id at all) -- exactly the request id an operator reading the log line that
+     * reported this notification failure would already have in hand.
+     */
+    private function currentRequestId(): ?string
+    {
+        $rid = LogContext::current()['rid'] ?? null;
+        return is_string($rid) && $rid !== '' ? $rid : null;
     }
 
     private function resolveHttpClientFactory(): HttpClientFactory
