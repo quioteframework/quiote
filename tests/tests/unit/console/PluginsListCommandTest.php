@@ -1,7 +1,9 @@
 <?php
 
+use Quiote\Config\Config;
 use Quiote\Console\Application;
 use Quiote\Plugin\Attribute\Plugin as PluginAttribute;
+use Quiote\Plugin\PluginConfigRegistry;
 use Quiote\Plugin\PluginInterface;
 use Quiote\Plugin\PluginManager;
 use Quiote\Plugin\PluginRegistrar;
@@ -27,6 +29,7 @@ final class PluginsListCommandTest extends PhpUnitTestCase
     protected function tearDown(): void
     {
         PluginManager::reset();
+        PluginConfigRegistry::reset();
         parent::tearDown();
     }
 
@@ -77,5 +80,71 @@ final class PluginsListCommandTest extends PhpUnitTestCase
         $classes = array_column($payload['plugins'], 'class');
         $this->assertContains('test/plugins-list-fixture', $names);
         $this->assertContains(PluginsListFixturePlugin::class, $classes);
+    }
+
+    public function testAProgrammaticallyAddedPluginIsSourcedAsCode(): void
+    {
+        PluginManager::reset();
+        PluginConfigRegistry::reset();
+        PluginManager::add(new PluginsListFixturePlugin());
+
+        $tester = $this->tester();
+        $tester->execute(['--json' => true]);
+
+        $payload = json_decode($tester->getDisplay(), true, flags: JSON_THROW_ON_ERROR);
+        self::assertIsArray($payload);
+        self::assertIsArray($payload['plugins']);
+        $bySourceClass = array_column($payload['plugins'], 'source', 'class');
+        $this->assertSame('Code', $bySourceClass[PluginsListFixturePlugin::class]);
+    }
+
+    public function testAnAppDeclaredPluginIsSourcedAsGlobal(): void
+    {
+        PluginManager::reset();
+        PluginConfigRegistry::reset();
+        PluginConfigRegistry::contribute([PluginsListFixturePlugin::class], '/app/Config/plugins.xml');
+        PluginManager::add(new PluginsListFixturePlugin());
+
+        $tester = $this->tester();
+        $tester->execute(['--json' => true]);
+
+        $payload = json_decode($tester->getDisplay(), true, flags: JSON_THROW_ON_ERROR);
+        self::assertIsArray($payload);
+        self::assertIsArray($payload['plugins']);
+        $bySourceClass = array_column($payload['plugins'], 'source', 'class');
+        $this->assertSame('Global (xml)', $bySourceClass[PluginsListFixturePlugin::class]);
+    }
+
+    public function testAModuleDeclaredPluginIsSourcedByModuleName(): void
+    {
+        PluginManager::reset();
+        PluginConfigRegistry::reset();
+        $moduleDir = Config::getString('core.module_dir');
+        PluginConfigRegistry::contribute(
+            [PluginsListFixturePlugin::class],
+            $moduleDir . '/Foo/Config/plugins.php'
+        );
+        PluginManager::add(new PluginsListFixturePlugin());
+
+        $tester = $this->tester();
+        $tester->execute(['--json' => true]);
+
+        $payload = json_decode($tester->getDisplay(), true, flags: JSON_THROW_ON_ERROR);
+        self::assertIsArray($payload);
+        self::assertIsArray($payload['plugins']);
+        $bySourceClass = array_column($payload['plugins'], 'source', 'class');
+        $this->assertSame('Module Foo (php)', $bySourceClass[PluginsListFixturePlugin::class]);
+    }
+
+    public function testTableOutputShowsTheSourceColumn(): void
+    {
+        PluginManager::reset();
+        PluginConfigRegistry::reset();
+        PluginManager::add(new PluginsListFixturePlugin());
+
+        $tester = $this->tester();
+        $tester->execute([]);
+
+        $this->assertStringContainsString('Code', $tester->getDisplay());
     }
 }

@@ -33,6 +33,11 @@ use Quiote\Util\Toolkit;
  * lets a deployment turn a plugin on by setting a variable and restarting, with the same compiled
  * cache.
  *
+ * Also records each declared class's file in {@see \Quiote\Plugin\PluginConfigRegistry}, so
+ * introspection (`quiote plugins:list`) can report where a plugin came from -- the app's own
+ * config or a specific module's, and which file format -- without the flat `plugins` config key
+ * itself needing to carry that.
+ *
  * Canonical schema: list<array{class: string, enabled: bool|string}>, in
  * document order, where a string `enabled` is an unresolved placeholder.
  * @since      1.0.0
@@ -212,6 +217,7 @@ class PluginConfigHandler extends XmlConfigHandler implements IArrayConfigHandle
 			$declared[] = $entry;
 		}
 
+		\Quiote\Plugin\PluginConfigRegistry::contribute($declared, $sourceRef);
 		Config::set('plugins', self::merge($declared, Config::getArray('plugins', [])), true);
 	}
 

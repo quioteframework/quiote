@@ -310,6 +310,7 @@ final class PluginManager
         self::$requestEndClears = [];
         self::$stateResets = [];
         \Quiote\Event\Events::reset();
+        PluginConfigRegistry::reset();
         \Quiote\Middleware\MiddlewareCatalog::reset();
         \Quiote\Middleware\Config\MiddlewareConfigRegistry::reset();
         \Quiote\Database\DatabaseDriverRegistry::reset();

@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace Quiote\Console\Command;
 
+use Quiote\Config\Config;
+use Quiote\Plugin\PluginConfigRegistry;
 use Quiote\Plugin\PluginManager;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputInterface;
@@ -44,9 +46,12 @@ final class PluginsListCommand extends AbstractAppCommand
 
         $plugins = [];
         foreach (PluginManager::registeredPlugins() as $class => $plugin) {
+            $sourceRef = PluginConfigRegistry::sourceRefFor($class);
             $plugins[] = [
                 'name' => PluginManager::resolveName($plugin),
                 'class' => $class,
+                'source' => self::classifySource($sourceRef),
+                'sourceRef' => $sourceRef,
             ];
         }
 
@@ -61,10 +66,36 @@ final class PluginsListCommand extends AbstractAppCommand
         }
 
         $io->table(
-            ['Name', 'Class'],
-            array_map(static fn(array $plugin) => [$plugin['name'], $plugin['class']], $plugins)
+            ['Name', 'Class', 'Source'],
+            array_map(static fn(array $plugin) => [$plugin['name'], $plugin['class'], $plugin['source']], $plugins)
         );
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Classifies where a plugin was declared from, for the Source column: "Global" for the app's
+     * own `plugins.*`, "Module <name>" for a specific module's, each with the declaring file's
+     * format in parens, or "Code" when {@see PluginConfigRegistry} has no file for this class at
+     * all -- meaning it was activated by handing {@see PluginManager::add()} an already-built
+     * instance directly, not declared in any config file. A bare `#[Plugin]` attribute never
+     * activates a plugin by itself (see that attribute's own docblock), so there is no separate
+     * "attribute" source: every plugin is one of these two.
+     */
+    private static function classifySource(?string $sourceRef): string
+    {
+        if ($sourceRef === null) {
+            return 'Code';
+        }
+
+        $format = strtolower((string) pathinfo($sourceRef, PATHINFO_EXTENSION)) ?: '?';
+        $moduleDir = rtrim(Config::getString('core.module_dir', ''), '/');
+        if ($moduleDir !== '' && str_starts_with($sourceRef, $moduleDir . '/')) {
+            $relative = substr($sourceRef, strlen($moduleDir) + 1);
+            $moduleName = strstr($relative, '/', true);
+            return sprintf('Module %s (%s)', $moduleName !== false ? $moduleName : $relative, $format);
+        }
+
+        return sprintf('Global (%s)', $format);
     }
 }
