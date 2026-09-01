@@ -60,14 +60,23 @@ jobs:
         run: vendor/bin/phpunit --no-coverage
 
       - name: Generate changelog
-        # Scoped by an explicit `<this package's previous tag>..<this tag>` range.
-        # `--current` cannot be used: it asks git which tag names the current
+        # Scoped by an explicit `<this package's previous STABLE tag>..<this tag>`
+        # range. `--current` cannot be used: it asks git which tag names the current
         # commit, and a release that tags several packages at once puts many tags
         # on one SHA, so git answers with whichever single tag it prefers. Every
         # package whose tag is not the chosen one then fails with "No tag exists
         # for the current commit" -- after the suite has already run. The range
         # depends only on the tag that triggered this run. release.yml derives
         # the framework's notes the same way, for the same reason.
+        #
+        # --exclude "packages/${PKG_NAME}/v*-RC*" makes "previous" always the
+        # last STABLE release for this package, never an intermediate RC -- so
+        # an RC's own notes are deliberately cumulative ("everything since
+        # last GA," a preview of the whole upcoming release, not a diff
+        # against the last RC, which degenerates to "promotes RC2 unchanged"
+        # the moment two RCs in a row have no new commits between them), and
+        # the eventual GA tag gets a clean stable-to-stable changelog with
+        # none of the RC tags treated as version boundaries.
         env:
           PKG_NAME: ${{ steps.package.outputs.name }}
           TAG: ${{ github.ref_name }}
@@ -76,30 +85,43 @@ jobs:
           curl -sSL -o /tmp/git-cliff.tar.gz \
             "https://github.com/orhun/git-cliff/releases/download/v${GIT_CLIFF_VERSION}/git-cliff-${GIT_CLIFF_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
           tar -xzf /tmp/git-cliff.tar.gz -C /tmp
-          # Empty on a package's first release, which has no predecessor to
-          # measure from; git-cliff then covers that package's whole history.
-          PREVIOUS="$(git describe --tags --abbrev=0 --match "packages/${PKG_NAME}/v*" "${TAG}^" 2>/dev/null || true)"
+          # Empty on a package's first stable release, which has no
+          # predecessor to measure from; git-cliff then covers that package's
+          # whole history.
+          PREVIOUS="$(git describe --tags --abbrev=0 --match "packages/${PKG_NAME}/v*" --exclude "packages/${PKG_NAME}/v*-RC*" "${TAG}^" 2>/dev/null || true)"
           if [ -n "$PREVIOUS" ]; then
             SCOPE="${PREVIOUS}..${TAG}"
             echo "Generating notes for ${SCOPE}"
           else
             SCOPE=""
-            echo "No prior tag for ${PKG_NAME}; generating notes for its whole history"
+            echo "No prior stable tag for ${PKG_NAME}; generating notes for its whole history"
           fi
+          # --ignore-tags is required in addition to --exclude above: an
+          # intermediate RC tag between $PREVIOUS and $TAG is still a real,
+          # reachable tag, and git-cliff splits a range into one entry per
+          # tag it finds inside it regardless of which one bounds the range
+          # -- --exclude only steers PREVIOUS's own resolution, so without
+          # this an RC1..RC2..GA history would still render as three
+          # separate headings instead of one.
           # shellcheck disable=SC2086
           "/tmp/git-cliff-${GIT_CLIFF_VERSION}/git-cliff" \
             --include-path "packages/${PKG_NAME}/**" \
             --tag-pattern "^packages/${PKG_NAME}/v" \
+            --ignore-tags '-RC[0-9]+$' \
             $SCOPE \
             --tag "${TAG##*/}" \
             --strip header -o /tmp/release-notes.md
-          # A stability-only promotion changes no files, so the range holds no
-          # commits and git-cliff writes just its heading -- a release body that
-          # is technically non-empty and still says nothing. Tested for entries
-          # rather than for bytes, and appended so the heading survives.
+          # Scoping from the last STABLE tag makes this the genuine "nothing at
+          # all changed since GA" case now, not "nothing changed since the last
+          # RC" -- e.g. an RC promoted straight to GA on the same commit, or a
+          # release cut for version-bump reasons alone. The range holds no
+          # commits and git-cliff writes just its heading -- a release body
+          # that is technically non-empty and still says nothing -- so this is
+          # tested for entries rather than for bytes, and appended so the
+          # heading survives.
           if ! grep -q '^- ' /tmp/release-notes.md; then
             if [ -n "$PREVIOUS" ]; then
-              printf '\nPromotes %s unchanged: identical content, released at a stable stability level.\n' \
+              printf '\nNo changes recorded against this package since %s.\n' \
                 "${PREVIOUS##*/}" >> /tmp/release-notes.md
             else
               printf '\nNo changes are recorded against this package for this release.\n' \
