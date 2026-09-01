@@ -5,31 +5,27 @@
 - *(replay)* Substitute an unavailable store instead of aborting the pipeline
 ## [4.1.0] - 2026-08-27
 
-Promotes 4.1.0-RC2 unchanged: identical content, released at a stable stability level.
-## [4.1.0-RC2] - 2026-08-26
-
-### 🚀 Features
-
-- *(replay)* Disable CSRF validation during replay by default
-
-### 🐛 Bug Fixes
-
-- *(replay)* Capture parsed body fields for multipart/form-data requests
-## [4.1.0-RC1] - 2026-08-26
-
 ### 🚀 Features
 
 - *(replay)* Let replay override the request URI and impersonate a live session
 - *(replay)* Let replay override query string and body params too
+- *(replay)* Disable CSRF validation during replay by default
 
 ### 🐛 Bug Fixes
 
 - *(replay)* Capture the exception and log entries a recorded request actually produced
+- *(replay)* Capture parsed body fields for multipart/form-data requests
+
+### 📚 Documentation
+
+- Fold the query/body override change into the v4.3.0-RC1 changelogs
+- Prep v4.3.0
 
 ### ⚙️ Miscellaneous Tasks
 
 - *(release)* Prepare 4.3.0-RC1
-## [4.0.0-RC1] - 2026-08-20
+- *(release)* Prepare 4.3.0-RC2
+## [4.0.0] - 2026-08-26
 
 ### 🚀 Features
 

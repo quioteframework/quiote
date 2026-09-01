@@ -1,30 +1,3 @@
-## [4.4.0-RC2] - 2026-09-01
-
-### 🚀 Features
-
-- *(console)* Show a plugin's declaration source in plugins:list
-## [4.4.0-RC1] - 2026-09-01
-
-### 🚀 Features
-
-- *(exception-notifier)* Add exception notification plugin with Teams and webhook channels
-- *(console)* Add plugins:list and middleware:list commands
-
-### 🐛 Bug Fixes
-
-- *(tests)* Stop PdoSessionPersistencePostgresTest hanging when Postgres is unreachable
-- *(replay)* Substitute an unavailable store instead of aborting the pipeline
-- *(replay-azure)* Fall back to the framework's HTTP client factory
-
-### 📚 Documentation
-
-- Add exception-notifier changelog and update the root changelog
-
-### ⚙️ Miscellaneous Tasks
-
-- *(release)* Prepare replay 4.1.1 and replay-azure 4.0.1
-- Fix dev-main branch-alias for every package with a release
-- *(release)* Prepare exception-notifier 4.0.0-RC1
 ## [4.3.0] - 2026-08-27
 
 ### ⚙️ Miscellaneous Tasks
