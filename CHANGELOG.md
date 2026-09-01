@@ -1,3 +1,36 @@
+## [4.4.0] - 2026-09-01
+
+### 🚀 Features
+
+- *(exception-notifier)* Add exception notification plugin with Teams and webhook channels
+- *(console)* Add plugins:list and middleware:list commands
+- *(console)* Show a plugin's declaration source in plugins:list
+
+### 🐛 Bug Fixes
+
+- *(tests)* Stop PdoSessionPersistencePostgresTest hanging when Postgres is unreachable
+- *(replay)* Substitute an unavailable store instead of aborting the pipeline
+- *(replay-azure)* Fall back to the framework's HTTP client factory
+- *(http)* Stop corrupting a signed URL when posting to a base URI verbatim
+- *(exception-notifier)* Populate correlation id from the ambient request id
+- *(ci)* Quote --ignore-tags' value so clap doesn't mistake it for a flag
+
+### 📚 Documentation
+
+- Add exception-notifier changelog and update the root changelog
+- *(changelog)* Adopt stable-only changelog entries, clean up RC noise
+- *(changelog)* Collapse the framework's historical RC entries into their GA
+- *(changelog)* Stop duplicating CHANGELOG-1.2's history in CHANGELOG.md
+
+### ⚙️ Miscellaneous Tasks
+
+- *(release)* Prepare replay 4.1.1 and replay-azure 4.0.1
+- Fix dev-main branch-alias for every package with a release
+- *(release)* Prepare exception-notifier 4.0.0-RC1
+- *(release)* Prepare 4.4.0-RC1
+- *(release)* Prepare 4.4.0-RC2
+- *(release)* Scope generated changelogs from the last stable tag, not the last tag
+- *(release)* Retire db-cycle/db-eloquent's blocked v4.0.0, cut v4.0.1
 ## [4.3.0] - 2026-08-27
 
 ### 🚀 Features
