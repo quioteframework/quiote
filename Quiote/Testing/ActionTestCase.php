@@ -199,6 +199,14 @@ abstract class ActionTestCase extends FragmentTestCase
 				if ($dbg) {
 					$logger->debug('[TestDebug][AfterValidate] result->ok=' . ($result->ok ? '1' : '0'));
 				}
+			} catch (\Quiote\Exception\ConfigurationException $e) {
+				// A broken validator config (e.g. an unwhitelisted XML parameter caught by
+				// ValidatorPlanBuilder::checkParameters()) is a fixture/app bug, not a validation
+				// outcome -- swallowing it into ValidationResult::failure() previously turned a
+				// loud compile-time error into a mystery "childCount: 0" test failure with no
+				// trace of why. Let it propagate as a real PHPUnit error, same as production's
+				// ValidationMiddleware::runValidation() deliberately leaves it uncaught.
+				throw $e;
 			} catch (\Throwable $e) {
 				if ($dbg) {
 					$logger->debug('[TestDebug][ValidateException] ' . $e::class . ': ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
@@ -222,6 +230,11 @@ abstract class ActionTestCase extends FragmentTestCase
 					if ($trace !== null) {
 						$loaded = $trace->validatorsLoaded;
 					}
+				} catch (\Quiote\Exception\ConfigurationException $e) {
+					// Same rationale as the primary validate() call above: a broken validator
+					// config on the dotted-name fallback is still a fixture/app bug to surface,
+					// not a reason to keep retrying silently.
+					throw $e;
 				} catch (\Throwable $e) {
 					// $loaded keeps its default, so the diagnostic below names no validators.
 					$logger->debug(
@@ -287,6 +300,10 @@ abstract class ActionTestCase extends FragmentTestCase
 					);
 				}
 			}
+		} catch (\Quiote\Exception\ConfigurationException $e) {
+			// Same rationale as the inner catches above: a broken validator config must not
+			// be flattened into an ordinary "validation failed" outcome by this backstop either.
+			throw $e;
 		} catch (\Throwable) {
 			$this->validationSuccess = false;
 		}

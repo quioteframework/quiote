@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ae:configurations
+	xmlns="http://quiote.dev/quiote/config/parts/validators/1.1"
+	xmlns:ae="http://quiote.dev/quiote/config/global/envelope/1.1"
+	parent="%core.module_dir%/ControllerTests/Config/validators.xml"
+>
+	<ae:configuration>
+
+		<!-- Deliberately carries an unknown "values" parameter that StringValidator
+		     never declares in getAcceptedParameters(): reproduces the incident
+		     ValidatorPlanBuilder::checkParameters() exists to catch. -->
+		<validators>
+			<validator name="bad" class="string">
+				<arguments>
+					<argument>status</argument>
+				</arguments>
+				<ae:parameter name="values">pending,approved,rejected</ae:parameter>
+			</validator>
+		</validators>
+
+	</ae:configuration>
+</ae:configurations>
