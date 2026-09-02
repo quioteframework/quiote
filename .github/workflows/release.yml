@@ -108,10 +108,16 @@ jobs:
           # -- --exclude only steers PREVIOUS's own resolution, so without
           # this an RC1..RC2..GA history would still render as three
           # separate headings instead of one.
+          #
+          # --exclude-path keeps a commit scoped entirely to one or more
+          # packages/ out of the framework's own release notes -- each
+          # package publishes its own release separately (release-package.yml).
+          # A commit that also touches a root file is kept either way.
           # shellcheck disable=SC2086
           "/tmp/git-cliff-${GIT_CLIFF_VERSION}/git-cliff" \
             --tag-pattern '^v[0-9]' \
             --ignore-tags='-RC[0-9]+$' \
+            --exclude-path 'packages/**' \
             $SCOPE \
             --tag "${TAG}" \
             --strip header \
