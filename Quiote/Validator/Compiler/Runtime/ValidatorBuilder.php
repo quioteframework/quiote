@@ -3,6 +3,8 @@ namespace Quiote\Validator\Compiler\Runtime;
 
 use InvalidArgumentException;
 use Quiote\Context;
+use Quiote\Logging\Log;
+use Quiote\Validator\Compiler\ValidatorPlanBuilder;
 use Quiote\Validator\AndoperatorValidator;
 use Quiote\Validator\BooleanValidator;
 use Quiote\Validator\EmailValidator;
@@ -222,6 +224,10 @@ final class ValidatorBuilder
 	 */
 	public function raw(string $class, array $arguments, array $parameters = [], array $errors = [], ?callable $children = null): ValidatorSpec
 	{
+		foreach (ValidatorPlanBuilder::checkParameterNames($class, $parameters, $class, 'ValidatorBuilder::raw()') as $diagnostic) {
+			Log::for($this)->warning('[validators] ' . $diagnostic->message);
+		}
+
 		$spec = $this->add($this->validatorFactory()->create($class), $arguments, $parameters, $errors);
 
 		if ($children !== null) {

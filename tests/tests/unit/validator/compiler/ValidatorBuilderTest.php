@@ -1,5 +1,7 @@
 <?php
 
+use Quiote\Config\Config;
+use Quiote\Exception\ConfigurationException;
 use Quiote\Testing\UnitTestCase;
 use Quiote\Validator\Compiler\Runtime\ValidatorBuilder;
 use Quiote\Validator\IValidatorContainer;
@@ -10,6 +12,12 @@ use Quiote\Validator\StringValidator;
 
 class ValidatorBuilderTest extends UnitTestCase
 {
+	protected function tearDown(): void
+	{
+		Config::remove('validation.reject_unknown_parameters');
+		parent::tearDown();
+	}
+
 	private function newManager(): ValidationManager
 	{
 		return $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
@@ -92,6 +100,43 @@ class ValidatorBuilderTest extends UnitTestCase
 		$spec = $v->raw(InarrayValidator::class, ['status'], ['values' => ['a', 'b'], 'sep' => ',']);
 		$this->assertInstanceOf(InarrayValidator::class, $spec->validator());
 		$this->assertSame(['a', 'b'], $spec->validator()->getParameter('values'));
+	}
+
+	/**
+	 * Regression: raw() used to hand parameters straight to initialize() with no
+	 * whitelist check at all, so a typo here was silently stored and never read --
+	 * the exact incident getAcceptedParameters()/checkParameters() exists to catch
+	 * on the XML side. It must now be caught on this path too.
+	 */
+	public function testRawThrowsOnUnknownParameter(): void
+	{
+		$vm = $this->newManager();
+		$v = ValidatorBuilder::on($vm, $this->getContext());
+
+		$this->expectException(ConfigurationException::class);
+		$this->expectExceptionMessageMatches('/Unknown parameter "bogus" on validator "' . preg_quote(StringValidator::class, '/') . '"/');
+		$v->raw(StringValidator::class, ['username'], ['bogus' => 'x']);
+	}
+
+	public function testRawWarnModeLogsInsteadOfThrowingAndStillRegistersValidator(): void
+	{
+		Config::set('validation.reject_unknown_parameters', 'warn', true);
+
+		$vm = $this->newManager();
+		$v = ValidatorBuilder::on($vm, $this->getContext());
+		$spec = $v->raw(StringValidator::class, ['username'], ['bogus' => 'x']);
+
+		$this->assertInstanceOf(StringValidator::class, $spec->validator());
+		$this->assertContains($spec->validator(), $vm->getChilds());
+	}
+
+	public function testRawKnownParametersCompileCleanlyUnderThrowMode(): void
+	{
+		$vm = $this->newManager();
+		$v = ValidatorBuilder::on($vm, $this->getContext());
+
+		$spec = $v->raw(StringValidator::class, ['username'], ['min' => 3, 'max' => 10]);
+		$this->assertInstanceOf(StringValidator::class, $spec->validator());
 	}
 
 	public function testMethodReturnsConstructorProvidedToken(): void

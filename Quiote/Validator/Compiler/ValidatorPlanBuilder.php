@@ -428,63 +428,71 @@ class ValidatorPlanBuilder
 	 */
 	protected function checkParameters(string $class, array $parameters, XmlConfigDomElement $validator): void
 	{
+		$label = (string)$validator->getAttribute('name', $validator->getAttribute('class', $class));
+		array_push($this->diagnostics, ...self::checkParameterNames($class, $parameters, $label, $this->sourceRef ?? '?'));
+	}
+
+	/**
+	 * The class-agnostic core of checkParameters(), shared with
+	 * Quiote\Validator\Compiler\Runtime\ValidatorBuilder::raw() so a
+	 * validator wired up in hand-written PHP gets the same unknown-parameter
+	 * guarantee as one declared in validators.xml, instead of the check only
+	 * existing on the XML-document walk this class otherwise performs it on.
+	 *
+	 * @param array<int|string, mixed> $parameters
+	 * @return Diagnostic[] Diagnostics to record (warn mode: one per unknown
+	 *         parameter; an unresolvable class: exactly one), empty when
+	 *         nothing needs recording.
+	 * @throws ConfigurationException When validation.reject_unknown_parameters
+	 *         is 'throw' (the default) and an unknown parameter is found.
+	 */
+	public static function checkParameterNames(string $class, array $parameters, string $validatorLabel, string $sourceRef): array
+	{
 		$mode = Config::getString('validation.reject_unknown_parameters', self::REJECT_MODE_THROW);
 		if ($mode === self::REJECT_MODE_OFF) {
-			return;
+			return [];
 		}
 
 		if (!class_exists($class) || !is_subclass_of($class, Validator::class)) {
 			// Can't introspect (custom/late-bound class not yet autoloadable
 			// at compile time) -- say so rather than silently pretending the
 			// parameters were checked.
-			$message = sprintf(
-				'cannot introspect "%s" in %s; parameter names unchecked',
-				$class,
-				$this->sourceRef ?? '?'
-			);
-			Log::for($this)->notice('[validators] ' . $message);
-			$this->diagnostics[] = new Diagnostic(
-				Diagnostic::SEVERITY_WARNING,
-				Diagnostic::CODE_UNRESOLVABLE_CLASS,
-				$message,
-				$this->sourceRef ?? '?'
-			);
-			return;
+			$message = sprintf('cannot introspect "%s" in %s; parameter names unchecked', $class, $sourceRef);
+			Log::create(self::class)->notice('[validators] ' . $message);
+			return [new Diagnostic(Diagnostic::SEVERITY_WARNING, Diagnostic::CODE_UNRESOLVABLE_CLASS, $message, $sourceRef)];
 		}
 
 		/** @var class-string<Validator> $class */
 		$accepted = $class::getAcceptedParameters();
 		$acceptedSet = array_fill_keys($accepted, true);
+		$diagnostics = [];
 
 		foreach (array_keys($parameters) as $key) {
 			if (!is_string($key) || isset($acceptedSet[$key])) {
 				continue;
 			}
 
-			$hint = $this->suggestParameterName($key, $accepted);
+			$hint = self::suggestParameterName($key, $accepted);
 			$message = sprintf(
 				'Unknown parameter "%s" on validator "%s" (%s) in %s.%s Accepted: %s.',
 				$key,
-				$validator->getAttribute('name', $validator->getAttribute('class', $class)),
+				$validatorLabel,
 				$class,
-				$this->sourceRef ?? '?',
+				$sourceRef,
 				$hint !== null ? ' Did you mean "' . $hint . '"?' : '',
 				implode(', ', $accepted)
 			);
 
 			if ($mode === self::REJECT_MODE_WARN) {
-				Log::for($this)->warning('[validators] ' . $message);
-				$this->diagnostics[] = new Diagnostic(
-					Diagnostic::SEVERITY_WARNING,
-					Diagnostic::CODE_UNKNOWN_PARAMETER,
-					$message,
-					$this->sourceRef ?? '?'
-				);
+				Log::create(self::class)->warning('[validators] ' . $message);
+				$diagnostics[] = new Diagnostic(Diagnostic::SEVERITY_WARNING, Diagnostic::CODE_UNKNOWN_PARAMETER, $message, $sourceRef);
 				continue;
 			}
 
 			throw new ConfigurationException($message);
 		}
+
+		return $diagnostics;
 	}
 
 	/**
@@ -494,7 +502,7 @@ class ValidatorPlanBuilder
 	 * genuinely different (nonexistent) feature.
 	 * @param string[] $accepted
 	 */
-	private function suggestParameterName(string $unknown, array $accepted): ?string
+	private static function suggestParameterName(string $unknown, array $accepted): ?string
 	{
 		$best = null;
 		$bestDistance = PHP_INT_MAX;
