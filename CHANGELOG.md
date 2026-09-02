@@ -4,6 +4,8 @@
 
 - *(testing)* Stop ActionTestCase swallowing validator config errors
 - *(validator)* Check unknown parameters on ValidatorBuilder::raw() too
+- *(release)* Stop package-only commits leaking into the framework changelog
+- *(middleware)* Re-fetch the canonical request before manual validate hooks
 
 ## [4.4.0] - 2026-09-01
 
