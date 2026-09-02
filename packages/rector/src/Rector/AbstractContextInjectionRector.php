@@ -350,7 +350,7 @@ abstract class AbstractContextInjectionRector extends AbstractRector
      * Whether something in the codebase extends the class being rewritten.
      *
      * Abstract classes are already declined in {@see refactor()}; this is about the concrete base
-     * class, which is the shape that actually appears in applications -- a `JakamoBaseAction` or
+     * class, which is the shape that actually appears in applications -- an `AppBaseAction` or
      * `ApiBaseAction` sitting between the framework's class and the leaves, instantiable in principle
      * and extended in practice.
      *
