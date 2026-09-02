@@ -416,6 +416,81 @@ class ValidationMiddlewareTest extends TestCase
         $this->assertSame('Bob', $action->capturedName, 'Expected the submitted "name" value to be whitelisted and retrievable in executeWrite()');
     }
 
+    /**
+     * Regression: runValidation() called the manual validateWrite()/validate() hooks with
+     * the pre-validation $webRequest it was handed, instead of re-fetching the canonical
+     * WebRequest ValidationManager::execute() republishes to the context after whitelisting
+     * declared exports. A validator with required=false whose source argument is absent
+     * never runs, but its <ae:parameter name="export"> target is still whitelisted
+     * unconditionally at that point -- just not visible through the stale reference
+     * validateWrite() was handed, so getParameter() on the export name threw
+     * UnvalidatedParameterAccessException even though XML validation had already passed.
+     */
+    public function testExportedParameterIsWhitelistedInManualValidateHook(): void
+    {
+        \Quiote\Config\Config::fromArray([
+            'modules.exporttest.enabled' => true,
+        ]);
+        $controller = $this->context->getContainer()->get(\Quiote\Controller\Controller::class);
+        $actionDesc = new \Quiote\Execution\ActionDescriptor('ExportTest', 'Submit', 'write', 'html', false);
+        $action = new class extends \Quiote\Action\Action {
+            public ?string $seenBusinessUnit = 'not-reached';
+            public function getDefaultViewName() { return 'Input'; }
+            public function executeWrite(\Quiote\Request\WebRequest $rd): string { return 'Success'; }
+            public function handleError(\Quiote\Request\WebRequest $rd) { return 'Input'; }
+            public function handleWriteError(\Quiote\Request\WebRequest $rd): string { return 'Input'; }
+            public function validateWrite(\Quiote\Request\WebRequest $rd): bool
+            {
+                $bu = $rd->getParameter('BusinessUnit');
+                $this->seenBusinessUnit = is_string($bu) ? $bu : null;
+                return true;
+            }
+            public function registerWriteValidators(): void
+            {
+                $initContext = $this->getInitContext();
+                $context = $this->getContext();
+                $validationManager = $initContext?->getValidationManager();
+                if ($initContext === null || $context === null || !$validationManager instanceof \Quiote\Validator\IValidatorContainer) {
+                    throw new \RuntimeException('Action must be initialize()d before registerWriteValidators() runs.');
+                }
+                $v = \Quiote\Validator\Compiler\Runtime\ValidatorBuilder::on(
+                    $validationManager,
+                    $context,
+                );
+                // "OwnBusinessUnit" is not in the request body at all, so this required=false
+                // validator never fires and never calls export() -- only the compile-time
+                // "whitelist the export target unconditionally" mechanism can make
+                // 'BusinessUnit' reachable at all.
+                $v->string('OwnBusinessUnit', required: false)->export('BusinessUnit');
+            }
+        };
+        $request = (new ServerRequest('POST', '/export-test'))
+            ->withParsedBody([])
+            ->withAttribute(\Quiote\Execution\ActionDescriptor::class, $actionDesc)
+            ->withAttribute('module', 'ExportTest')
+            ->withAttribute('action', 'Submit');
+        $action->initialize(new \Quiote\Execution\LightweightActionInitContext(
+            $controller->getContext(),
+            'ExportTest',
+            'Submit',
+            'write',
+            'html',
+            $request,
+            $controller->getGlobalResponse()
+        ));
+        $request = $request->withAttribute('quiote.preinstantiated_action', $action);
+
+        $validation = new ValidationMiddleware($controller);
+        $finalHandler = new class implements RequestHandlerInterface {
+            public function handle(ServerRequestInterface $r): ResponseInterface { return new Psr7Response(204); }
+        };
+
+        $response = $validation->process($request, $finalHandler);
+
+        $this->assertSame(204, $response->getStatusCode(), 'Expected validateWrite() to pass and the pipeline to continue');
+        $this->assertNull($action->seenBusinessUnit, 'Expected getParameter("BusinessUnit") to return null (whitelisted, absent) instead of throwing');
+    }
+
     public function testManuallyRegisteredValidatorViaValidatorBuilderFailsForInvalidValue(): void
     {
         \Quiote\Config\Config::fromArray([

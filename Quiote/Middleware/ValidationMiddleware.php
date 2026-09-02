@@ -370,6 +370,14 @@ class ValidationMiddleware implements MiddlewareInterface
             return ['ok' => false, 'hasValidators' => $hasValidators, 'errors' => $errors];
         }
 
+        // ValidationManager::execute() (run inside validateDeclaredOnly() above) may have
+        // republished a new canonical WebRequest to the context -- whitelisting a validator's
+        // <ae:parameter name="export"> target happens unconditionally, even for a
+        // required="false" validator whose source argument was absent and which therefore
+        // never ran. Re-fetching here, instead of reusing the pre-validation $webRequest this
+        // method was handed, is what makes that export visible to the manual hooks below.
+        $webRequest = $this->canonicalWebRequest($webRequest);
+
         $suffix = self::methodTokens($actionDesc->method)['suffix'];
         $ok = true;
         $validateMethod = 'validate' . $suffix;
