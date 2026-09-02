@@ -1,3 +1,10 @@
+## [4.4.1-RC1] - 2026-09-02
+
+### 🐛 Bug Fixes
+
+- *(testing)* Stop ActionTestCase swallowing validator config errors
+- *(validator)* Check unknown parameters on ValidatorBuilder::raw() too
+
 ## [4.4.0] - 2026-09-01
 
 ### 🚀 Features
