@@ -170,6 +170,15 @@
         </include>
         <exclude>
         <directory>Quiote/translation/data</directory>
+        <!-- Executed as a top-level side effect of require_once'ing Quiote.php
+             (see Quiote.php's own require_once of this file), which happens
+             during PHPUnit's bootstrap phase (see phpunit.xml's bootstrap
+             attribute), before coverage instrumentation attaches. Every line
+             always shows count="0" in the coverage report regardless of how
+             much the suite exercises it: excluding it is what makes Codecov's
+             patch-coverage check meaningful for changes here, instead of
+             always failing on a file that cannot be measured. -->
+        <file>Quiote/version.php</file>
         </exclude>
     </source>
     <coverage>
