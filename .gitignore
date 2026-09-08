@@ -1,5 +1,10 @@
 /vendor/
 /composer.lock
+# A package's own composer.json (for its split-repo distribution) is composer-installable on its
+# own outside the monorepo, but the monorepo itself only ever wants the root /vendor/ (path-repo
+# symlinked into it) -- a standalone install run from inside a package directory is local noise.
+packages/*/vendor/
+packages/*/composer.lock
 /tests/sandbox/app/cache
 /tests/config/.phpunit.cache
 /coverage
