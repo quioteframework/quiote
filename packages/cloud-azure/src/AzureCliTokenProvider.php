@@ -16,10 +16,10 @@ namespace Quiote\Storage\Azure;
  */
 final class AzureCliTokenProvider implements AzureTokenProvider
 {
-    private const int CACHE_TTL_SECONDS = 240;
+    use CachesExpiringToken;
+    use DecodesBearerTokenJson;
 
-    private ?string $cachedToken = null;
-    private int $expiresAt = 0;
+    private const int CACHE_TTL_SECONDS = 240;
 
     public function __construct(
         private readonly AzureCliProcessRunner $processRunner = new ProcOpenAzureCliProcessRunner(),
@@ -31,25 +31,14 @@ final class AzureCliTokenProvider implements AzureTokenProvider
     #[\Override]
     public function getToken(): string
     {
-        if ($this->cachedToken !== null && time() < $this->expiresAt) {
-            return $this->cachedToken;
+        if (($cached = $this->cachedTokenOrNull()) !== null) {
+            return $cached;
         }
 
         $output = $this->processRunner->run(['az', 'account', 'get-access-token', '--resource', $this->resource, '--output', 'json']);
 
-        try {
-            $payload = json_decode($output, true, flags: JSON_THROW_ON_ERROR);
-        } catch (\JsonException $e) {
-            throw new AzureStorageException("\"az account get-access-token\" did not return valid JSON: {$e->getMessage()}", 0, $e);
-        }
+        $decoded = self::decodeBearerToken($output, 'accessToken', '"az account get-access-token"', ', run "az login" first');
 
-        if (!is_array($payload) || !isset($payload['accessToken']) || !is_string($payload['accessToken'])) {
-            throw new AzureStorageException('"az account get-access-token" response had no "accessToken", run "az login" first.');
-        }
-
-        $this->cachedToken = $payload['accessToken'];
-        $this->expiresAt = time() + self::CACHE_TTL_SECONDS;
-
-        return $this->cachedToken;
+        return $this->cacheToken($decoded['token'], self::CACHE_TTL_SECONDS);
     }
 }

@@ -25,7 +25,7 @@ $adapter->read('reports/q1.csv');
 $adapter->listContents('reports');
 ```
 
-Or, via a container with `AzureFilesystemPlugin` registered and `filesystem.disks.azure.*` configured, resolve `Quiote\Filesystem\FilesystemManager` and call `->disk('azure')`. `filesystem.disks.azure.auth` (`shared_key`, `workload_identity`, `cli` or `chain`, see `quioteframework/cloud-azure`'s README) picks how requests are authorized; `account_key` is only read for `shared_key`.
+Or, via a container with `AzureFilesystemPlugin` registered and `filesystem.disks.azure.*` configured, resolve `Quiote\Filesystem\FilesystemManager` and call `->disk('azure')`. `filesystem.disks.azure.auth` (`shared_key`, `workload_identity`, `managed_identity`, `cli` or `chain`, see `quioteframework/cloud-azure`'s README) picks how requests are authorized; `account_key` is only read for `shared_key`.
 
 ## License
 

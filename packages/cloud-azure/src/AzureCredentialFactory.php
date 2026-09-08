@@ -12,12 +12,14 @@ use Psr\Log\NullLogger;
 /**
  * Builds the {@see AzureCredential} a config `auth` value asks for, so
  * `quioteframework/session-azure` and `quioteframework/filesystem-azure` share one place that
- * knows how to turn `shared_key` / `workload_identity` / `cli` / `chain` into an instance rather
- * than each re-implementing the same branch.
+ * knows how to turn `shared_key` / `workload_identity` / `managed_identity` / `cli` / `chain`
+ * into an instance rather than each re-implementing the same branch.
  *
- * `workload_identity` and `cli` read their own configuration from the environment (the AKS
- * webhook's variables, respectively an existing `az login` session): nothing beyond `auth`
- * itself is required from `$config` for them. Only `shared_key` needs `account_key`.
+ * `workload_identity`, `managed_identity` and `cli` read their own configuration from the
+ * environment (the AKS webhook's variables, IMDS, respectively an existing `az login` session):
+ * nothing beyond `auth` itself is required from `$config` for them, except that
+ * `managed_identity` accepts an optional `client_id` to select a user-assigned identity. Only
+ * `shared_key` needs `account_key`.
  */
 final class AzureCredentialFactory
 {

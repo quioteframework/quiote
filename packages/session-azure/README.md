@@ -26,7 +26,7 @@ $manager = new \Quiote\Session\SessionManager(
 
 Pass `endpoint` to `AzureBlobClient` to target Azurite or another Blob-compatible endpoint instead of `https://<account>.blob.core.windows.net`. The container is created on first `save()` (idempotent `PUT ?restype=container`, tolerant of a concurrent creation).
 
-`AzureBlobSessionFactory`'s `auth` slot parameter (`shared_key`, `workload_identity`, `cli` or `chain`, see `quioteframework/cloud-azure`'s README) picks how requests are authorized without an account key ever entering the config for anything but `shared_key`.
+`AzureBlobSessionFactory`'s `auth` slot parameter (`shared_key`, `workload_identity`, `managed_identity`, `cli` or `chain`, see `quioteframework/cloud-azure`'s README) picks how requests are authorized without an account key ever entering the config for anything but `shared_key`.
 
 ## Table Storage: `AzureTableSessionPersistence`
 

@@ -30,9 +30,11 @@ use RuntimeException;
  *
  * `auth` selects how requests are authorized: `shared_key` (default, needs
  * `account_key`), `workload_identity` (AKS, reads the webhook's own
- * environment variables), `cli` (a developer's `az login` session) or
- * `chain` (workload identity, falling back to the CLI). Only `shared_key`
- * ever reads a storage account key.
+ * environment variables), `managed_identity` (asks IMDS for a token on
+ * behalf of the node/pod's managed identity), `cli` (a developer's
+ * `az login` session) or `chain` (workload identity, then managed identity
+ * if IMDS is reachable, falling back to the CLI). Only `shared_key` ever
+ * reads a storage account key.
  *
  * For small key/value-shaped session payloads
  * {@see AzureTableSessionFactory} is cheaper. Bring your own PSR-18 client,

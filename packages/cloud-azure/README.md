@@ -41,10 +41,11 @@ $blob = new AzureBlobClient(
 
 - `shared_key` (default): signs with `account_key`, the storage account's own key.
 - `workload_identity`: exchanges the AKS workload identity webhook's projected service account token for a Storage-scoped Azure AD token. Reads `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_FEDERATED_TOKEN_FILE` and `AZURE_AUTHORITY_HOST` straight from the environment; nothing to configure beyond `auth` itself.
+- `managed_identity`: asks the Azure Instance Metadata Service (IMDS) for a token on behalf of whichever managed identity is attached to the node/pod. No configuration needed for a system-assigned identity; a user-assigned one needs `client_id`.
 - `cli`: reuses a developer's `az login` session by shelling out to `az account get-access-token`. For local development against a real storage account without ever handling an account key.
-- `chain`: tries `workload_identity`, falling back to `cli` when the webhook variables are absent. The one strategy that works unmodified both in-cluster and on a laptop.
+- `chain`: tries `workload_identity`, then `managed_identity` (skipped if a short reachability probe finds IMDS unreachable), falling back to `cli`. The one strategy that works unmodified both in-cluster and on a laptop.
 
-No account key is ever read for `workload_identity`, `cli` or `chain`.
+No account key is ever read for `workload_identity`, `managed_identity`, `cli` or `chain`.
 
 `AzureBlobClient::listObjects()` lists blobs in a container (List Blobs), and `AzureBlobContainerClient::listObjects()` does the same bound to one container. Both normalize pagination, prefix/delimiter grouping and per-entry metadata the same way `S3Client` and `GcsClient` do; see `Quiote\Storage\ListableObjectStoreClientInterface`.
 

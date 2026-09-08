@@ -22,10 +22,10 @@ use Psr\Http\Client\ClientInterface;
  */
 final class WorkloadIdentityTokenProvider implements AzureTokenProvider
 {
-    private const int EXPIRY_SAFETY_MARGIN_SECONDS = 60;
+    use CachesExpiringToken;
+    use DecodesBearerTokenJson;
 
-    private ?string $cachedToken = null;
-    private int $expiresAt = 0;
+    private const int EXPIRY_SAFETY_MARGIN_SECONDS = 60;
 
     public function __construct(
         private readonly ClientInterface $httpClient,
@@ -63,8 +63,8 @@ final class WorkloadIdentityTokenProvider implements AzureTokenProvider
     #[\Override]
     public function getToken(): string
     {
-        if ($this->cachedToken !== null && time() < $this->expiresAt) {
-            return $this->cachedToken;
+        if (($cached = $this->cachedTokenOrNull()) !== null) {
+            return $cached;
         }
 
         $assertion = @file_get_contents($this->federatedTokenFile);
@@ -99,20 +99,8 @@ final class WorkloadIdentityTokenProvider implements AzureTokenProvider
             ));
         }
 
-        try {
-            $payload = json_decode((string) $response->getBody(), true, flags: JSON_THROW_ON_ERROR);
-        } catch (\JsonException $e) {
-            throw new AzureStorageException("Azure AD returned a token response that was not valid JSON: {$e->getMessage()}", 0, $e);
-        }
+        $decoded = self::decodeBearerToken((string) $response->getBody(), 'access_token', 'Azure AD');
 
-        if (!is_array($payload) || !isset($payload['access_token']) || !is_string($payload['access_token'])) {
-            throw new AzureStorageException('Azure AD token response had no "access_token".');
-        }
-
-        $expiresIn = is_int($payload['expires_in'] ?? null) ? $payload['expires_in'] : 0;
-        $this->cachedToken = $payload['access_token'];
-        $this->expiresAt = time() + max(0, $expiresIn - self::EXPIRY_SAFETY_MARGIN_SECONDS);
-
-        return $this->cachedToken;
+        return $this->cacheToken($decoded['token'], $decoded['expiresIn'] - self::EXPIRY_SAFETY_MARGIN_SECONDS);
     }
 }

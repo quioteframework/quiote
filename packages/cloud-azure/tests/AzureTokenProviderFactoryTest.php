@@ -11,6 +11,7 @@ use Quiote\Storage\Azure\AzureCliTokenProvider;
 use Quiote\Storage\Azure\AzureStorageException;
 use Quiote\Storage\Azure\AzureTokenProviderFactory;
 use Quiote\Storage\Azure\ChainedTokenProvider;
+use Quiote\Storage\Azure\ManagedIdentityTokenProvider;
 
 final class AzureTokenProviderFactoryTest extends TestCase
 {
@@ -31,9 +32,43 @@ final class AzureTokenProviderFactoryTest extends TestCase
 
     public function testChainDoesNotThrowWhenWorkloadIdentityIsUnavailable(): void
     {
-        $provider = AzureTokenProviderFactory::fromConfig(['auth' => 'chain'], new TokenProviderFactoryNeverCalledHttpClient());
+        $provider = AzureTokenProviderFactory::fromConfig(['auth' => 'chain'], new TokenProviderFactoryNeverCalledHttpClient(), isManagedIdentityReachable: static fn (): bool => false);
 
         $this->assertInstanceOf(ChainedTokenProvider::class, $provider);
+    }
+
+    public function testManagedIdentityBuildsAManagedIdentityTokenProvider(): void
+    {
+        $provider = AzureTokenProviderFactory::fromConfig(['auth' => 'managed_identity'], new TokenProviderFactoryNeverCalledHttpClient());
+
+        $this->assertInstanceOf(ManagedIdentityTokenProvider::class, $provider);
+    }
+
+    public function testChainIncludesManagedIdentityBetweenWorkloadIdentityAndTheCliWhenImdsIsReachable(): void
+    {
+        $http = new FactoryThrowingImdsTransport();
+        $provider = AzureTokenProviderFactory::fromConfig(['auth' => 'chain'], $http, isManagedIdentityReachable: static fn (): bool => true);
+
+        $this->assertInstanceOf(ChainedTokenProvider::class, $provider);
+
+        $reflection = new \ReflectionProperty(ChainedTokenProvider::class, 'providers');
+        $providers = $reflection->getValue($provider);
+        $this->assertIsArray($providers);
+        $this->assertInstanceOf(ManagedIdentityTokenProvider::class, $providers[0]);
+        $this->assertInstanceOf(AzureCliTokenProvider::class, $providers[1]);
+    }
+
+    public function testChainSkipsManagedIdentityWhenImdsIsNotReachable(): void
+    {
+        $provider = AzureTokenProviderFactory::fromConfig(['auth' => 'chain'], new TokenProviderFactoryNeverCalledHttpClient(), isManagedIdentityReachable: static fn (): bool => false);
+
+        $this->assertInstanceOf(ChainedTokenProvider::class, $provider);
+
+        $reflection = new \ReflectionProperty(ChainedTokenProvider::class, 'providers');
+        $providers = $reflection->getValue($provider);
+        $this->assertIsArray($providers);
+        $this->assertCount(1, $providers);
+        $this->assertInstanceOf(AzureCliTokenProvider::class, $providers[0]);
     }
 
     public function testWorkloadIdentityThrowsImmediatelyWithoutTheWebhookVariables(): void
@@ -106,5 +141,15 @@ final class FactoryFakeAadTokenTransport implements ClientInterface
         $this->requests[] = $request;
 
         return new Response(200, [], json_encode(['access_token' => 'aad-token', 'expires_in' => 3600], JSON_THROW_ON_ERROR));
+    }
+}
+
+final class FactoryThrowingImdsTransport implements ClientInterface
+{
+    #[\Override]
+    public function sendRequest(RequestInterface $request): ResponseInterface
+    {
+        throw new class extends \RuntimeException implements \Psr\Http\Client\ClientExceptionInterface {
+        };
     }
 }
