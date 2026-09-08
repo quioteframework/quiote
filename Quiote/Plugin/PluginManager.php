@@ -315,6 +315,7 @@ final class PluginManager
         \Quiote\Middleware\Config\MiddlewareConfigRegistry::reset();
         \Quiote\Database\DatabaseDriverRegistry::reset();
         \Quiote\Exception\Rendering\ExceptionRendererRegistry::reset();
+        \Quiote\Environment\EnvironmentSourceRegistry::reset();
         \Quiote\Runtime\Worker\WorkerRuntimeInfo::reset();
     }
 

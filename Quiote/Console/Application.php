@@ -3,6 +3,7 @@ namespace Quiote\Console;
 
 use Quiote\Console\Command\AboutCommand;
 use Quiote\Console\Command\CacheWarmupCommand;
+use Quiote\Console\Command\EnvironmentListCommand;
 use Quiote\Console\Command\MakeActionCommand;
 use Quiote\Console\Command\MakeJobCommand;
 use Quiote\Console\Command\MakeMiddlewareCommand;
@@ -45,6 +46,7 @@ final class Application extends SymfonyApplication
 		$this->addCommand(new RoutesCompileCommand());
 		$this->addCommand(new PluginsListCommand());
 		$this->addCommand(new MiddlewareListCommand());
+		$this->addCommand(new EnvironmentListCommand());
 		$this->addCommand(new OpenapiGenerateCommand());
 		$this->addCommand(new CacheWarmupCommand());
 		$this->addCommand(new MakeActionCommand());

@@ -31,7 +31,7 @@ final class AttributeRouteScanner
 	public const CODE_DUPLICATE_ROUTE_NAME = 'DUPLICATE_ROUTE_NAME';
 	public const CODE_DUPLICATE_ROUTE_PATH = 'DUPLICATE_ROUTE_PATH';
 
-	/** @var Diagnostic[] */
+	/** @var list<Diagnostic> */
 	private array $diagnostics = [];
 
 	/**
@@ -123,7 +123,7 @@ final class AttributeRouteScanner
 	}
 
 	/**
-	 * @return Diagnostic[] Diagnostics recorded during the last scan().
+	 * @return list<Diagnostic> Diagnostics recorded during the last scan().
 	 */
 	public function getDiagnostics(): array
 	{

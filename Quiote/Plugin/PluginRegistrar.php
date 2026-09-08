@@ -171,6 +171,23 @@ final class PluginRegistrar
     }
 
     /**
+     * Register a source of environment names -- e.g. an object-store-backed
+     * replay cassette store's env-partitioned key scheme -- so `env:list` can
+     * enumerate them without knowing about any specific package's own storage
+     * scheme. Routes to the static {@see \Quiote\Environment\EnvironmentSourceRegistry}
+     * (applied immediately, like {@see databaseDriver()}). $factory receives the
+     * building context's container and returns null when this source doesn't
+     * apply to the current config (e.g. a different `replay.store` is configured).
+     *
+     * @param \Closure(\Quiote\DI\Container): ?\Quiote\Environment\EnvironmentSourceInterface $factory
+     */
+    public function environmentSource(string $id, \Closure $factory): self
+    {
+        \Quiote\Environment\EnvironmentSourceRegistry::register($id, $factory);
+        return $this;
+    }
+
+    /**
      * Contribute a callback that clears a plugin-owned static registry, invoked by
      * {@see PluginManager::reset()}. For a driver registry a plugin package owns and populates
      * directly (per this class's own docblock): a generic seam so PluginManager never needs to

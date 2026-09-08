@@ -8,6 +8,7 @@ use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Quiote\Config\Config;
 use Quiote\DI\Container;
+use Quiote\Environment\EnvironmentSourceRegistry;
 use Quiote\Http\Client\HttpClientFactory;
 use Quiote\Plugin\PluginManager;
 use Quiote\Replay\Index\CassetteIndexRegistry;
@@ -16,6 +17,7 @@ use Quiote\Replay\ReplayPlugin;
 use Quiote\Replay\Store\CassetteStoreInterface;
 use Quiote\Replay\Store\FileCassetteStore;
 use Quiote\Replay\Store\CassetteStoreRegistry;
+use Quiote\Replay\Store\Storage\ObjectStoreCassetteEnvironmentSource;
 use Quiote\Replay\Store\Storage\ObjectStoreCassetteStore;
 
 /**
@@ -222,6 +224,38 @@ final class ReplayAzurePluginTest extends TestCase
         // fail rather than merely construct successfully.
         $indexes = CassetteIndexRegistry::build($container);
         $this->assertCount(3, $indexes);
+    }
+
+    public function testEnvironmentSourceDeclinesWhenReplayStoreIsNotAzureBlob(): void
+    {
+        Config::set('replay.store', 'file', true, false);
+        Config::set('replay.store.path', sys_get_temp_dir() . '/quiote-azure-plugin-' . bin2hex(random_bytes(6)), true, false);
+
+        PluginManager::add(new ReplayAzurePlugin());
+        PluginManager::bootFromConfig();
+
+        $container = new Container();
+        $container->set(ClientInterface::class, new PluginTestNeverCalledHttpClient());
+
+        $this->assertSame([], EnvironmentSourceRegistry::resolve($container));
+    }
+
+    public function testEnvironmentSourceIsRegisteredWhenReplayStoreNamesAzureBlob(): void
+    {
+        Config::set('replay.store', 'azure-blob', true, false);
+        Config::set('replay.store.azure.account', 'examplestore', true, false);
+
+        PluginManager::add(new ReplayAzurePlugin());
+        PluginManager::bootFromConfig();
+
+        $container = new Container();
+        $container->set(ClientInterface::class, new PluginTestNeverCalledHttpClient());
+
+        $sources = EnvironmentSourceRegistry::resolve($container);
+
+        $this->assertArrayHasKey('replay-azure', $sources);
+        $this->assertInstanceOf(ObjectStoreCassetteEnvironmentSource::class, $sources['replay-azure']);
+        $this->assertSame('replay cassettes (azure-blob)', $sources['replay-azure']->label());
     }
 
     public function testLoadOrderNoLongerMatters(): void

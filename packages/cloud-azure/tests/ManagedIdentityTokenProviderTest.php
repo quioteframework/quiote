@@ -92,6 +92,9 @@ final class ManagedIdentityTokenProviderTest extends TestCase
             self::fail('Could not start a local TCP listener for the reachability probe test.');
         }
         $address = stream_socket_get_name($server, false);
+        if ($address === false) {
+            self::fail('Could not read the local TCP listener\'s address.');
+        }
         $port = (int) substr($address, strrpos($address, ':') + 1);
 
         try {
@@ -108,6 +111,9 @@ final class ManagedIdentityTokenProviderTest extends TestCase
             self::fail('Could not reserve a local port for the reachability probe test.');
         }
         $address = stream_socket_get_name($server, false);
+        if ($address === false) {
+            self::fail('Could not read the reserved port\'s address.');
+        }
         $port = (int) substr($address, strrpos($address, ':') + 1);
         fclose($server);
 

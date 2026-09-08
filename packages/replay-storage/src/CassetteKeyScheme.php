@@ -36,6 +36,17 @@ final readonly class CassetteKeyScheme
     ) {
     }
 
+    /**
+     * The key prefix one level above {@see dayPrefix()} -- i.e. before the `{env}` segment -- for
+     * a delimited `listObjects()` call that enumerates every environment cassettes have ever been
+     * partitioned under, as common prefixes, rather than any single environment's own keys. See
+     * {@see \Quiote\Replay\Store\Storage\ObjectStoreCassetteEnvironmentSource}.
+     */
+    public function rootPrefix(): string
+    {
+        return trim($this->prefix, '/') . '/';
+    }
+
     /** The key a cassette recorded at $recordedAt (or, absent that, $fallback) is written under. */
     public function keyFor(CassetteId $id, ?DateTimeImmutable $recordedAt, DateTimeImmutable $fallback): string
     {

@@ -138,7 +138,7 @@ final class RoutesListCommand extends AbstractAppCommand
 	}
 
 	/**
-	 * @return array{0: string[], 1: Diagnostic[]} Route names declared via
+	 * @return array{0: string[], 1: list<Diagnostic>} Route names declared via
 	 *         #[Route] attributes, and any diagnostics from that scan.
 	 */
 	private function scanAttributeRoutes(): array
@@ -149,7 +149,7 @@ final class RoutesListCommand extends AbstractAppCommand
 	}
 
 	/**
-	 * @param Diagnostic[] $diagnostics
+	 * @param list<Diagnostic> $diagnostics
 	 */
 	private function renderDiagnostics(SymfonyStyle $io, array $diagnostics): void
 	{
@@ -161,18 +161,5 @@ final class RoutesListCommand extends AbstractAppCommand
 				$io->warning($message);
 			}
 		}
-	}
-
-	/**
-	 * @param Diagnostic[] $diagnostics
-	 */
-	private function exitCodeFor(array $diagnostics): int
-	{
-		foreach ($diagnostics as $diagnostic) {
-			if ($diagnostic->severity === Diagnostic::SEVERITY_ERROR) {
-				return self::FAILURE;
-			}
-		}
-		return self::SUCCESS;
 	}
 }

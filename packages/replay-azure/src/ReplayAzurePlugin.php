@@ -8,6 +8,7 @@ use Nyholm\Psr7\Factory\Psr17Factory;
 use Psr\Http\Client\ClientInterface;
 use Quiote\Config\Config;
 use Quiote\DI\Container;
+use Quiote\Environment\EnvironmentSourceInterface;
 use Quiote\Http\Client\HttpClientConfig;
 use Quiote\Http\Client\HttpClientFactory;
 use Quiote\Logging\Log;
@@ -22,6 +23,7 @@ use Quiote\Replay\Store\CassetteStoreRegistry;
 use Quiote\Replay\Store\Storage\CassetteKeyScheme;
 use Quiote\Replay\Store\Storage\Index\ExplicitKeyIndex;
 use Quiote\Replay\Store\Storage\Index\PrefixScanIndex;
+use Quiote\Replay\Store\Storage\ObjectStoreCassetteEnvironmentSource;
 use Quiote\Replay\Store\Storage\ObjectStoreCassetteStore;
 use Quiote\Storage\Azure\AzureBlobClient;
 use Quiote\Storage\Azure\AzureBlobContainerClient;
@@ -92,6 +94,18 @@ final class ReplayAzurePlugin implements PluginInterface
         CassetteIndexRegistry::register(static fn(Container $container): CassetteIndexInterface => new ExplicitKeyIndex(self::makeObjectClient($container)));
         CassetteIndexRegistry::register(static fn(Container $container): CassetteIndexInterface => self::makeLogAnalyticsIndex($container));
         CassetteIndexRegistry::register(static fn(Container $container): CassetteIndexInterface => new PrefixScanIndex(self::makeObjectClient($container), self::makeKeyScheme()));
+
+        // Declines (returns null) unless `replay.store` actually names this store, the same gate
+        // `ReplayPlugin`'s own `CassetteStoreInterface` binding applies -- merely installing this
+        // package must not make `env:list` claim to know about Azure-backed environments an app
+        // never configured.
+        $registrar->environmentSource('replay-azure', static function (Container $container): ?EnvironmentSourceInterface {
+            if (Config::getString('replay.store', 'file') !== 'azure-blob') {
+                return null;
+            }
+
+            return new ObjectStoreCassetteEnvironmentSource(self::makeObjectClient($container), self::makeKeyScheme(), 'azure-blob');
+        });
     }
 
     private static function makeStore(Container $container): ObjectStoreCassetteStore

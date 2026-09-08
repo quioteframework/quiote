@@ -131,16 +131,4 @@ final class CassetteListCommand extends AbstractAppCommand
 
         return false;
     }
-
-    /** @param list<Diagnostic> $diagnostics */
-    private function exitCodeFor(array $diagnostics): int
-    {
-        foreach ($diagnostics as $diagnostic) {
-            if ($diagnostic->severity === Diagnostic::SEVERITY_ERROR) {
-                return self::FAILURE;
-            }
-        }
-
-        return self::SUCCESS;
-    }
 }

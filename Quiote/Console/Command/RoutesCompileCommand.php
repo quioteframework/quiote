@@ -72,7 +72,7 @@ final class RoutesCompileCommand extends AbstractAppCommand
 			$this->renderDiagnostics($io, $artifact['diagnostics']);
 		}
 
-		return $this->exitCodeFor($artifact['diagnostics']);
+		return $this->exitCodeForRawDiagnostics($artifact['diagnostics']);
 	}
 
 	/**
@@ -91,9 +91,14 @@ final class RoutesCompileCommand extends AbstractAppCommand
 	}
 
 	/**
+	 * Named distinctly from {@see \Quiote\Console\Command\AbstractAppCommand::exitCodeFor()}: this
+	 * operates on the already-serialized `array{severity: string, ...}` shape
+	 * `AppIntrospectionCompiler` emits, not a `list<Diagnostic>` of objects, so it cannot honestly
+	 * override that shared helper.
+	 *
 	 * @param list<array{severity: string}> $diagnostics
 	 */
-	private function exitCodeFor(array $diagnostics): int
+	private function exitCodeForRawDiagnostics(array $diagnostics): int
 	{
 		foreach ($diagnostics as $diagnostic) {
 			if ($diagnostic['severity'] === Diagnostic::SEVERITY_ERROR) {

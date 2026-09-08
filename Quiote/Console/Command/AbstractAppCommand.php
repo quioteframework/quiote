@@ -60,6 +60,24 @@ abstract class AbstractAppCommand extends Command
 	}
 
 	/**
+	 * FAILURE if any diagnostic is an error, else SUCCESS -- shared by every
+	 * command that reports soft, per-item failures via {@see \Quiote\Support\Compiler\Diagnostic}
+	 * (a warning degrades the output but not the exit code; an error does).
+	 *
+	 * @param list<\Quiote\Support\Compiler\Diagnostic> $diagnostics
+	 */
+	protected function exitCodeFor(array $diagnostics): int
+	{
+		foreach ($diagnostics as $diagnostic) {
+			if ($diagnostic->severity === \Quiote\Support\Compiler\Diagnostic::SEVERITY_ERROR) {
+				return self::FAILURE;
+			}
+		}
+
+		return self::SUCCESS;
+	}
+
+	/**
 	 * `quiote new`-scaffolded apps are self-contained: they have no
 	 * composer.json of their own and rely on a PSR-4-ish autoloader for
 	 * their own namespace registered only inside their generated

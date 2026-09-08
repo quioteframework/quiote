@@ -117,7 +117,7 @@ final class AppIntrospectionCompiler
 			'modules' => $modules,
 			'routes' => $routes,
 			'triads' => $triads,
-			'diagnostics' => array_values(array_map(static fn(Diagnostic $diagnostic) => $diagnostic->toArray(), $diagnostics)),
+			'diagnostics' => array_map(static fn(Diagnostic $diagnostic) => $diagnostic->toArray(), $diagnostics),
 			'dependencies' => $dependencies,
 			'shadowed' => $shadowed,
 			'outputTypes' => $outputTypes,
