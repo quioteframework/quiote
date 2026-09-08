@@ -1,3 +1,14 @@
+## [4.5.0-beta] - 2026-09-08
+
+### 🚀 Features
+
+- *(console)* Add env:list, backed by pluggable environment sources
+
+### ⚙️ Miscellaneous Tasks
+
+- Remove RELEASE_PLAN planning doc
+- *(gitignore)* Ignore per-package vendor/ and composer.lock under packages/*
+
 ## [4.4.1] - 2026-09-03
 
 ### 🐛 Bug Fixes
