@@ -1,3 +1,21 @@
+## [4.2.0] - 2026-09-08
+
+### 🚀 Features
+
+- *(console)* Add env:list, backed by pluggable environment sources
+
+### 🐛 Bug Fixes
+
+- *(cloud-azure)* Bound the chain's IMDS probe and dedupe token providers
+
+### 📚 Documentation
+
+- *(changelog)* Adopt stable-only changelog entries, clean up RC noise
+
+### ⚙️ Miscellaneous Tasks
+
+- Fix dev-main branch-alias for every package with a release
+
 ## [4.1.0] - 2026-08-26
 
 ### 🚀 Features
