@@ -66,6 +66,8 @@ class StringValidator extends Validator
 			}
 		}
 		
+		$originalValue = $this->normalize($originalValue);
+
 		$value = $originalValue;
 		
 		/*if($utf8) {
@@ -85,6 +87,22 @@ class StringValidator extends Validator
 		$this->exportOwnArgumentByDefault($originalValue);
 
 		return true;
+	}
+
+	/**
+	 * Rewrites the submitted string before it is checked and written back.
+	 *
+	 * Runs after trimming and before the length checks, and its result is the
+	 * value the action receives. The default leaves the string as it is; a
+	 * subclass that sanitizes or canonicalizes input (stripping markup,
+	 * normalizing whitespace) overrides this rather than exporting the value
+	 * itself.
+	 * @param      string $value The submitted, trimmed string.
+	 * @return     string The string to validate and write back.
+	 */
+	protected function normalize(string $value): string
+	{
+		return $value;
 	}
 }
 

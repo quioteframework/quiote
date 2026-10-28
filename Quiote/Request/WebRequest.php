@@ -661,11 +661,27 @@ class WebRequest implements ServerRequestInterface, ResetInterface, \Quiote\Cont
 
 	/**
 	 * Legacy write API: set a runtime parameter (not an attribute, not HTTP input).
+	 *
+	 * A bracketed name (`rows[0][ItemName]`) changes that one key inside the
+	 * root array and leaves its siblings alone: a root that is not yet a
+	 * runtime parameter is first seeded with the readable submitted value, so
+	 * the write lands in the posted rows instead of replacing them.
 	 */
 	public function setParameter(string $name, mixed $value): static
 	{
+		$params = $this->params;
+		$firstBracket = strpos($name, '[');
+		if ($firstBracket !== false && $firstBracket > 0) {
+			$root = substr($name, 0, $firstBracket);
+			if (!$params->has($root)) {
+				$submitted = $this->getParameters('parameters')[$root] ?? null;
+				if (is_array($submitted)) {
+					$params = $params->withSeededRoot($root, $submitted);
+				}
+			}
+		}
 		$new = clone $this;
-		$new->params = $this->params->withParameter($name, $value);
+		$new->params = $params->withParameter($name, $value);
 		$new->parametersCache = null;
 		return $new;
 	}
@@ -819,8 +835,10 @@ class WebRequest implements ServerRequestInterface, ResetInterface, \Quiote\Cont
 	 * $keep contains names of successfully validated arguments. $failed contains
 	 * names of arguments that explicitly failed validation. Everything else in
 	 * intrinsic (query+body merged) and runtime parameters is considered
-	 * unvalidated and will be removed. Module/action parameters may optionally
-	 * be preserved if $preserveModuleAction is true.
+	 * unvalidated and will be removed. Inside a surviving array the same holds
+	 * per path: a nested key that failed, or that no validated path names, is
+	 * removed too (see ParameterTreePruner). Module/action parameters may
+	 * optionally be preserved if $preserveModuleAction is true.
 	 * This operates only on the "parameters" source (query+body merged) plus
 	 * runtime parameters, matching validator argument semantics. Cookies, files
 	 * and headers are left untouched here because validator arguments typically
@@ -837,19 +855,10 @@ class WebRequest implements ServerRequestInterface, ResetInterface, \Quiote\Cont
 			if ($actionKey) { $preserve[$actionKey] = true; }
 		}
 
-		$keepSet = [];
-		foreach ($keep as $k) {
-			$keepSet[$k] = true;
-			// When a bracket-path like "Foo[Bar]" is validated, the root key "Foo"
-			// must also be kept so nested arrays survive pruning.
-			$firstBracket = strpos($k, '[');
-			if ($firstBracket !== false) {
-				$root = substr($k, 0, $firstBracket);
-				if ($root !== '') {
-					$keepSet[$root] = true;
-				}
-			}
-		}
+		$tree = new ParameterTreePruner($keep, $failed);
+		// A root that any validated path reaches survives; what survives inside it is
+		// the tree pruner's decision.
+		$keepSet = array_fill_keys($keep, true) + array_fill_keys($tree->roots(), true);
 		$failedSet = array_fill_keys($failed, true);
 
 		$query = $this->getQueryParams();
@@ -870,6 +879,18 @@ class WebRequest implements ServerRequestInterface, ResetInterface, \Quiote\Cont
 			if (isset($failedSet[$name])) { $remove = true; }
 			if ($remove) {
 				unset($query[$name], $body[$name]);
+				continue;
+			}
+			if (isset($preserve[$name])) {
+				continue;
+			}
+			// Submitted input is never trusted as a whole: inside a surviving array only
+			// the paths validation vouched for remain.
+			if (isset($query[$name]) && is_array($query[$name])) {
+				$query[$name] = $tree->prune((string) $name, $query[$name]);
+			}
+			if (isset($body[$name]) && is_array($body[$name])) {
+				$body[$name] = $tree->prune((string) $name, $body[$name]);
 			}
 		}
 

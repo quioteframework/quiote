@@ -7,6 +7,47 @@ Everything else — features, fixes, refactors — is in [CHANGELOG.md](CHANGELO
 Package versions move independently of the framework's (see [RELEASING.md](RELEASING.md)),
 so a section here is titled by the framework release that introduced the change.
 
+## 4.5.0 → 4.5.1
+
+### Array parameters now carry validated values, and strict mode prunes inside them
+
+**Action required if your validators use `<arguments base="…">` or your actions read array
+parameters.** Four behaviours change together.
+
+**Results are written back into the element.** A coercing or sanitizing validator under a
+base (`StringValidator`, `NumberValidator`, `BooleanValidator`, `JsonValidator`) writes its
+result to the argument's full path in the current element, for example `rows[0][Qty]` (or
+`items[0]` for an empty argument under `items[]`), not to a top-level parameter named after
+the argument. Actions that read `getParameter('rows')` now get native types (`int` for a
+number, the trimmed string, decoded JSON) where they used to get the raw submitted strings.
+Check code that relies on the strings under `strict_types`. Code that read the top-level
+`Qty` written by the last row gets nothing now; read the row's own field instead.
+
+**Nested writes keep their siblings.** A bracketed export (`rows[%2$s][QtyInt]`) or
+`setParameter('rows[0][X]', …)` adds that one key to the submitted array. Previously it
+replaced the whole root with only the exported keys.
+
+**Strict mode prunes inside arrays.** A nested key that failed validation, or that no
+validator covers, is removed from the array before the action sees it. A posted
+`rows[0][Comment]` with no validator, or an injected `rows[0][IsAdmin]`, is gone. Add a
+validator for every nested field your action reads.
+
+**A validator on the array itself keeps only the container.** `IsNotEmptyValidator`,
+`ArraylengthValidator` or `IssetValidator` on `rows` checks the array's shape, not its
+contents, so on its own it leaves `rows` as an empty array. Give the fields their own
+validators under `base="rows[]"`. A custom validator that checks every element itself can
+override `Validator::coversArgumentSubtree()` to return `true`, and the contents then survive
+as submitted.
+
+An `export` to a plain name (no `%`, no brackets) from inside a wildcard base keeps its
+meaning: one top-level parameter, which each element overwrites in turn. Quiote now logs a
+warning for it. Export to `rows[%2$s][Name]` to keep one value per element.
+
+`StringValidator` has a new `normalize(string): string` hook. A subclass that rewrites the
+submitted string (stripping markup, for instance) overrides it, rather than calling
+`export()` itself; the hook runs before the length checks, and its result is what the action
+receives.
+
 ## 4.1.0 → 4.2.0-RC1
 
 ### Filesystem and object-store classes moved into their own packages

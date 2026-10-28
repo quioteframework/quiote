@@ -127,6 +127,12 @@ abstract class Validator extends ParameterHolder implements ResetInterface, Vali
 	protected $affectedArguments = [];
 
 	/**
+	 * Whether this run already warned about an export to a plain name from
+	 * inside a wildcard base.
+	 */
+	private bool $sharedExportWarned = false;
+
+	/**
 	 * Returns the base path of this validator.
 	 * @return     \Quiote\Util\VirtualArrayPath The basepath of this validator
 	 * @since      1.0.0
@@ -865,13 +871,14 @@ abstract class Validator extends ParameterHolder implements ResetInterface, Vali
 
 		$request = $this->requireRequest();
 		$base = $this->requireCurBase();
-		$array = $request->getParameters($source);
 		$currentParts = $base->getParts();
 
 		if(count($currentParts) > 0 && str_contains($name, '%')) {
 			// this is a validator which actually has a base (<arguments base="xx">) set
 			// and the export name contains sprintf syntax
 			$name = vsprintf($name, $currentParts);
+		} elseif(!str_contains($name, '[')) {
+			$this->warnAboutSharedExportTarget($name);
 		}
 		// CAUTION
 		// we had a feature here during development that would allow [] at the end to append values to an array
@@ -879,49 +886,21 @@ abstract class Validator extends ParameterHolder implements ResetInterface, Vali
 		// example: we export to foo[], and the user supplies ?foo[28] in the URL. that means our export will be in foo[29]. foo[28] will be removed by the validation, but the keys are still potentially harmful
 		// that's why we decided to remove this again
 		$cp = new VirtualArrayPath($name);
-		$cp->setValue($array, $value);
+		$flatName = $cp->__toString();
 
-		// Persist export into request runtime parameters (post-migration fix):
-		// Extend: also materialize bracketed exports into a nested runtime structure so actions accessing $request->getParameter('User') receive array of exported values.
+		// A bracketed name changes that one key inside the root array; setParameter()
+		// seeds the root from the submitted input first, so the rest of it survives.
 		$rootParameterName = null;
+		$bracketPos = strpos($flatName, '[');
+		if($bracketPos !== false && $bracketPos > 0) {
+			$rootParameterName = substr($flatName, 0, $bracketPos);
+		}
 		try {
-			$flatName = $cp->__toString();
-			if(!str_contains($flatName, '[')) {
-				$request = $request->setParameter($flatName, $value);
-				if (($logger = \Quiote\Logging\Log::for($this))->isEnabled(\Quiote\Logging\Level::Debug)) { $logger->debug('[Validator][export][debug] stored simple name=' . $flatName . ' type=' . (get_debug_type($value))); }
-			} elseif(($bracketPos = strpos($flatName, '[')) !== false) {
-				// Parse root and indices: e.g. User[0] => root=User, indices=[0]
-				$root = substr($flatName, 0, $bracketPos);
-				$indicesPart = substr($flatName, strlen($root));
-				if($root !== '') {
-					$indices = [];
-					if(preg_match_all('/\[(.*?)\]/', $indicesPart, $m)) {
-						foreach($m[1] as $seg) { $indices[] = $seg; }
-					}
-					// Build nested array reference in runtime parameters
-					$runtime = $request->getParameters('runtime');
-					if(!isset($runtime[$root]) || !is_array($runtime[$root])) { $runtime[$root] = []; }
-					$ref =& $runtime[$root];
-					if(count($indices) > 0) {
-						$lastIndex = array_pop($indices);
-						foreach($indices as $idx) {
-							if($idx === '') { $ref[] = []; $idx = array_key_last($ref); }
-							if(!isset($ref[$idx]) || !is_array($ref[$idx])) { $ref[$idx] = []; }
-							$ref =& $ref[$idx];
-						}
-						if($lastIndex === '') { $ref[] = $value; }
-						else { $ref[$lastIndex] = $value; }
-					}
-					// Write back updated root array into runtime parameters
-					$request = $request->setParameter($root, $runtime[$root]);
-					// Remember root parameter name so we can register it as succeeded argument
-					$rootParameterName = $root;
-					if (($logger = \Quiote\Logging\Log::for($this))->isEnabled(\Quiote\Logging\Level::Debug)) { $logger->debug('[Validator][export][debug] stored bracketed root=' . $root . ' flat=' . $flatName); }
-				}
-			}
+			$request = $request->setParameter($flatName, $value);
+			\Quiote\Logging\Log::for($this)->debugWith(fn(): string => '[Validator][export] stored ' . $flatName . ' type=' . get_debug_type($value));
 		} catch(\Throwable $e) {
-			// $request keeps whatever was written before the failure, so a partially exported
-			// value can reach the action while the rest of the export is missing.
+			// The exported value does not reach the request, so the action reads the
+			// submitted input (or nothing) in its place.
 			\Quiote\Logging\Log::for($this)->error(
 				'[Validator] export failed for validator "' . ($this->getName() ?? '?') . '": '
 				. $e->getMessage()
@@ -930,28 +909,14 @@ abstract class Validator extends ParameterHolder implements ResetInterface, Vali
 		$this->validationParameters = $request;
 		$parentContainer = $this->parentContainer;
 		if($parentContainer !== null) {
-			// make sure the parameter doesn't get removed by the validation manager
-			if(is_array($value)) {
-				// for arrays all child elements need to be marked as not processed
-				foreach(ArrayPathDefinition::getFlatKeyNames($value) as $keyName) {
-					$parentContainer->addArgumentResult(new ValidationArgument($cp->pushRetNew($keyName)->__toString(), $source), $result, $this);
-				}
-			}
-			$parentContainer->addArgumentResult(new ValidationArgument($cp->__toString(), $source), $result, $this);
-
-			// Also register the root parameter (e.g. 'User') as a succeeded argument
-			// when we export to bracketed names (e.g. 'User[0]'). This prevents the pruning logic
-			// from removing the root array parameter that we just created.
-			if($rootParameterName !== null) {
-				$parentContainer->addArgumentResult(new ValidationArgument($rootParameterName, $source), $result, $this);
-				if (($logger = \Quiote\Logging\Log::for($this))->isEnabled(\Quiote\Logging\Level::Debug)) { $logger->debug('[Validator][export][debug] registered root argument=' . $rootParameterName . ' to prevent pruning'); }
-			}
+			// make sure the exported value, and everything inside it, survives pruning
+			$this->registerValidatedPaths($parentContainer, $flatName, $value, $source, $result);
 		}
 
 		// Always-on whitelist: ensure exported parameter key is whitelisted immediately
 		try {
-			$names = [$cp->__toString()];
-			if($rootParameterName) { $names[] = $rootParameterName; }
+			$names = [$flatName];
+			if($rootParameterName !== null) { $names[] = $rootParameterName; }
 			$request = $request->enforceValidatedParameters($names);
 		} catch(\Throwable $e) {
 			// The exported name is not marked validated, so strict access to the value this
@@ -965,18 +930,98 @@ abstract class Validator extends ParameterHolder implements ResetInterface, Vali
 	}
 
 	/**
+	 * Records $path, and every path inside $value when it is an array, as a
+	 * result of this validator, so pruning keeps what the validator produced.
+	 * An empty array inside $value is recorded as a path of its own, since it
+	 * has no leaves that would keep it.
+	 */
+	private function registerValidatedPaths(IValidatorContainer $container, string $path, mixed $value, string $source, int $result): void
+	{
+		if(is_array($value)) {
+			foreach($value as $key => $child) {
+				$this->registerValidatedPaths($container, $path . '[' . $key . ']', $child, $source, $result);
+			}
+		}
+		$container->addArgumentResult(new ValidationArgument($path, $source), $result, $this);
+	}
+
+	/**
+	 * Whether a successful run vouches for everything inside an array-valued
+	 * argument, not only for the argument itself.
+	 *
+	 * Pruning keeps an array argument as an empty container unless the paths
+	 * inside it were validated too, so a check of the array's shape (not
+	 * empty, a length, isset) does not let the submitted contents through. A
+	 * validator that checks every element of the array itself overrides this
+	 * to return true, and the contents then survive as submitted.
+	 */
+	protected function coversArgumentSubtree(): bool
+	{
+		return false;
+	}
+
+	/**
+	 * Records every path inside the current value of argument path $path as a
+	 * successful result of this validator.
+	 */
+	private function registerArgumentSubtree(IValidatorContainer $container, string $path, string $source): void
+	{
+		$values = $this->requireRequest()->getParameters($source);
+		try {
+			$value = ArrayPathDefinition::getValue($path, $values);
+		} catch(\InvalidArgumentException $e) {
+			// The contents of the argument are not recorded, so pruning keeps only its container.
+			\Quiote\Logging\Log::for($this)->warning(
+				'[Validator] could not read "' . $path . '" to keep its contents for validator "'
+				. ($this->getName() ?? '?') . '": ' . $e->getMessage()
+			);
+			return;
+		}
+		if(!is_array($value)) {
+			return;
+		}
+		foreach($value as $key => $child) {
+			$this->registerValidatedPaths($container, $path . '[' . $key . ']', $child, $source, self::SUCCESS);
+		}
+	}
+
+	/**
+	 * Warns, once per run, that an export to plain name $name from inside a
+	 * wildcard base writes one top-level parameter which every element
+	 * overwrites in turn.
+	 */
+	private function warnAboutSharedExportTarget(string $name): void
+	{
+		if($this->sharedExportWarned) {
+			return;
+		}
+		$base = $this->getBaseParameter();
+		if(!is_string($base) || !str_contains($base, '[]')) {
+			return;
+		}
+		$this->sharedExportWarned = true;
+		\Quiote\Logging\Log::for($this)->warning(
+			'[Validator] validator "' . ($this->getName() ?? '?') . '" exports to "' . $name
+			. '" from inside base "' . $base . '": every element writes the same top-level parameter, so only the'
+			. ' last one survives. Export to a path with sprintf placeholders (e.g. "rows[%2$s][' . $name . ']")'
+			. ' to keep one value per element.'
+		);
+	}
+
+	/**
 	 * Exports a type-coerced value, defaulting the target to this validator's
-	 * own argument name.
+	 * own argument.
 	 * Meant for a validator whose whole job is turning the raw input into a
 	 * native type (string/number/boolean/decoded JSON): {@see export()} when an
 	 * explicit 'export' parameter is configured, otherwise a direct write-back
-	 * of $value under this validator's own single argument name, so validating
-	 * a field is enough to get its coerced value back without also having to
-	 * configure 'export'. Bypasses export()'s bracket-path/array handling and
-	 * succeeded-argument bookkeeping, which a same-name scalar write-back does
-	 * not need. Does nothing when the validator has more than one argument or
-	 * a base-array argument (whose name is empty), since neither has a single
-	 * obvious target -- those stay opt-in via an explicit 'export'.
+	 * of $value to the argument it was read from, so validating a field is
+	 * enough to get its coerced value back without also having to configure
+	 * 'export'. Inside a base the target is the argument's full path in the
+	 * current element (`rows[0][ItemName]`, or `items[0]` for an empty
+	 * argument under `items[]`), written into the submitted array rather than
+	 * over it. Does nothing when the validator has more than one argument,
+	 * since that has no single obvious target -- it stays opt-in via an
+	 * explicit 'export'.
 	 * @param      mixed $value The coerced value to write back.
 	 * @return     void
 	 * @since      4.1.0
@@ -992,8 +1037,8 @@ abstract class Validator extends ParameterHolder implements ResetInterface, Vali
 			return;
 		}
 
-		$argumentName = $this->getArgument();
-		if($argumentName === null || $argumentName === '') {
+		$target = $this->ownArgumentPath();
+		if($target === null) {
 			return;
 		}
 
@@ -1003,16 +1048,45 @@ abstract class Validator extends ParameterHolder implements ResetInterface, Vali
 		}
 
 		try {
-			$this->validationParameters = $validationParameters->setParameter($argumentName, $value);
+			$this->validationParameters = $validationParameters->setParameter($target, $value);
 		} catch(\Throwable $e) {
 			// Validation still succeeded; what is lost is the coerced value replacing the
 			// submitted input, so the action reads the raw input instead.
 			\Quiote\Logging\Log::for($this)->error(
 				'[' . static::class . '] could not write back the coerced value for "'
-				. $argumentName . '"; the action will read the uncoerced input: '
+				. $target . '"; the action will read the uncoerced input: '
 				. $e->getMessage()
 			);
+			return;
 		}
+
+		// The argument's own path is already recorded as validated. An array written
+		// into an element (decoded JSON in a row) needs its inner paths recorded too,
+		// or pruning keeps only the empty container.
+		$parentContainer = $this->parentContainer;
+		if(is_array($value) && str_contains($target, '[') && $parentContainer !== null) {
+			foreach($value as $key => $child) {
+				$this->registerValidatedPaths($parentContainer, $target . '[' . $key . ']', $child, $this->getSourceParameter(), Validator::SUCCESS);
+			}
+		}
+	}
+
+	/**
+	 * The full request path of this validator's single argument in the
+	 * current base, or null when there is nothing to address (an empty
+	 * argument outside any base).
+	 */
+	private function ownArgumentPath(): ?string
+	{
+		$argumentName = $this->getArgument();
+		$base = $this->requireCurBase();
+		if($argumentName === null || $argumentName === '') {
+			$path = $base->__toString();
+		} else {
+			$path = $base->pushRetNew($argumentName)->__toString();
+		}
+
+		return $path === '' ? null : $path;
 	}
 
 	/**
@@ -1083,8 +1157,13 @@ abstract class Validator extends ParameterHolder implements ResetInterface, Vali
 
 			$parentContainer = $this->parentContainer;
 			if($parentContainer !== null) {
+				$source = $this->getSourceParameter();
+				$coversSubtree = $result == self::SUCCESS && $this->coversArgumentSubtree();
 				foreach($this->affectedArguments as $fieldname) {
-					$parentContainer->addArgumentResult(new ValidationArgument($fieldname, $this->getSourceParameter()), $result, $this);
+					$parentContainer->addArgumentResult(new ValidationArgument($fieldname, $source), $result, $this);
+					if($coversSubtree) {
+						$this->registerArgumentSubtree($parentContainer, $fieldname, $source);
+					}
 				}
 
 				if($this->incident) {
@@ -1182,6 +1261,7 @@ abstract class Validator extends ParameterHolder implements ResetInterface, Vali
 		}
 
 		$this->validationParameters = $parameters;
+		$this->sharedExportWarned = false;
 		$base = new VirtualArrayPath($this->getBaseParameter());
 
 		$res = $this->validateInBase($base);
@@ -1304,6 +1384,7 @@ abstract class Validator extends ParameterHolder implements ResetInterface, Vali
 		$this->errorMessages = [];
 		$this->incident = null;
 		$this->affectedArguments = [];
+		$this->sharedExportWarned = false;
 		
 		parent::reset();
 	}

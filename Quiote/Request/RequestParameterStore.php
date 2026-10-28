@@ -21,10 +21,18 @@ final class RequestParameterStore
     /**
      * @param array<array-key, mixed> $runtimeParameters
      * @param array<array-key, bool> $validatedKeys
+     * @param array<array-key, bool> $wholeValueKeys Runtime parameters whose
+     *        current value application code or a validator export set as a
+     *        whole through {@see withParameter()}/{@see withParameters()}.
+     *        Pruning trusts those as they are. A root built up by nested
+     *        bracket-path writes, seeded from the submitted input, or staged
+     *        unvalidated is not listed, so pruning cuts it down to the paths
+     *        validation vouched for.
      */
     public function __construct(
         private readonly array $runtimeParameters = [],
         private readonly array $validatedKeys = [],
+        private readonly array $wholeValueKeys = [],
     ) {
     }
 
@@ -75,8 +83,9 @@ final class RequestParameterStore
     {
         $runtimeParameters = $this->runtimeParameters;
         $validatedKeys = $this->validatedKeys;
-        self::applyParameter($runtimeParameters, $validatedKeys, $name, $value);
-        return new self($runtimeParameters, $validatedKeys);
+        $wholeValueKeys = $this->wholeValueKeys;
+        self::applyParameter($runtimeParameters, $validatedKeys, $wholeValueKeys, $name, $value);
+        return new self($runtimeParameters, $validatedKeys, $wholeValueKeys);
     }
 
     /**
@@ -95,56 +104,44 @@ final class RequestParameterStore
         }
         $runtimeParameters = $this->runtimeParameters;
         $validatedKeys = $this->validatedKeys;
+        $wholeValueKeys = $this->wholeValueKeys;
         foreach ($params as $name => $value) {
-            self::applyParameter($runtimeParameters, $validatedKeys, (string) $name, $value);
+            self::applyParameter($runtimeParameters, $validatedKeys, $wholeValueKeys, (string) $name, $value);
         }
-        return new self($runtimeParameters, $validatedKeys);
+        return new self($runtimeParameters, $validatedKeys, $wholeValueKeys);
     }
 
     /**
      * Apply a single runtime parameter to the given runtime/whitelist arrays
      * in place. Shared by withParameter() and withParameters() so the mutation
      * semantics stay identical regardless of how many parameters are set at once.
+     *
+     * A bracketed name (`rows[0][ItemName]`) writes into the root array and
+     * leaves every other key of it alone. A root that is not yet a runtime
+     * parameter starts empty here; {@see WebRequest::setParameter()} seeds it
+     * from the submitted input first, through {@see withSeededRoot()}.
      * @param array<array-key, mixed> $runtimeParameters
      * @param array<array-key, bool> $validatedKeys
+     * @param array<array-key, bool> $wholeValueKeys
      */
-    private static function applyParameter(array &$runtimeParameters, array &$validatedKeys, string $name, mixed $value): void
+    private static function applyParameter(array &$runtimeParameters, array &$validatedKeys, array &$wholeValueKeys, string $name, mixed $value): void
     {
         // Support legacy bracket notation when tests or legacy code call setParameter.
         $firstBracket = strpos($name, '[');
         if ($firstBracket !== false) {
             $root = substr($name, 0, $firstBracket);
-            if ($root !== '') {
-                if (!array_key_exists($root, $runtimeParameters) || !is_array($runtimeParameters[$root])) {
-                    $runtimeParameters[$root] = [];
-                }
-                if (preg_match_all('/\\[([^\\]]*)\\]/', $name, $matches)) {
-                    $segments = $matches[1];
-                    $current = &$runtimeParameters[$root];
-                    $last = count($segments) - 1;
-                    foreach ($segments as $i => $seg) {
-                        if ($seg === '') {
-                            $seg = (string)count($current);
-                        }
-                        if ($i === $last) {
-                            $current[$seg] = $value;
-                        } else {
-                            if (!isset($current[$seg]) || !is_array($current[$seg])) {
-                                $current[$seg] = [];
-                            }
-                            $current = &$current[$seg];
-                        }
-                    }
-                    unset($current);
-                    // Do not additionally store the fully qualified bracket path to avoid duplication.
-                    $validatedKeys[$root] = true;
-                    $validatedKeys[$name] = true;
-                    return;
-                }
+            if ($root !== '' && preg_match_all('/\\[([^\\]]*)\\]/', $name, $matches)) {
+                self::applyNestedParameter($runtimeParameters, $wholeValueKeys, $root, $matches[1], $value);
+                // Do not additionally store the fully qualified bracket path to avoid duplication.
+                $validatedKeys[$root] = true;
+                $validatedKeys[$name] = true;
+                return;
             }
         }
 
+        $hadFlatKeys = self::dropFlatKeys($runtimeParameters, $name);
         $runtimeParameters[$name] = $value;
+        $wholeValueKeys[$name] = true;
         // Auto-whitelist: parameters set via setParameter() are explicitly provided by
         // application code (action validate methods, test helpers, etc.) and should be
         // accessible under strict validation. Without this, action validate() methods
@@ -152,9 +149,130 @@ final class RequestParameterStore
         $validatedKeys[$name] = true;
 
         // If setting a root array (e.g. data => [[...]]), synthesize bracket keys (data[0][Field]).
-        if (is_array($value) && self::shouldMaterializeBracketPaths($name, $value)) {
+        if (is_array($value) && ($hadFlatKeys || self::shouldMaterializeBracketPaths($name, $value))) {
             self::materializeBracketPaths($runtimeParameters, $name, $value);
         }
+    }
+
+    /**
+     * Writes $value at $segments inside root parameter $root, creating the
+     * intermediate arrays it needs, and keeps the flattened `root[i][key]`
+     * aliases of that root in step with the write.
+     *
+     * The root keeps its whole-value standing when it already had it; a root
+     * this write creates is a nested-write root, which pruning cuts down.
+     * @param array<array-key, mixed> $runtimeParameters
+     * @param array<array-key, bool> $wholeValueKeys
+     * @param array<int, string> $segments
+     */
+    private static function applyNestedParameter(array &$runtimeParameters, array &$wholeValueKeys, string $root, array $segments, mixed $value): void
+    {
+        if (!array_key_exists($root, $runtimeParameters) || !is_array($runtimeParameters[$root])) {
+            $runtimeParameters[$root] = [];
+            unset($wholeValueKeys[$root]);
+        }
+        if ($segments === []) {
+            return;
+        }
+
+        $current = &$runtimeParameters[$root];
+        $last = count($segments) - 1;
+        $written = [];
+        $previous = null;
+        foreach ($segments as $i => $seg) {
+            if ($seg === '') {
+                $seg = (string) count($current);
+            }
+            $written[] = $seg;
+            if ($i === $last) {
+                $previous = $current[$seg] ?? null;
+                $current[$seg] = $value;
+            } else {
+                if (!isset($current[$seg]) || !is_array($current[$seg])) {
+                    $current[$seg] = [];
+                }
+                $current = &$current[$seg];
+            }
+        }
+        unset($current);
+
+        if (count($written) === 1) {
+            // A whole element was replaced: its flattened fields follow it.
+            $flatPrefix = $root . '[' . $written[0] . ']';
+            $hadFlatKeys = false;
+            if (is_array($previous)) {
+                foreach (array_keys($previous) as $field) {
+                    $flatKey = $flatPrefix . '[' . $field . ']';
+                    if (array_key_exists($flatKey, $runtimeParameters)) {
+                        unset($runtimeParameters[$flatKey]);
+                        $hadFlatKeys = true;
+                    }
+                }
+            }
+            if ($hadFlatKeys && is_array($value)) {
+                foreach ($value as $field => $fieldValue) {
+                    $runtimeParameters[$flatPrefix . '[' . $field . ']'] = $fieldValue;
+                }
+            }
+            return;
+        }
+
+        $flatKey = $root . '[' . $written[0] . '][' . $written[1] . ']';
+        if (array_key_exists($flatKey, $runtimeParameters) && is_array($runtimeParameters[$root][$written[0]] ?? null)) {
+            $runtimeParameters[$flatKey] = $runtimeParameters[$root][$written[0]][$written[1]] ?? null;
+        }
+    }
+
+    /**
+     * Removes the flattened `root[i][key]` aliases of the current value of
+     * root parameter $root.
+     * @param array<array-key, mixed> $runtimeParameters
+     * @return bool Whether any alias was present.
+     */
+    private static function dropFlatKeys(array &$runtimeParameters, string $root): bool
+    {
+        $current = $runtimeParameters[$root] ?? null;
+        if (!is_array($current)) {
+            return false;
+        }
+        $dropped = false;
+        foreach ($current as $index => $element) {
+            if (!is_array($element)) {
+                continue;
+            }
+            foreach (array_keys($element) as $field) {
+                $flatKey = $root . '[' . $index . '][' . $field . ']';
+                if (array_key_exists($flatKey, $runtimeParameters)) {
+                    unset($runtimeParameters[$flatKey]);
+                    $dropped = true;
+                }
+            }
+        }
+
+        return $dropped;
+    }
+
+    /**
+     * Returns a copy with root parameter $root holding $value, the submitted
+     * array a nested write is about to change.
+     *
+     * Neither whitelisted nor a whole value: the nested write that follows
+     * whitelists the root, and pruning later cuts it down to the paths
+     * validation vouched for. Does nothing when $root already is a runtime
+     * parameter.
+     * @param array<array-key, mixed> $value
+     */
+    public function withSeededRoot(string $root, array $value): self
+    {
+        if ($root === '' || array_key_exists($root, $this->runtimeParameters)) {
+            return $this;
+        }
+        $runtimeParameters = $this->runtimeParameters;
+        $runtimeParameters[$root] = $value;
+        $wholeValueKeys = $this->wholeValueKeys;
+        unset($wholeValueKeys[$root]);
+
+        return new self($runtimeParameters, $this->validatedKeys, $wholeValueKeys);
     }
 
     /**
@@ -173,7 +291,9 @@ final class RequestParameterStore
     {
         $runtimeParameters = $this->runtimeParameters;
         $runtimeParameters[$name] = $value;
-        return new self($runtimeParameters, $this->validatedKeys);
+        $wholeValueKeys = $this->wholeValueKeys;
+        unset($wholeValueKeys[$name]);
+        return new self($runtimeParameters, $this->validatedKeys, $wholeValueKeys);
     }
 
     /**
@@ -189,10 +309,12 @@ final class RequestParameterStore
             return $this;
         }
         $runtimeParameters = $this->runtimeParameters;
+        $wholeValueKeys = $this->wholeValueKeys;
         foreach ($params as $name => $value) {
             $runtimeParameters[(string) $name] = $value;
+            unset($wholeValueKeys[(string) $name]);
         }
-        return new self($runtimeParameters, $this->validatedKeys);
+        return new self($runtimeParameters, $this->validatedKeys, $wholeValueKeys);
     }
 
     /**
@@ -207,7 +329,9 @@ final class RequestParameterStore
                 : [];
         }
         $runtimeParameters[$name][] = $value;
-        return new self($runtimeParameters, $this->validatedKeys);
+        $wholeValueKeys = $this->wholeValueKeys;
+        $wholeValueKeys[$name] = true;
+        return new self($runtimeParameters, $this->validatedKeys, $wholeValueKeys);
     }
 
     /**
@@ -218,7 +342,9 @@ final class RequestParameterStore
         $runtimeParameters = $this->runtimeParameters;
         if (array_key_exists($name, $runtimeParameters)) {
             unset($runtimeParameters[$name]);
-            return new self($runtimeParameters, $this->validatedKeys);
+            $wholeValueKeys = $this->wholeValueKeys;
+            unset($wholeValueKeys[$name]);
+            return new self($runtimeParameters, $this->validatedKeys, $wholeValueKeys);
         }
         try {
             ArrayPathDefinition::unsetValue($name, $runtimeParameters);
@@ -229,7 +355,7 @@ final class RequestParameterStore
                 '[RequestParameterStore] could not remove parameter "' . $name . '": ' . $e->getMessage()
             );
         }
-        return new self($runtimeParameters, $this->validatedKeys);
+        return new self($runtimeParameters, $this->validatedKeys, $this->wholeValueKeys);
     }
 
     /**
@@ -247,8 +373,10 @@ final class RequestParameterStore
         unset($runtimeParameters[$name]);
         $validatedKeys = $this->validatedKeys;
         unset($validatedKeys[$name]);
+        $wholeValueKeys = $this->wholeValueKeys;
+        unset($wholeValueKeys[$name]);
 
-        return new self($runtimeParameters, $validatedKeys);
+        return new self($runtimeParameters, $validatedKeys, $wholeValueKeys);
     }
 
     /**
@@ -275,7 +403,7 @@ final class RequestParameterStore
                 $validatedKeys[$name] = true;
             }
         }
-        return new self($this->runtimeParameters, $validatedKeys);
+        return new self($this->runtimeParameters, $validatedKeys, $this->wholeValueKeys);
     }
 
     /**
@@ -291,7 +419,7 @@ final class RequestParameterStore
         }
         $validatedKeys = $this->validatedKeys;
         $validatedKeys[$name] = true;
-        return new self($this->runtimeParameters, $validatedKeys);
+        return new self($this->runtimeParameters, $validatedKeys, $this->wholeValueKeys);
     }
 
     /**
@@ -310,7 +438,7 @@ final class RequestParameterStore
                 $validatedKeys[$variant] = true;
             }
         }
-        return new self($this->runtimeParameters, $validatedKeys);
+        return new self($this->runtimeParameters, $validatedKeys, $this->wholeValueKeys);
     }
 
     /**
@@ -333,6 +461,11 @@ final class RequestParameterStore
      * Compute the keep/remove decision set for pruning: a name survives if
      * whitelisted directly, previously declared valid, or explicitly preserved
      * — but an explicit failure always wins.
+     *
+     * A surviving array is then cut down to the paths validation vouched for
+     * (see {@see ParameterTreePruner}), unless it was preserved or set as a
+     * whole by application code or a validator export. Flattened
+     * `root[i][key]` aliases follow their root.
      * @param array<int, string> $keep
      * @param array<int, string> $failed
      * @param array<array-key, bool> $preserve
@@ -340,53 +473,95 @@ final class RequestParameterStore
      */
     public function pruneTo(array $keep, array $failed, array $preserve): self
     {
-        $keepSet = [];
-        foreach ($keep as $k) {
-            $keepSet[$k] = true;
-            // When a bracket-path like "Foo[Bar]" is validated, the root key "Foo"
-            // must also be kept so nested arrays survive pruning.
-            $firstBracket = strpos($k, '[');
-            if ($firstBracket !== false) {
-                $root = substr($k, 0, $firstBracket);
-                if ($root !== '') {
-                    $keepSet[$root] = true;
-                }
-            }
-        }
+        $tree = new ParameterTreePruner($keep, $failed);
+        // A root that any validated path reaches survives; what survives inside it is
+        // the tree pruner's decision.
+        $keepSet = array_fill_keys($keep, true) + array_fill_keys($tree->roots(), true);
         $failedSet = array_fill_keys($failed, true);
 
         $prunedRuntime = $this->runtimeParameters;
+        $wholeValueKeys = $this->wholeValueKeys;
+        $aliases = [];
         foreach (array_keys($prunedRuntime) as $rName) {
-            $remove = true;
-            if (isset($keepSet[$rName])) {
-                $remove = false;
+            $name = (string) $rName;
+            if (str_contains($name, '[')) {
+                $aliases[] = $name;
+                continue;
             }
-            if (isset($preserve[$rName])) {
-                $remove = false;
+            if ($this->shouldPrune($name, $keepSet, $failedSet, $preserve)) {
+                self::dropFlatKeys($prunedRuntime, $name);
+                unset($prunedRuntime[$name], $wholeValueKeys[$name]);
+                continue;
             }
-            // Keep parameters that were explicitly whitelisted by validator exports.
-            if (isset($this->validatedKeys[$rName])) {
-                $remove = false;
-            }
-            // Last, so an explicit failure beats every reason to keep above --
-            // including the whitelist. ValidationManager pre-declares the union of
-            // every validator's argument names BEFORE running any of them, so
-            // validatedKeys always contains the name of an argument that is about
-            // to fail; checking it after the failure meant a value that failed
-            // validation stayed readable via WebRequest::getParameter(). That hit
-            // runtime-staged values specifically -- a route param promoted by
-            // ValidationMiddleware -- while the same value arriving as a query or
-            // body param was correctly scrubbed by
-            // WebRequest::pruneParametersToValidated().
-            if (isset($failedSet[$rName])) {
-                $remove = true;
-            }
-            if ($remove) {
-                unset($prunedRuntime[$rName]);
+            $value = $prunedRuntime[$name];
+            if (is_array($value) && !isset($preserve[$name]) && !isset($this->wholeValueKeys[$name])) {
+                $hadFlatKeys = self::dropFlatKeys($prunedRuntime, $name);
+                $prunedRuntime[$name] = $tree->prune($name, $value);
+                if ($hadFlatKeys) {
+                    self::materializeBracketPaths($prunedRuntime, $name, $prunedRuntime[$name]);
+                }
             }
         }
 
-        return new self($prunedRuntime, $this->validatedKeys);
+        foreach ($aliases as $alias) {
+            if (!array_key_exists($alias, $prunedRuntime)) {
+                continue;
+            }
+            $root = substr($alias, 0, (int) strpos($alias, '['));
+            $rootValue = $prunedRuntime[$root] ?? null;
+            if (is_array($rootValue)) {
+                // An alias of a surviving root lives exactly as long as the path it mirrors.
+                if (!self::rootHasPath($root, $rootValue, $alias)) {
+                    unset($prunedRuntime[$alias]);
+                }
+                continue;
+            }
+            if ($this->shouldPrune($alias, $keepSet, $failedSet, $preserve)) {
+                unset($prunedRuntime[$alias]);
+            }
+        }
+
+        return new self($prunedRuntime, $this->validatedKeys, $wholeValueKeys);
+    }
+
+    /**
+     * The top-level keep/remove decision for one runtime parameter name.
+     * @param array<array-key, bool> $keepSet
+     * @param array<array-key, bool> $failedSet
+     * @param array<array-key, bool> $preserve
+     */
+    private function shouldPrune(string $name, array $keepSet, array $failedSet, array $preserve): bool
+    {
+        // Last, so an explicit failure beats every reason to keep -- including the
+        // whitelist. ValidationManager pre-declares the union of every validator's
+        // argument names BEFORE running any of them, so validatedKeys always contains
+        // the name of an argument that is about to fail; checking it after the failure
+        // meant a value that failed validation stayed readable via
+        // WebRequest::getParameter(). That hit runtime-staged values specifically -- a
+        // route param promoted by ValidationMiddleware -- while the same value arriving
+        // as a query or body param was correctly scrubbed by
+        // WebRequest::pruneParametersToValidated().
+        if (isset($failedSet[$name])) {
+            return true;
+        }
+
+        // Keep parameters that were explicitly whitelisted by validator exports.
+        return !isset($keepSet[$name]) && !isset($preserve[$name]) && !isset($this->validatedKeys[$name]);
+    }
+
+    /**
+     * @param array<array-key, mixed> $rootValue
+     */
+    private static function rootHasPath(string $root, array $rootValue, string $path): bool
+    {
+        try {
+            return ArrayPathDefinition::hasValue($path, [$root => $rootValue]);
+        } catch (\InvalidArgumentException $e) {
+            \Quiote\Logging\Log::create(self::class)->debug(
+                '[RequestParameterStore] treating unparsable alias "' . $path . '" as absent: ' . $e->getMessage()
+            );
+            return false;
+        }
     }
 
     /**

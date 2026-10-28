@@ -5,6 +5,14 @@ use Quiote\Validator\Validator;
 
 require_once(__DIR__ . '/BaseValidatorTest.base.php');
 
+class StringValidatorTestMarkupStripper extends StringValidator
+{
+	protected function normalize(string $value): string
+	{
+		return strip_tags($value);
+	}
+}
+
 class StringValidatorTest extends BaseValidatorTest
 {
 	public function testExecute(): void
@@ -113,6 +121,29 @@ class StringValidatorTest extends BaseValidatorTest
 		$res = $this->executeValidator(StringValidator::class, 123, [], ['export' => 'other']);
 		$this->assertSame(Validator::SUCCESS, $res['result']);
 		$this->assertSame('123', $res['rd']->getParameter('other'));
+	}
+
+	/**
+	 * normalize() rewrites the trimmed string before the length checks, and
+	 * its result is what the action reads back.
+	 */
+	public function testNormalizedValueIsWrittenBack(): void
+	{
+		$res = $this->executeValidator(StringValidatorTestMarkupStripper::class, ' <b>bold</b> ', [], ['trim' => true]);
+		$this->assertSame(Validator::SUCCESS, $res['result']);
+		$this->assertSame('bold', $res['rd']->getParameter('value'));
+	}
+
+	public function testLengthChecksApplyToTheNormalizedValue(): void
+	{
+		$this->doTestExecute(StringValidatorTestMarkupStripper::class, '<i></i>a', Validator::ERROR, 'too short', ['min' => 'too short'], ['min' => 2]);
+		$this->doTestExecute(StringValidatorTestMarkupStripper::class, '<span class="long">ab</span>', Validator::SUCCESS, null, [], ['max' => 2]);
+	}
+
+	public function testDefaultNormalizeLeavesTheStringAlone(): void
+	{
+		$res = $this->executeValidator(StringValidator::class, '<b>bold</b>', [], []);
+		$this->assertSame('<b>bold</b>', $res['rd']->getParameter('value'));
 	}
 }
 
