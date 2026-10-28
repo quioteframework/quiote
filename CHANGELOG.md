@@ -1,3 +1,14 @@
+## [4.5.1-beta] - 2026-10-28
+
+Validators under an array base now write their results into the array, and strict mode prunes
+inside arrays. Actions that read array parameters see different values; see
+[UPGRADING.md](UPGRADING.md#450--451).
+
+### 🐛 Bug Fixes
+
+- *(util)* Keep FormPopulationConfig::get() to string-keyed options
+- *(validator)* Write array-argument results into the array and prune inside it
+
 ## [4.5.0] - 2026-09-08
 
 ### 🚀 Features
