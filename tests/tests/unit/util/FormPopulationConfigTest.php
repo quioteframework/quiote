@@ -78,4 +78,20 @@ class FormPopulationConfigTest extends PhpUnitTestCase
 	{
 		$this->assertNull(FormPopulationConfig::seed(null, ['foo' => 'bar']));
 	}
+
+	public function testGetOnAPsrRequestReturnsTheStoredOptions(): void
+	{
+		$request = (new \Quiote\Request\WebRequest())
+			->withAttribute('org.quiote.filter.FormPopulationFilter', ['force_output_mode' => 'html']);
+
+		$this->assertSame(['force_output_mode' => 'html'], FormPopulationConfig::get($request));
+	}
+
+	public function testGetOnAPsrRequestDropsEntriesWithoutAnOptionName(): void
+	{
+		$request = (new \Quiote\Request\WebRequest())
+			->withAttribute('org.quiote.filter.FormPopulationFilter', ['stray', 'enabled' => true]);
+
+		$this->assertSame(['enabled' => true], FormPopulationConfig::get($request));
+	}
 }

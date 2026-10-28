@@ -31,7 +31,8 @@ final class FormPopulationConfig
         }
         if (method_exists($request, 'getAttribute')) {
             $value = $request->getAttribute(self::ATTRIBUTE_KEY);
-            return is_array($value) ? $value : (array) $value;
+            // Configuration keys are option names; a value with numeric keys carries none.
+            return array_filter(is_array($value) ? $value : (array) $value, 'is_string', ARRAY_FILTER_USE_KEY);
         }
         return [];
     }
