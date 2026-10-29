@@ -218,7 +218,7 @@ final class ContextResidueReporter extends AbstractRector
      */
     private function record(array $statements, ?string $blanketReason): void
     {
-        $filePath = $this->file->getFilePath();
+        $filePath = $this->getFile()->getFilePath();
 
         $this->traverseNodesWithCallable($statements, function (Node $subNode) use ($filePath, $blanketReason): null {
             if ($subNode instanceof StaticCall) {

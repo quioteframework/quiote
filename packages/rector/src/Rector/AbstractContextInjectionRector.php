@@ -129,8 +129,33 @@ abstract class AbstractContextInjectionRector extends AbstractRector
 
         $this->dropParentPromotedParams($node);
         $this->orderConstructorParams($node);
+        $this->detachConstructorParamPositions($node);
 
         return $node;
+    }
+
+    /**
+     * Drop the source-file positions of the constructor's parameters.
+     *
+     * When the class has no constructor of its own, the dependency manipulator copies the parent's,
+     * parameters included, and the copies keep their positions in the parent's file. PHPStan reads
+     * the text after a parameter's recorded end position to find a trailing doc comment, so a
+     * position from a longer file points past the end of this one and its scope refresh throws.
+     * The parameter list has just been rebuilt, so nothing relies on those positions any more.
+     */
+    private function detachConstructorParamPositions(Class_ $class): void
+    {
+        $constructor = $class->getMethod('__construct');
+        if ($constructor === null) {
+            return;
+        }
+
+        foreach ($constructor->params as $param) {
+            $param->setAttributes(array_diff_key(
+                $param->getAttributes(),
+                array_flip(['startLine', 'endLine', 'startFilePos', 'endFilePos', 'startTokenPos', 'endTokenPos']),
+            ));
+        }
     }
 
     /**
