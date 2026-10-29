@@ -71,7 +71,16 @@ trait RequestInspectionTrait
             $val = $cookies[$name];
             return $val === null || $val === '';
         }
-        return true;
+        // A nested cookie (prefs[theme]) is addressed by its bracket path.
+        try {
+            $val = ArrayPathDefinition::getValue($name, $cookies, null);
+        } catch (InvalidArgumentException $e) {
+            \Quiote\Logging\Log::for($this)->debug(
+                'treating cookie "' . $name . '" as empty, its name is not a valid path: ' . $e->getMessage()
+            );
+            return true;
+        }
+        return $val === null || $val === '';
     }
 
     /**
@@ -96,13 +105,16 @@ trait RequestInspectionTrait
         $files = $this->getUploadedFiles();
 
         // Try to get the file value - could be nested in array structure
+        $logger = \Quiote\Logging\Log::for($this);
         try {
             $value = ArrayPathDefinition::getValue($field, $files, null);
-        } catch (\Throwable) {
+        } catch (InvalidArgumentException $e) {
+            $logger->debug(
+                'treating file "' . $field . '" as empty, its name is not a valid path: ' . $e->getMessage()
+            );
             $value = null;
         }
 
-        $logger = \Quiote\Logging\Log::for($this);
         if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
             $logger->debug(
                 '[WebRequest][debug][isFileValueEmpty] field=' . $field .

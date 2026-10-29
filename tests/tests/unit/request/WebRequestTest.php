@@ -108,6 +108,26 @@ class WebRequestTest extends UnitTestCase
 		$this->assertFalse($this->_r->isHeaderValueEmpty('X-Test'));
 	}
 
+	public function testNestedCookieEmptinessIsResolvedByPath(): void
+	{
+		$this->_r = $this->_r->withCookieParams(['prefs' => ['theme' => 'dark', 'blank' => '']]);
+
+		$this->assertFalse($this->_r->isCookieValueEmpty('prefs[theme]'));
+		$this->assertTrue($this->_r->isCookieValueEmpty('prefs[blank]'));
+		$this->assertTrue($this->_r->isCookieValueEmpty('prefs[missing]'));
+		$this->assertTrue($this->_r->isCookieValueEmpty('prefs]bad'), 'an unparsable name counts as empty');
+	}
+
+	public function testFileEmptinessTreatsAnUnparsableNameAsEmpty(): void
+	{
+		$stream = Stream::create('x');
+		$this->_r = $this->_r->withUploadedFiles(['rows' => [['doc' => new \Nyholm\Psr7\UploadedFile($stream, 1, UPLOAD_ERR_OK, 'a.txt', 'text/plain')]]]);
+
+		$this->assertFalse($this->_r->isFileValueEmpty('rows[0][doc]'));
+		$this->assertTrue($this->_r->isFileValueEmpty('rows[1][doc]'));
+		$this->assertTrue($this->_r->isFileValueEmpty('rows]bad'));
+	}
+
 	public function testAttachPsrRequestPreservesBodyRewind(): void
 	{
 		$raw = 'm=1';

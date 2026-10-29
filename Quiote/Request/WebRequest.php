@@ -901,7 +901,9 @@ class WebRequest implements ServerRequestInterface, ResetInterface, \Quiote\Cont
 
 	/**
 	 * Extended pruning invoked by ValidationManager for non-parameter sources when available.
-	 * Each keep/failed array is an associative map of name => true.
+	 * Each keep/failed array is an associative map of name => true. Cookies and uploaded
+	 * files are pruned per path, like parameters, so a nested entry a validator vouched for
+	 * survives with its root; headers are flat and pruned by name.
 	 * @param array<string, bool> $headerKeep
 	 * @param array<string, bool> $headerFail
 	 * @param array<string, bool> $cookieKeep
@@ -928,25 +930,48 @@ class WebRequest implements ServerRequestInterface, ResetInterface, \Quiote\Cont
 			$new = $new->withoutHeaders($headersToRemove);
 		}
 
-		$cookies = $new->getCookieParams();
-		foreach (array_keys($cookies) as $c) {
-			$remove = true;
-			if (isset($cookieKeep[$c])) { $remove = false; }
-			if (isset($cookieFail[$c])) { $remove = true; }
-			if ($remove) { unset($cookies[$c]); }
-		}
-		$new = $new->withCookieParams($cookies);
+		$new = $new->withCookieParams(self::pruneToValidatedPaths($new->getCookieParams(), $cookieKeep, $cookieFail));
 
-		$files = $new->getUploadedFiles();
-		foreach (array_keys($files) as $f) {
-			$remove = true;
-			if (isset($fileKeep[$f])) { $remove = false; }
-			if (isset($fileFail[$f])) { $remove = true; }
-			if ($remove) { unset($files[$f]); }
+		$files = [];
+		foreach (self::pruneToValidatedPaths($new->getUploadedFiles(), $fileKeep, $fileFail) as $name => $file) {
+			// Pruning keeps each surviving root as the file or file tree it was.
+			if (is_string($name) && (is_array($file) || $file instanceof \Psr\Http\Message\UploadedFileInterface)) {
+				$files[$name] = $file;
+			}
 		}
-		$new = $new->withUploadedFiles($files);
 
-		return $new;
+		return $new->withUploadedFiles($files);
+	}
+
+	/**
+	 * Keeps the entries of one source that validation vouched for, by path.
+	 *
+	 * A root survives when a kept path reaches it and no failed path names it; inside a
+	 * surviving array only the validated paths remain (see ParameterTreePruner), so a file
+	 * validated as `rows[0][Attachment]` keeps `rows` and that one file.
+	 * @param array<array-key, mixed> $values
+	 * @param array<string, bool> $keep
+	 * @param array<string, bool> $fail
+	 * @return array<array-key, mixed>
+	 */
+	private static function pruneToValidatedPaths(array $values, array $keep, array $fail): array
+	{
+		$keepPaths = array_map('strval', array_keys($keep));
+		$tree = new ParameterTreePruner($keepPaths, array_map('strval', array_keys($fail)));
+		$keepSet = array_fill_keys($keepPaths, true) + array_fill_keys($tree->roots(), true);
+
+		foreach ($values as $name => $value) {
+			$root = (string) $name;
+			if (!isset($keepSet[$root]) || isset($fail[$root])) {
+				unset($values[$name]);
+				continue;
+			}
+			if (is_array($value)) {
+				$values[$name] = $tree->prune($root, $value);
+			}
+		}
+
+		return $values;
 	}
 
 	// -----------------------
