@@ -294,9 +294,8 @@ class DecimalFormatter implements ResetInterface
 		// now we reverse the array so we can process it in natural order later
 		$groupingDistances = array_reverse($groupingDistances);
 
-		if(($pos = strpos($negativeFormat, '-')) !== false) {
-			str_replace('-', '%2$s', $negativeFormat);
-		}
+		// the minus becomes a placeholder, which prepareNumber() fills with the sign
+		$negativeFormat = str_replace('-', '%2$s', $negativeFormat);
 		$hasMinus = true;
 		$negativeFormat = preg_replace('/[' . preg_quote(implode('', $numberChars), '/') . ']+/', $formatStr, $negativeFormat);
 		if($negativeFormat === null) {
