@@ -39,6 +39,12 @@ validators under `base="rows[]"`. A custom validator that checks every element i
 override `Validator::coversArgumentSubtree()` to return `true`, and the contents then survive
 as submitted.
 
+Uploaded files and cookies follow the same rules. A file validated as
+`rows[0][Attachment]` now reaches the action inside `rows` (it used to be dropped with the
+whole tree), unvalidated or failed sibling files are removed, and a validator on the root of
+a file or cookie array alone (`IsNotEmptyValidator` with `source="files"`) leaves an empty
+container.
+
 An `export` to a plain name (no `%`, no brackets) from inside a wildcard base keeps its
 meaning: one top-level parameter, which each element overwrites in turn. Quiote now logs a
 warning for it. Export to `rows[%2$s][Name]` to keep one value per element.

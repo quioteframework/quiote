@@ -1,3 +1,18 @@
+## [4.5.1-beta2] - 2026-10-29
+
+### 🐛 Bug Fixes
+
+- *(util)* Keep the minus placeholder DecimalFormatter builds
+- *(request)* Keep validated nested uploaded files and cookies
+
+### 🎨 Styling
+
+- *(logging)* Drop the class-name prefix from new log messages
+
+### ⚙️ Miscellaneous Tasks
+
+- *(phpstan)* Clear the findings PHPStan 2.3.4 adds
+
 ## [4.5.1-beta] - 2026-10-28
 
 Validators under an array base now write their results into the array, and strict mode prunes
