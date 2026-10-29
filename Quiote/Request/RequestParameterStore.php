@@ -558,7 +558,7 @@ final class RequestParameterStore
             return ArrayPathDefinition::hasValue($path, [$root => $rootValue]);
         } catch (\InvalidArgumentException $e) {
             \Quiote\Logging\Log::create(self::class)->debug(
-                '[RequestParameterStore] treating unparsable alias "' . $path . '" as absent: ' . $e->getMessage()
+                'treating unparsable alias "' . $path . '" as absent: ' . $e->getMessage()
             );
             return false;
         }

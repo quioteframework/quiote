@@ -169,7 +169,7 @@ final class ParameterTreePruner
             $info = ArrayPathDefinition::getPartsFromPath($path);
         } catch (\InvalidArgumentException $e) {
             \Quiote\Logging\Log::create(self::class)->debug(
-                '[ParameterTreePruner] ignoring unparsable path "' . $path . '": ' . $e->getMessage()
+                'ignoring unparsable path "' . $path . '": ' . $e->getMessage()
             );
             return null;
         }
