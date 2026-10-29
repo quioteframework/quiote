@@ -151,10 +151,13 @@ final class SwooleRuntimeTest extends TestCase
     public function testNonsenseWorkerCountsAreClamped(): void
     {
         Config::set('worker.swoole.worker_num', 0);
-        $this->assertSame(1, SwooleRuntime::settings()['worker_num']);
+        $fromZero = SwooleRuntime::settings()['worker_num'];
 
         Config::set('worker.swoole.worker_num', -4);
-        $this->assertSame(1, SwooleRuntime::settings()['worker_num']);
+        $fromNegative = SwooleRuntime::settings()['worker_num'];
+
+        $this->assertSame(1, $fromZero);
+        $this->assertSame(1, $fromNegative);
     }
 
     public function testATinyPackageLimitIsClampedRatherThanBreakingEveryRequest(): void

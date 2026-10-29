@@ -81,7 +81,8 @@ class ConfigCacheFormatResolutionMemoTest extends PhpUnitTestCase
 		// deliberately still returns the previously resolved path -- config files
 		// do not materialize mid-worker-lifetime in production.
 		$php = $this->touch('databases.php');
-		$this->assertSame($xml, $this->resolve($xml));
+		$memoized = $this->resolve($xml);
+		$this->assertSame($xml, $memoized);
 
 		// clear() drops the memo, so the next resolution reflects on-disk state
 		// (PHP wins over XML in autodetect order).

@@ -76,12 +76,15 @@ class RoutingAdditionalTest extends TestCase
         \Quiote\Config\Config::set('core.trusted_hosts', ['app.example.com']);
 
         try {
-            $this->assertSame('https://app.example.com', $routing->getBaseHref());
+            $withUntrustedHost = $routing->getBaseHref();
 
             // The same header, now naming a host the operator did trust, must
             // still come through untouched.
             $_SERVER['HTTP_X_FORWARDED_HOST'] = 'app.example.com';
-            $this->assertSame('https://app.example.com', $routing->getBaseHref());
+            $withTrustedHost = $routing->getBaseHref();
+
+            $this->assertSame('https://app.example.com', $withUntrustedHost);
+            $this->assertSame('https://app.example.com', $withTrustedHost);
         } finally {
             \Quiote\Config\Config::set('core.trusted_hosts', $prevTrusted);
             if ($prevHost === null) { unset($_SERVER['HTTP_X_FORWARDED_HOST']); } else { $_SERVER['HTTP_X_FORWARDED_HOST'] = $prevHost; }

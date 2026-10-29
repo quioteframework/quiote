@@ -147,11 +147,14 @@ class RoutingCallbackPoolTest extends TestCase
             $first = RoutingCallbackPool::getInstance('stdClass', ['id' => 1]);
             RoutingCallbackPool::getInstance('stdClass', ['id' => 2]);
             RoutingCallbackPool::getInstance('stdClass', ['id' => 3]);
-            $this->assertSame(3, RoutingCallbackPool::getPoolSize());
+            $sizeWhenFull = RoutingCallbackPool::getPoolSize();
 
             // Fourth distinct key: the pool is full, so id=1 (the oldest) goes.
             RoutingCallbackPool::getInstance('stdClass', ['id' => 4]);
-            $this->assertSame(3, RoutingCallbackPool::getPoolSize());
+            $sizeAfterEviction = RoutingCallbackPool::getPoolSize();
+
+            $this->assertSame(3, $sizeWhenFull);
+            $this->assertSame(3, $sizeAfterEviction);
 
             /** @var array<string, object> $instances */
             $instances = $reflection->getStaticPropertyValue('instances');

@@ -534,7 +534,7 @@ class DispatchMiddleware implements MiddlewareInterface
         $ctx = $this->actionExecutor->execute($actionDesc, $request, $execState, [], $actionInstance);
 
         if ($cacheEnabled && $cacheUsable && !$execState->cacheHit && !$cacheBypass) {
-            $ttl = $actionInstance?->cacheTtlSeconds($actionDesc->outputType);
+            $ttl = $actionInstance->cacheTtlSeconds($actionDesc->outputType);
             if ($avCache) {
                 ActionCacheHelper::store($avCache, $actionDesc, $execState, $ctx->content, $this->stringKeyedAttributes($actionInstance), true, $ttl, $fingerprint, $locale);
             }
@@ -742,7 +742,7 @@ class DispatchMiddleware implements MiddlewareInterface
         }
         self::$executedNonSimpleActions[$actionDesc->module . ':' . $actionDesc->action . ':' . $actionDesc->outputType] = true;
         if ($cacheEnabled && $cacheUsable && !$execState->cacheHit && !$cacheBypass && $avCache) {
-            $ttl = $actionInstance?->cacheTtlSeconds($actionDesc->outputType);
+            $ttl = $actionInstance->cacheTtlSeconds($actionDesc->outputType);
             ActionCacheHelper::store($avCache, $actionDesc, $execState, $ctx->content, $this->stringKeyedAttributes($actionInstance), false, $ttl, $fingerprint, $locale);
         }
         if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {

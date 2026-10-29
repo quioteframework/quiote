@@ -13,6 +13,7 @@ class QuioteXsltProcessor extends \XSLTProcessor
 	/**
 	 * Import a stylesheet.
 	 * @param      \DOMDocument $stylesheet The stylesheet to import.
+	 * @throws     \Exception When libxml reports an error while importing it.
 	 * @since      1.0.0
 	 */
 	public function importStylesheet($stylesheet): bool
@@ -49,6 +50,7 @@ class QuioteXsltProcessor extends \XSLTProcessor
 	 * Transform a document with a stylesheet.
 	 * @param      mixed $doc The document to transform; must be a DOMDocument or SimpleXMLElement.
 	 * @return     object The resulting DOMDocument (or subclass of $doc's owner document).
+	 * @throws     \Exception When the transformation fails or libxml reports an error.
 	 * @since      1.0.0
 	 */
 	public function transformToDoc($doc, $returnClass = null): false|object

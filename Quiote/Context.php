@@ -1195,9 +1195,8 @@ class Context implements \Stringable, ResetInterface, ContextInterface
    */
   public function initialize(): void
   {
-    $logger = null;
+    $logger = \Quiote\Logging\Log::for($this);
     try {
-      $logger = \Quiote\Logging\Log::for($this);
       $definitions = \Quiote\Config\Factory\FactoryDefinitions::fromCompiled(
         $this->loadCompiledFactories($logger),
         'the compiled factories cache for context "' . $this->name . '"',

@@ -485,10 +485,13 @@ final class KernelTest extends TestCase
     public function testTheCleanupIntervalIsAtLeastOne(): void
     {
         Config::set('core.worker.cleanup_interval', 0);
-        $this->assertSame(1, $this->call(Kernel::create(), 'cleanupInterval'));
+        $fromConfig = $this->call(Kernel::create(), 'cleanupInterval');
 
         putenv('QUIOTE_MAX_REQUESTS=0');
-        $this->assertSame(1, $this->call(Kernel::create(), 'cleanupInterval'));
+        $fromEnvironment = $this->call(Kernel::create(), 'cleanupInterval');
+
+        $this->assertSame(1, $fromConfig);
+        $this->assertSame(1, $fromEnvironment);
     }
 }
 

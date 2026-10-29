@@ -43,8 +43,11 @@ class ContainerTestCaseTest extends ContainerTestCase
 	{
 		$this->execute(['sticky' => 'yes']);
 
-		$this->assertSame('yes', $this->currentRequest()->getParameter('sticky'));
-		$this->assertSame('yes', $this->currentRequest()->getParameter('sticky'));
+		$firstRead = $this->currentRequest()->getParameter('sticky');
+		$secondRead = $this->currentRequest()->getParameter('sticky');
+
+		$this->assertSame('yes', $firstRead);
+		$this->assertSame('yes', $secondRead);
 	}
 
 	public function testExecuteExposesTheGlobalResponse(): void
