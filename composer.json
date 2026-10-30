@@ -112,7 +112,8 @@
 		"quioteframework/replay-pdo": "^4.0",
 		"quioteframework/replay-storage": "^4.0",
 		"quioteframework/replay-azure": "^4.0",
-		"quioteframework/exception-notifier": "^4.0"
+		"quioteframework/exception-notifier": "^4.0",
+		"quioteframework/dev-overlay": "^1.0"
 	},
 	"suggest": {
 		"phpunit/phpunit": "Install phpunit if you want to run your tests",
@@ -168,7 +169,8 @@
 		"quioteframework/replay-pdo": "Enables the 'pdo' cassette store, keeping cassettes in the app's own database instead of a pod's ephemeral filesystem (Quiote\\Replay\\Store\\Pdo\\*)",
 		"quioteframework/replay-storage": "A ListableCassetteStoreInterface over any Quiote\\Storage\\ListableObjectStoreClientInterface -- Azure Blob, S3 or GCS (Quiote\\Replay\\Store\\Storage\\*); pulled in automatically by replay-azure",
 		"quioteframework/replay-azure": "Enables the 'azure-blob' cassette store, keeping cassettes in Azure Blob Storage instead of a pod's ephemeral filesystem (Quiote\\Replay\\Store\\Azure\\*)",
-		"quioteframework/exception-notifier": "Notifies Microsoft Teams (Adaptive Card) and/or a generic webhook when ErrorHandlingMiddleware catches an exception, with an extendable channel driver seam (Quiote\\ExceptionNotifier\\ExceptionNotifierPlugin)"
+		"quioteframework/exception-notifier": "Notifies Microsoft Teams (Adaptive Card) and/or a generic webhook when ErrorHandlingMiddleware catches an exception, with an extendable channel driver seam (Quiote\\ExceptionNotifier\\ExceptionNotifierPlugin)",
+		"quioteframework/dev-overlay": "In-browser developer overlay: a floating badge on HTML pages that collects exception details from the page and its same-origin fetch()/XHR requests while core.developer_exceptions is on (Quiote\\DevOverlay\\DevOverlayPlugin)"
 	},
 	"scripts": {
 		"test": "php -d apc.enable_cli=0 vendor/bin/phpunit --no-coverage",

@@ -75,6 +75,7 @@
             <directory>packages/worker-roadrunner/tests</directory>
             <directory>packages/worker-swoole/tests</directory>
             <directory>packages/exception-notifier/tests</directory>
+            <directory>packages/dev-overlay/tests</directory>
         </testsuite>
         <testsuite name="flow">
             <directory>tests/tests/flow</directory>
@@ -167,6 +168,7 @@
             <directory>packages/replay-storage/src</directory>
             <directory>packages/replay-azure/src</directory>
             <directory>packages/exception-notifier/src</directory>
+            <directory>packages/dev-overlay/src</directory>
         </include>
         <exclude>
         <directory>Quiote/translation/data</directory>

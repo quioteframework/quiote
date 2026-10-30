@@ -239,6 +239,11 @@
 			"name": "exception-notifier",
 			"directory": "packages/exception-notifier",
 			"target": "git@github.com:quioteframework/exception-notifier.git"
+		},
+		{
+			"name": "dev-overlay",
+			"directory": "packages/dev-overlay",
+			"target": "git@github.com:quioteframework/dev-overlay.git"
 		}
 	]
 }
