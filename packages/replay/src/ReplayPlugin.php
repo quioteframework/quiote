@@ -53,6 +53,8 @@ final class ReplayPlugin implements PluginInterface
     public function register(PluginRegistrar $registrar): void
     {
         $registrar->configDefault('replay.enabled', false);
+        // One policy or several -- an array, or a comma-separated string such as `error,header` --
+        // and a request is kept when any of them keeps it. See SamplingPolicySet.
         $registrar->configDefault('replay.record', 'never');
         $registrar->configDefault('replay.sample_rate', 0.0);
         $registrar->configDefault('replay.trigger_header', 'X-Quiote-Record');

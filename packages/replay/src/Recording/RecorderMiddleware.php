@@ -37,7 +37,7 @@ use Throwable;
 /**
  * Captures the request/response/resolved/session/exception detail for a
  * request and writes a {@see Cassette} for whichever requests
- * {@see SamplingPolicy} keeps.
+ * {@see SamplingPolicySet} keeps.
  *
  * Registered `phase: 'bootstrap', priority: 1100` -- between `StealthMiddleware`
  * (1200) and `ErrorHandlingMiddleware` (1000) -- so it observes the *rendered*
@@ -106,12 +106,13 @@ final class RecorderMiddleware implements MiddlewareInterface, ResetInterface
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
-        $policy = Config::getBool('replay.enabled', false)
-            ? SamplingPolicy::fromConfigValue(Config::getString('replay.record', 'never'))
-            : SamplingPolicy::Never;
-        if ($policy === SamplingPolicy::Never) {
-            // One enum comparison, no buffer, no allocation -- the overhead budget for the
-            // default configuration.
+        if (!Config::getBool('replay.enabled', false)) {
+            // One config read, no buffer, no allocation -- the overhead budget for the default
+            // configuration.
+            return $handler->handle($request);
+        }
+        $policies = SamplingPolicySet::fromConfigValues(Config::getStringList('replay.record', ['never']));
+        if ($policies->isNever()) {
             return $handler->handle($request);
         }
 
@@ -122,7 +123,7 @@ final class RecorderMiddleware implements MiddlewareInterface, ResetInterface
         // depend on the outcome, so losing the roll up front is a decision that can be acted on.
         $sampleRate = Config::getFloat('replay.sample_rate', 0.0);
         $rolled = false;
-        if ($policy->declinesUpFront($sampleRate, $this->randomness, $rolled)) {
+        if ($policies->declinesUpFront($sampleRate, $this->randomness, $rolled)) {
             return $handler->handle($request);
         }
 
@@ -150,9 +151,10 @@ final class RecorderMiddleware implements MiddlewareInterface, ResetInterface
         } catch (Throwable $e) {
             [$log, $logTruncated] = RecordingLogBuffer::finish($logBufferId);
             $this->deactivate($sources, $rawId);
-            if ($policy->shouldKeep(500, true, $sampleRate, $this->randomness, $headerPresent, $rolled)) {
+            $keptBy = $policies->keptBy(500, true, $sampleRate, $this->randomness, $headerPresent, $rolled);
+            if ($keptBy !== null) {
                 $session->setLog($log, $logTruncated);
-                $this->finishRecording($session, $request, null, $e, $redactor, $policy, $rawId, $sources !== []);
+                $this->finishRecording($session, $request, null, $e, $redactor, $keptBy, $rawId, $sources !== []);
             }
             throw $e;
         }
@@ -160,9 +162,10 @@ final class RecorderMiddleware implements MiddlewareInterface, ResetInterface
         [$log, $logTruncated] = RecordingLogBuffer::finish($logBufferId);
         $this->deactivate($sources, $rawId);
 
-        if ($policy->shouldKeep($response->getStatusCode(), false, $sampleRate, $this->randomness, $headerPresent, $rolled)) {
+        $keptBy = $policies->keptBy($response->getStatusCode(), false, $sampleRate, $this->randomness, $headerPresent, $rolled);
+        if ($keptBy !== null) {
             $session->setLog($log, $logTruncated);
-            $this->finishRecording($session, $request, $response, null, $redactor, $policy, $rawId, $sources !== []);
+            $this->finishRecording($session, $request, $response, null, $redactor, $keptBy, $rawId, $sources !== []);
         }
 
         return $response;
@@ -442,6 +445,9 @@ final class RecorderMiddleware implements MiddlewareInterface, ResetInterface
                 'runtime' => null,
                 'trace_id' => null,
                 'span_id' => null,
+                // The policy that kept this request, not the whole configured set: with
+                // `replay.record = error,header` a failing request reads `error` and a requested
+                // one `header`, which is what a store keys its own reporting on.
                 'trigger' => $policy->value,
                 // A cassette that recorded no DB effects because its adapter is not instrumented
                 // says so in meta, rather than looking indistinguishable from "genuinely no DB

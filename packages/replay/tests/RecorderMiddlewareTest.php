@@ -381,6 +381,102 @@ final class RecorderMiddlewareTest extends TestCase
         $this->assertCount(1, $store->put);
     }
 
+    public function testErrorAndHeaderRecordsAFailingRequestWithoutTheHeader(): void
+    {
+        $this->enable('error,header');
+        $store = $this->spyStore();
+        $middleware = new RecorderMiddleware($this->context($store), $store);
+
+        $middleware->process(new ServerRequest('GET', '/'), $this->handler(new Response(500)));
+
+        $this->assertCount(1, $store->put);
+        $this->assertSame('error', $store->put[0][1]->meta['trigger']);
+    }
+
+    public function testErrorAndHeaderRecordsASuccessfulRequestCarryingTheHeader(): void
+    {
+        $this->enable('error,header');
+        $store = $this->spyStore();
+        $middleware = new RecorderMiddleware($this->context($store), $store);
+
+        $middleware->process(new ServerRequest('GET', '/', ['X-Quiote-Record' => '1']), $this->handler(new Response(200)));
+
+        $this->assertCount(1, $store->put);
+        $this->assertSame('header', $store->put[0][1]->meta['trigger']);
+    }
+
+    public function testErrorAndHeaderDropsASuccessfulRequestWithoutTheHeader(): void
+    {
+        $this->enable('error,header');
+        $store = $this->spyStore();
+        $middleware = new RecorderMiddleware($this->context($store), $store);
+
+        $middleware->process(new ServerRequest('GET', '/'), $this->handler(new Response(200)));
+
+        $this->assertCount(0, $store->put);
+    }
+
+    public function testRecordAcceptsAnArrayOfPolicies(): void
+    {
+        Config::set('replay.enabled', true, true, false);
+        Config::set('replay.record', ['header', 'error'], true, false);
+        $store = $this->spyStore();
+        $middleware = new RecorderMiddleware($this->context($store), $store);
+        $handler = new class implements RequestHandlerInterface {
+            public function handle(ServerRequestInterface $request): ResponseInterface
+            {
+                throw new RuntimeException('boom');
+            }
+        };
+
+        try {
+            $middleware->process(new ServerRequest('GET', '/'), $handler);
+            $this->fail('Expected the exception to propagate.');
+        } catch (RuntimeException $e) {
+            $this->assertSame('boom', $e->getMessage());
+        }
+
+        $this->assertCount(1, $store->put);
+        $this->assertSame('error', $store->put[0][1]->meta['trigger']);
+    }
+
+    public function testRateCombinedWithErrorStillRecordsAFailureOnALostRoll(): void
+    {
+        $this->enable('rate,error');
+        Config::set('replay.sample_rate', 0.0, true, false);
+        $store = $this->spyStore();
+        $middleware = new RecorderMiddleware($this->context($store), $store);
+
+        $middleware->process(new ServerRequest('GET', '/'), $this->handler(new Response(502)));
+
+        $this->assertCount(1, $store->put);
+        $this->assertSame('error', $store->put[0][1]->meta['trigger']);
+    }
+
+    public function testNeverCombinedWithAnotherPolicyFailsLoudly(): void
+    {
+        $this->enable('never,error');
+        $store = $this->spyStore();
+        $middleware = new RecorderMiddleware($this->context($store), $store);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/combines "never"/');
+        $middleware->process(new ServerRequest('GET', '/'), $this->handler(new Response(200)));
+    }
+
+    public function testAnUnrecognisedPolicyIsIgnoredWhenRecordingIsDisabled(): void
+    {
+        Config::set('replay.enabled', false, true, false);
+        Config::set('replay.record', 'eror', true, false);
+        $store = $this->spyStore();
+        $middleware = new RecorderMiddleware($this->context($store), $store);
+
+        $response = $middleware->process(new ServerRequest('GET', '/'), $this->handler(new Response(200)));
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertCount(0, $store->put);
+    }
+
     public function testReadsResolvedModuleAndActionFromRequestStateForASimpleAction(): void
     {
         $this->enable('always');

@@ -17,7 +17,7 @@ use Quiote\Logging\Sink\SinkInterface;
  * Registered once, at boot, by {@see \Quiote\Replay\ReplayPlugin} -- same
  * lifetime as every other sink -- and gates on {@see RecordingLogBuffer::isActive()},
  * so an app with no recording in progress (`replay.enabled` off, or a request
- * {@see SamplingPolicy} declined) pays one static-array-emptiness check per
+ * {@see SamplingPolicySet} declined) pays one static-array-emptiness check per
  * log statement and nothing else. Still subject to the category's own
  * configured minimum level: `CategoryLogger::log()` resolves that threshold
  * before consulting any sink, so this does not capture more than the app's
