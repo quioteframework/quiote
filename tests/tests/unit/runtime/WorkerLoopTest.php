@@ -11,6 +11,10 @@ use Psr\Http\Message\ServerRequestInterface;
 use Quiote\Config\Config;
 use Quiote\Context;
 use Quiote\Http\Sse\SseStream;
+use Quiote\Logging\Level;
+use Quiote\Logging\Log;
+use Quiote\Logging\LogEvent;
+use Quiote\Logging\Sink\SinkInterface;
 use Quiote\Runtime\ErrorResponseFactory;
 use Quiote\Runtime\OutputCapture;
 use Quiote\Runtime\Request\WorkerRequestFactory;
@@ -18,6 +22,26 @@ use Quiote\Runtime\Superglobals\SuperglobalBridge;
 use Quiote\Runtime\Worker\WorkerLoop;
 use Quiote\Runtime\Worker\WorkerRuntimeCapabilities;
 use Psr\Http\Server\RequestHandlerInterface;
+
+final class WorkerLoopTestCapturingSink implements SinkInterface
+{
+    /** @var list<LogEvent> */
+    public array $events = [];
+
+    public function isEnabled(Level $level, string $category): bool
+    {
+        return true;
+    }
+
+    public function emit(LogEvent $event): void
+    {
+        $this->events[] = $event;
+    }
+
+    public function flush(): void
+    {
+    }
+}
 
 final class WorkerLoopTest extends TestCase
 {
@@ -43,6 +67,17 @@ final class WorkerLoopTest extends TestCase
         $_GET = $_POST = $_COOKIE = $_REQUEST = $_FILES = [];
         ini_set('session.use_cookies', $this->savedUseCookies);
         Config::remove('core.worker.stray_output');
+        unset($_SESSION);
+        Log::reset();
+    }
+
+    /** @return list<string> */
+    private static function warnings(WorkerLoopTestCapturingSink $sink): array
+    {
+        return array_values(array_map(
+            static fn(LogEvent $event): string => $event->renderMessage(),
+            array_filter($sink->events, static fn(LogEvent $event): bool => $event->level === Level::Warning),
+        ));
     }
 
     /**
@@ -304,6 +339,58 @@ final class WorkerLoopTest extends TestCase
         // The process is about to exit; paying for a reset would only slow the
         // response down.
         $this->assertSame(['still' => 'here'], $_GET);
+    }
+
+    public function testAfterRequestDiscardsWhatARequestLeftInSessionAndNamesTheKeys(): void
+    {
+        $sink = new WorkerLoopTestCapturingSink();
+        Log::addSink($sink);
+        $loop = $this->makeLoop(WorkerRuntimeCapabilities::sapi(persistent: true));
+        $loop->handle(self::request());
+        $_SESSION = ['tempLogoPath' => '/tmp/secret-upload.png'];
+
+        $loop->afterRequest();
+
+        $this->assertFalse(isset($_SESSION), 'the next request must not see this one\'s values');
+        $warnings = self::warnings($sink);
+        $this->assertCount(1, $warnings);
+        $this->assertStringContainsString('"tempLogoPath"', $warnings[0]);
+        $this->assertStringNotContainsString('secret-upload', $warnings[0], 'values are never logged');
+    }
+
+    public function testAnEmptySessionArrayIsDiscardedWithoutAWarning(): void
+    {
+        $sink = new WorkerLoopTestCapturingSink();
+        Log::addSink($sink);
+        $loop = $this->makeLoop(WorkerRuntimeCapabilities::sapi(persistent: true));
+        $_SESSION = [];
+
+        $loop->afterRequest();
+
+        $this->assertFalse(isset($_SESSION));
+        $this->assertSame([], self::warnings($sink));
+    }
+
+    public function testNoSessionArrayIsNoWarning(): void
+    {
+        $sink = new WorkerLoopTestCapturingSink();
+        Log::addSink($sink);
+        $loop = $this->makeLoop(WorkerRuntimeCapabilities::sapi(persistent: true));
+        unset($_SESSION);
+
+        $loop->afterRequest();
+
+        $this->assertSame([], self::warnings($sink));
+    }
+
+    public function testANonPersistentRuntimeLeavesSessionAlone(): void
+    {
+        $loop = $this->makeLoop(WorkerRuntimeCapabilities::sapi(persistent: false));
+        $_SESSION = ['kept' => 'for this process only'];
+
+        $loop->afterRequest();
+
+        $this->assertSame(['kept' => 'for this process only'], $_SESSION);
     }
 
     public function testBootWorkerIsIdempotent(): void

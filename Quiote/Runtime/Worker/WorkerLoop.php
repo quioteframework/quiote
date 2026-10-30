@@ -133,6 +133,8 @@ final class WorkerLoop
             $this->superglobals->dehydrate();
         }
 
+        $this->discardNativeSessionData();
+
         WorkerManager::resetForNextRequest($this->context->getName());
 
         // Per-request-boundary hook for plugins holding worker-lifetime state
@@ -142,6 +144,30 @@ final class WorkerLoop
             WorkerRequestCompletedEvent::class,
             fn(): WorkerRequestCompletedEvent => new WorkerRequestCompletedEvent($this->context),
         );
+    }
+
+    /**
+     * Drops whatever the request left in `$_SESSION`.
+     *
+     * Quiote never reads or persists `$_SESSION` (see {@see \Quiote\Session\SessionManager}), and
+     * no runtime refills it per request, so in a persistent worker it is an ordinary process
+     * global: a value one request writes is gone if the next request lands on another worker, and
+     * handed to whoever's request this worker serves next if it does not. The keys -- never the
+     * values -- are logged so the code still writing there can move to user attributes or the
+     * request's Session.
+     */
+    private function discardNativeSessionData(): void
+    {
+        if (!isset($_SESSION)) {
+            return;
+        }
+        if ($_SESSION !== []) {
+            Log::for($this)->warning(sprintf(
+                'Discarded $_SESSION keys %s at the end of the request: Quiote does not persist $_SESSION, and a persistent worker would hand them to the next request it serves. Store them as user attributes or in the request\'s Session instead.',
+                implode(', ', array_map(static fn(int|string $key): string => '"' . $key . '"', array_keys($_SESSION))),
+            ));
+        }
+        unset($_SESSION);
     }
 
     /** False once the max-requests budget is spent; always true when unlimited. */
