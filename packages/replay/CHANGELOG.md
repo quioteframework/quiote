@@ -1,3 +1,13 @@
+## [4.3.0-beta1] - 2026-10-30
+
+### 🚀 Features
+
+- *(replay)* Combine several policies in replay.record
+
+### 🚜 Refactor
+
+- *(config)* Declare getStringList() as returning a list
+
 ## [4.2.0] - 2026-09-08
 
 ### 🚀 Features
