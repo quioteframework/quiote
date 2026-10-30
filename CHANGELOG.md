@@ -1,3 +1,9 @@
+## [4.5.2-beta1] - 2026-10-30
+
+### 🚜 Refactor
+
+- *(config)* Declare getStringList() as returning a list
+
 ## [4.5.1-beta2] - 2026-10-29
 
 ### 🐛 Bug Fixes
