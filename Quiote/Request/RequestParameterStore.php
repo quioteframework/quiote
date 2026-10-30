@@ -19,6 +19,14 @@ use Quiote\Util\ArrayPathDefinition;
 final class RequestParameterStore
 {
     /**
+     * The declared paths with a `[]` wildcard segment, split into their parts. Built on first
+     * use: the store is immutable, so its declarations never change once constructed.
+     *
+     * @var ?list<array{parts: array<int, string>, absolute: bool}>
+     */
+    private ?array $wildcardDeclarations = null;
+
+    /**
      * @param array<array-key, mixed> $runtimeParameters
      * @param array<array-key, bool> $validatedKeys
      * @param array<array-key, bool> $wholeValueKeys Runtime parameters whose
@@ -444,17 +452,87 @@ final class RequestParameterStore
     /**
      * Reports whether the name may be read back out under strict validation.
      *
-     * True when the name was declared verbatim, or when its numeric bracket
-     * indices normalise onto a declared wildcard form -- so a validator
-     * declaring `items[]` also covers `items[0]`, `items[1]` and so on.
+     * True when the name was declared verbatim, or when it matches a declared path whose `[]`
+     * segments stand for any key at that level -- so a validator declaring `items[][Name]` also
+     * covers `items[0][Name]`, `items[-1][Name]` and `items[new][Name]`. That is exactly the set
+     * of keys such a validator iterates and {@see ParameterTreePruner} keeps, so a key it reads
+     * is always one it may read.
      */
     public function isWhitelisted(string $name): bool
     {
         if (isset($this->validatedKeys[$name])) {
             return true;
         }
-        $alias = self::normalizeNumericIndexKey($name);
-        return $alias !== null && isset($this->validatedKeys[$alias]);
+        if (!str_contains($name, '[')) {
+            return false;
+        }
+        $path = self::pathParts($name);
+        if ($path === null) {
+            return false;
+        }
+        foreach ($this->wildcardDeclarations() as $declared) {
+            if (self::matchesWildcard($declared, $path)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** @return list<array{parts: array<int, string>, absolute: bool}> */
+    private function wildcardDeclarations(): array
+    {
+        if ($this->wildcardDeclarations !== null) {
+            return $this->wildcardDeclarations;
+        }
+        $declarations = [];
+        foreach (array_keys($this->validatedKeys) as $key) {
+            if (!str_contains((string) $key, '[]')) {
+                continue;
+            }
+            $path = self::pathParts((string) $key);
+            if ($path !== null) {
+                $declarations[] = $path;
+            }
+        }
+        return $this->wildcardDeclarations = $declarations;
+    }
+
+    /** @return ?array{parts: array<int, string>, absolute: bool} */
+    private static function pathParts(string $name): ?array
+    {
+        try {
+            $path = ArrayPathDefinition::getPartsFromPath($name);
+        } catch (\InvalidArgumentException $e) {
+            \Quiote\Logging\Log::create(self::class)->debug(
+                'treating unparsable parameter path "' . $name . '" as undeclared: ' . $e->getMessage()
+            );
+            return null;
+        }
+        return $path['parts'] === [] ? null : $path;
+    }
+
+    /**
+     * Whether `$path` is `$declared` with a key filled in at each `[]`. The root of an absolute
+     * path is a name, never a wildcard, so it must match exactly.
+     *
+     * @param array{parts: array<int, string>, absolute: bool} $declared
+     * @param array{parts: array<int, string>, absolute: bool} $path
+     */
+    private static function matchesWildcard(array $declared, array $path): bool
+    {
+        if ($declared['absolute'] !== $path['absolute'] || count($declared['parts']) !== count($path['parts'])) {
+            return false;
+        }
+        foreach (array_values($declared['parts']) as $index => $segment) {
+            $given = (string) $path['parts'][$index];
+            if ($segment === '' && !($declared['absolute'] && $index === 0)) {
+                continue;
+            }
+            if ((string) $segment !== $given) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -627,50 +705,5 @@ final class RequestParameterStore
             }
         }
         return array_keys($variants);
-    }
-
-    private static function normalizeNumericIndexKey(string $name): ?string
-    {
-        if (!str_contains($name, '[')) {
-            return null;
-        }
-        try {
-            $info = ArrayPathDefinition::getPartsFromPath($name);
-        } catch (\Throwable) {
-            return null;
-        }
-        $parts = $info['parts'];
-        if (empty($parts)) {
-            return null;
-        }
-        $updated = false;
-        $normalizedParts = $parts;
-        foreach ($normalizedParts as $idx => $segment) {
-            if ($info['absolute'] && $idx === 0) {
-                continue;
-            }
-            if ($segment === '') {
-                continue;
-            }
-            $segmentStr = (string)$segment;
-            if (ctype_digit($segmentStr)) {
-                $normalizedParts[$idx] = '';
-                $updated = true;
-            }
-        }
-        if (!$updated) {
-            return null;
-        }
-        $root = '';
-        $tail = $normalizedParts;
-        if ($info['absolute']) {
-            $root = (string)$normalizedParts[0];
-            $tail = array_slice($normalizedParts, 1);
-        }
-        $result = $root;
-        if (!empty($tail)) {
-            $result .= '[' . implode('][', $tail) . ']';
-        }
-        return $result;
     }
 }

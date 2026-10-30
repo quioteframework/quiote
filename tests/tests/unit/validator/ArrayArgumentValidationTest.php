@@ -183,6 +183,40 @@ class ArrayArgumentValidationTest extends UnitTestCase
         $this->assertSame('Ada', $final->getParameter('name'));
     }
 
+    public function testANegativeRowKeyIsValidatedLikeAnyOther(): void
+    {
+        $manager = $this->manager();
+        $manager->createValidator(StringValidator::class, ['Name'], [], ['base' => 'NewTagGroups[]', 'trim' => true]);
+
+        $final = $this->validate($manager, ['NewTagGroups' => [-1 => ['Name' => ' Colours '], -2 => ['Name' => 'Sizes']]]);
+
+        $this->assertSame([], $manager->getReport()->getErrorMessages());
+        $this->assertSame([-1 => ['Name' => 'Colours'], -2 => ['Name' => 'Sizes']], $final->getParameter('NewTagGroups'));
+        $this->assertSame('Colours', $final->getParameter('NewTagGroups[-1][Name]'));
+    }
+
+    public function testAStringRowKeyIsValidatedLikeAnyOther(): void
+    {
+        $manager = $this->manager();
+        $manager->createValidator(StringValidator::class, ['Name'], [], ['base' => 'NewTagGroups[]', 'trim' => true]);
+
+        $final = $this->validate($manager, ['NewTagGroups' => ['new-1' => ['Name' => ' Colours ']]]);
+
+        $this->assertSame([], $manager->getReport()->getErrorMessages());
+        $this->assertSame(['new-1' => ['Name' => 'Colours']], $final->getParameter('NewTagGroups'));
+    }
+
+    public function testAnInvalidRowUnderANegativeKeyIsAValidationErrorNotAnException(): void
+    {
+        $manager = $this->manager();
+        $manager->createValidator(StringValidator::class, ['Name'], [], ['base' => 'NewTagGroups[]', 'min' => 3]);
+
+        $final = $this->validate($manager, ['NewTagGroups' => [-1 => ['Name' => 'ab'], 5 => ['Name' => 'Sizes']]]);
+
+        $this->assertNotSame([], $manager->getReport()->getErrorMessages());
+        $this->assertSame([5 => ['Name' => 'Sizes']], $final->getParameter('NewTagGroups'));
+    }
+
     public function testUnvalidatedAndInjectedRowKeysAreRemoved(): void
     {
         $manager = $this->manager();
