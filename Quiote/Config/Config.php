@@ -191,7 +191,7 @@ class Config
 	 * an unset directive (with no default) becomes an empty list.
 	 * @param      string|int        $name The name of the configuration directive.
 	 * @param      array<string> $default The value to return if the directive is not set.
-	 * @return     array<int, string> The value of the directive, normalized to a list of strings.
+	 * @return     list<string> The value of the directive, normalized to a list of strings.
 	 * @throws     \Quiote\Exception\ConfigurationException If the directive holds something other than a string or an array of scalars.
 	 * @since      1.0.0
 	 * @phpstan-impure

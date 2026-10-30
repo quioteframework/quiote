@@ -81,7 +81,7 @@ final class McpConfig
     {
         return new self(
             enabled: Config::getBool('mcp.enabled', false),
-            transports: array_values(Config::getStringList('mcp.transports', ['stdio'])),
+            transports: Config::getStringList('mcp.transports', ['stdio']),
             path: Config::getString('mcp.path', '/mcp'),
             protocolVersion: Config::getString('mcp.protocol_version', '2025-11-25'),
             stateless: Config::getBool('mcp.stateless', true),
@@ -89,13 +89,13 @@ final class McpConfig
             serverVersion: Config::getString('mcp.server_version', '1.0.0'),
             auth: Config::getString('mcp.auth', 'bearer'),
             exposeActions: Config::getBool('mcp.expose_actions', false),
-            moduleDirs: array_values(Config::getStringList('mcp.module_dirs', [])),
+            moduleDirs: Config::getStringList('mcp.module_dirs', []),
             discoverAttributes: Config::getBool('mcp.discover_attributes', false),
             discoveryCache: Config::getBool('mcp.discovery_cache', true),
             oauthIssuer: Config::getNullableString('mcp.oauth.issuer'),
             oauthAudience: Config::getNullableString('mcp.oauth.audience'),
             oauthJwksUri: Config::getNullableString('mcp.oauth.jwks_uri'),
-            oauthScopesSupported: array_values(Config::getStringList('mcp.oauth.scopes_supported', [])),
+            oauthScopesSupported: Config::getStringList('mcp.oauth.scopes_supported', []),
             oauthCacheTtl: (int) Config::getInt('mcp.oauth.cache_ttl', 3600),
         );
     }

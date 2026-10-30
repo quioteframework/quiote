@@ -59,10 +59,10 @@ final readonly class EffectRedactor
     {
         return new self(
             Redactor::fromConfig(),
-            array_values(array_map(
+            array_map(
                 strtolower(...),
                 Config::getStringList('replay.redact.env', self::DEFAULT_ENV_NEEDLES),
-            )),
+            ),
         );
     }
 

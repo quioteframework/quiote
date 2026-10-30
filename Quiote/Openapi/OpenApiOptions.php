@@ -51,8 +51,8 @@ final readonly class OpenApiOptions
             version: Config::getString('core.openapi.version', '1.0.0'),
             description: Config::getNullableString('core.openapi.description') ?: null,
             servers: self::normalizeServers(Config::getArray('core.openapi.servers', [])),
-            excludeRoutes: array_values(Config::getStringList('core.openapi.exclude_routes', [])),
-            modules: array_values(Config::getStringList('core.openapi.modules', [])),
+            excludeRoutes: Config::getStringList('core.openapi.exclude_routes', []),
+            modules: Config::getStringList('core.openapi.modules', []),
             problemResponses: Config::getBool('core.openapi.problem_responses', true),
             useActionDocblocks: Config::getBool('core.openapi.use_action_docblocks', true),
         );

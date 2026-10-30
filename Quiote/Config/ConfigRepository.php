@@ -146,7 +146,7 @@ class ConfigRepository
      * to a list. A single string becomes a one-element list; unset or empty becomes empty.
      *
      * @param      array<string> $default
-     * @return     array<int, string>
+     * @return     list<string>
      * @throws     ConfigurationException If it holds anything other than a string or an array of scalars.
      */
     public function getStringList(string|int $name, array $default = []): array
