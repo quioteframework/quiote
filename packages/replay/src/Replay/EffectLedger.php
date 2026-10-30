@@ -6,6 +6,7 @@ namespace Quiote\Replay\Replay;
 
 use Quiote\Replay\Cassette\Effect;
 use Quiote\Replay\Cassette\EffectKind;
+use Quiote\Replay\Cassette\ResourceValue;
 use Quiote\Replay\Recording\EffectRedactor;
 
 /**
@@ -137,6 +138,12 @@ final class EffectLedger
                 $kind->value,
             ));
         }
+
+        // A resource -- pdo_pgsql's stream for a bytea column -- has no JSON form and would fail
+        // the whole cassette at encode time; it becomes a placeholder carrying its content
+        // instead. First, so the redactor and the budget both see what will be stored.
+        $call = ResourceValue::replaceResourcesIn($call);
+        $result = ResourceValue::replaceResources($result);
 
         if ($this->redactor !== null) {
             // Before the budget check below, so a payload is measured at the size it will

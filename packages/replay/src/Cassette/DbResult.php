@@ -78,6 +78,11 @@ final readonly class DbResult
      *
      * Returns null only when the value is nothing this class can describe at all, which a caller
      * should report as a malformed cassette rather than paper over.
+     *
+     * A row value recorded as a {@see ResourceValue} placeholder comes back as a stream again, so a
+     * replayed `bytea` column reads like the original.
+     *
+     * @throws \RuntimeException When a row holds a resource recorded without its content.
      */
     public static function fromResult(mixed $result): ?self
     {
@@ -136,7 +141,7 @@ final readonly class DbResult
             if (!is_array($row)) {
                 return null;
             }
-            $rows[] = $row;
+            $rows[] = ResourceValue::restoreRow($row);
         }
 
         return $rows;

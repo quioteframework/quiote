@@ -8,6 +8,32 @@ use Quiote\Replay\Cassette\CassetteCodec;
 use Quiote\Replay\Cassette\CassetteCodecException;
 use Quiote\Replay\Cassette\Effect;
 use Quiote\Replay\Cassette\EffectKind;
+use Quiote\Logging\Level;
+use Quiote\Logging\Log;
+use Quiote\Logging\LogEvent;
+use Quiote\Logging\Sink\SinkInterface;
+
+final class CassetteCodecTestWarningSink implements SinkInterface
+{
+    /** @var list<string> */
+    public array $warnings = [];
+
+    public function isEnabled(Level $level, string $category): bool
+    {
+        return true;
+    }
+
+    public function emit(LogEvent $event): void
+    {
+        if ($event->level === Level::Warning) {
+            $this->warnings[] = $event->renderMessage();
+        }
+    }
+
+    public function flush(): void
+    {
+    }
+}
 
 final class CassetteCodecTest extends TestCase
 {
@@ -310,5 +336,47 @@ final class CassetteCodecTest extends TestCase
         $this->assertIsString($raw);
 
         $this->assertCount(2, (new CassetteCodec())->decodeRaw($raw)->effects);
+    }
+
+    public function testAValueJsonCannotHoldNoLongerCostsTheWholeCassette(): void
+    {
+        $sink = new CassetteCodecTestWarningSink();
+        Log::addSink($sink);
+        try {
+            $codec = new CassetteCodec();
+            $base = $this->makeCassette();
+            $cassette = new Cassette(
+                schemaVersion: $base->schemaVersion,
+                meta: $base->meta,
+                request: $base->request,
+                resolved: $base->resolved,
+                session: $base->session,
+                user: $base->user,
+                effects: [new Effect(0, EffectKind::Db, 'select 1', ['sql' => 'select 1'], [['blob' => "\xFF\xFE"]], 120)],
+                response: $base->response,
+                exception: null,
+                log: null,
+            );
+
+            $decoded = $codec->decode($codec->encode($cassette));
+        } finally {
+            Log::reset();
+        }
+
+        $this->assertIsString($decoded->meta['encoding_lossy'] ?? null);
+        $this->assertStringContainsString('UTF-8', $decoded->meta['encoding_lossy']);
+        $this->assertSame($base->request, $decoded->request, 'everything else is stored intact');
+        $this->assertSame([['blob' => null]], $decoded->effects[0]->result);
+        $this->assertCount(1, $sink->warnings);
+        $this->assertStringContainsString('"01JCXV8N4K"', $sink->warnings[0]);
+    }
+
+    public function testACleanCassetteCarriesNoLossyFlag(): void
+    {
+        $codec = new CassetteCodec();
+
+        $decoded = $codec->decode($codec->encode($this->makeCassette()));
+
+        $this->assertArrayNotHasKey('encoding_lossy', $decoded->meta);
     }
 }

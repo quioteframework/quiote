@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Quiote\Replay\Cassette;
 
 use JsonException;
+use Quiote\Logging\Log;
 
 /**
  * Encodes/decodes a {@see Cassette} to/from its `.qcast` container: canonical
@@ -59,14 +60,40 @@ final class CassetteCodec
         return $compressed;
     }
 
-    /** Plain JSON, uncompressed -- the `--raw` inspection format. */
+    /**
+     * Plain JSON, uncompressed -- the `--raw` inspection format.
+     *
+     * A value JSON cannot hold -- a string that is not UTF-8, `NAN`, an object or resource a
+     * recorder let through -- does not cost the whole cassette: the payload is encoded again with
+     * each such value as `null`, `meta.encoding_lossy` says why, and the loss is logged. The
+     * cassette most likely to carry an odd value is an error cassette, which is the one worth
+     * keeping.
+     */
     public function encodeRaw(Cassette $cassette): string
     {
+        $payload = $this->toArray($cassette);
         try {
-            return json_encode($this->toArray($cassette), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+            return json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
         } catch (JsonException $e) {
-            throw new CassetteCodecException('Failed to encode the cassette payload as JSON: ' . $e->getMessage(), 0, $e);
+            $reason = $e->getMessage();
         }
+
+        $meta = is_array($payload['meta']) ? $payload['meta'] : [];
+        $meta['encoding_lossy'] = $reason;
+        $payload['meta'] = $meta;
+        $json = json_encode($payload, JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+        if ($json === false) {
+            throw new CassetteCodecException('Failed to encode the cassette payload as JSON: ' . json_last_error_msg());
+        }
+
+        $id = $meta['id'] ?? null;
+        Log::for($this)->warning(sprintf(
+            'Cassette %s held a value JSON cannot represent (%s); it was stored with that value as null and meta.encoding_lossy set.',
+            is_string($id) ? '"' . $id . '"' : '(no id)',
+            $reason,
+        ));
+
+        return $json;
     }
 
     /**
