@@ -550,8 +550,9 @@ class Container implements ContainerInterface
     /**
      * Name the accessor to inject instead, for the request-scoped services that have one.
      *
-     * The guard is correct but says nothing about what to do about it, and for the request and the
-     * user the answer is specific: an accessor that resolves per call rather than capturing. Worth
+     * The guard is correct but says nothing about what to do about it, and for the request, the
+     * user and the handled-exception list the answer is specific: an accessor that resolves per
+     * call rather than capturing. Worth
      * putting in the message, because this is a wiring-time failure someone hits once and has to
      * guess their way out of.
      */
@@ -565,6 +566,8 @@ class Container implements ContainerInterface
                 || is_a($dependencyId, \Quiote\User\User::class, true)
                 || is_a($dependencyId, \Quiote\User\ISecurityUser::class, true)
                 => \Quiote\User\CurrentUser::class,
+            $dependencyId === \Quiote\Error\HandledExceptions::class
+                => \Quiote\Error\ErrorReporting::class,
             default => null,
         };
 

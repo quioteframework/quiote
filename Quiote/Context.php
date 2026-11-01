@@ -706,12 +706,14 @@ class Context implements \Stringable, ResetInterface, ContextInterface
   }
 
   /**
-   * Bind the two accessors that reach request-scoped state without capturing it.
+   * Bind the accessors that reach request-scoped state without capturing it: RequestState,
+   * CurrentUser and ErrorReporting, the last alongside the request-scoped HandledExceptions list
+   * it writes to.
    *
    * Singleton-scoped deliberately, and that is the whole point: the container refuses to inject
-   * the `request` and `user` services into a singleton, because a singleton would keep one
-   * request's instance forever. These hold nothing and resolve on every call, so they are safe to
-   * capture and are what a singleton injects instead.
+   * a request-scoped service into a singleton, because a singleton would keep one request's
+   * instance forever. These hold nothing and resolve on every call, so they are safe to capture
+   * and are what a singleton injects instead.
    */
   private function registerRequestScopeAccessors(): void
   {
@@ -738,6 +740,20 @@ class Context implements \Stringable, ResetInterface, ContextInterface
       Container::SCOPE_SINGLETON,
     );
     $container->alias('currentUser', \Quiote\User\CurrentUser::class);
+
+    $container->setFactory(
+      \Quiote\Error\HandledExceptions::class,
+      static fn(): \Quiote\Error\HandledExceptions => new \Quiote\Error\HandledExceptions(),
+      Container::SCOPE_REQUEST,
+    );
+    $container->setFactory(
+      \Quiote\Error\ErrorReporting::class,
+      fn(): \Quiote\Error\ErrorReporting => new \Quiote\Error\ErrorReporting(
+        fn(): \Quiote\Error\HandledExceptions => $this->getContainer()->get(\Quiote\Error\HandledExceptions::class),
+      ),
+      Container::SCOPE_SINGLETON,
+    );
+    $container->alias('errorReporting', \Quiote\Error\ErrorReporting::class);
   }
 
   /**
