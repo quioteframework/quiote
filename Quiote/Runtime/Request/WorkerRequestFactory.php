@@ -97,12 +97,16 @@ final class WorkerRequestFactory
         }
 
         if ($authority->host !== null && $authority->host !== '') {
-            $authorityHost = ForwardedHeaderResolver::formatAuthorityHost($authority->host);
-            if ($port !== null && ForwardedHeaderResolver::isPortNonDefault($scheme ?? 'http', $port)) {
-                $authorityHost .= ':' . $port;
-            }
-            $serverParams['HTTP_HOST'] = $authorityHost;
+            $serverParams['HTTP_HOST'] = self::authority($authority->host, $port, $scheme);
             $serverParams['SERVER_NAME'] = $authority->host;
+        } elseif ($port !== null) {
+            // The host stays, but a port in the Host header is the hop's and has
+            // to give way to the client's, or RequestUrl reads it back from there.
+            $hostHeader = $serverParams['HTTP_HOST'] ?? null;
+            $host = is_string($hostHeader) ? parse_url('//' . $hostHeader, PHP_URL_HOST) : null;
+            if (is_string($host) && $host !== '') {
+                $serverParams['HTTP_HOST'] = self::authority($host, $port, $scheme ?? $request->getUri()->getScheme());
+            }
         }
 
         if ($port !== null) {
@@ -144,6 +148,16 @@ final class WorkerRequestFactory
         }
 
         return $new;
+    }
+
+    private static function authority(string $host, ?int $port, ?string $scheme): string
+    {
+        $authority = ForwardedHeaderResolver::formatAuthorityHost($host);
+        if ($port !== null && ForwardedHeaderResolver::isPortNonDefault($scheme ?? 'http', $port)) {
+            $authority .= ':' . $port;
+        }
+
+        return $authority;
     }
 
     private function rewriteUri(UriInterface $uri, ForwardedAuthority $authority): UriInterface

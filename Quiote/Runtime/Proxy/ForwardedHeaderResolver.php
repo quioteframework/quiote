@@ -37,8 +37,11 @@ final class ForwardedHeaderResolver
      * Each field is taken from its X-* header if present, otherwise from the
      * matching parameter of an RFC 7239 `Forwarded` header, using only the first
      * entry in a comma-separated chain. A host that carries its own port wins
-     * over `X-Forwarded-Port`. When none of the three headers is present, an
-     * empty {@see ForwardedAuthority} comes back, meaning "no correction".
+     * over `X-Forwarded-Port`. A scheme with no port from either means the
+     * client used that scheme's default port: the port this request arrived on
+     * belongs to the hop from the proxy, not to the client. When none of the
+     * three headers is present, an empty {@see ForwardedAuthority} comes back,
+     * meaning "no correction".
      */
     public function resolve(ServerRequestInterface $request): ForwardedAuthority
     {
@@ -62,6 +65,11 @@ final class ForwardedHeaderResolver
             }
         }
 
+        if ($port === null && $scheme !== null) {
+            $port = self::defaultPort($scheme);
+            $portExplicit = $port !== null;
+        }
+
         return new ForwardedAuthority($scheme, $host, $port, $portExplicit);
     }
 
@@ -77,14 +85,20 @@ final class ForwardedHeaderResolver
         return $host;
     }
 
+    /** The port a client uses for $scheme when it names none, or null for a scheme without one. */
+    public static function defaultPort(?string $scheme): ?int
+    {
+        return match (strtolower((string) $scheme)) {
+            'http' => 80,
+            'https' => 443,
+            default => null,
+        };
+    }
+
     /** Whether $port needs to appear in an authority at all for $scheme. */
     public static function isPortNonDefault(?string $scheme, int $port): bool
     {
-        return match (strtolower((string) $scheme)) {
-            'http' => $port !== 80,
-            'https' => $port !== 443,
-            default => true,
-        };
+        return $port !== self::defaultPort($scheme);
     }
 
     /**

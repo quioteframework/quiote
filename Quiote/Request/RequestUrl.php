@@ -200,6 +200,7 @@ final class RequestUrl
             $forwarded = explode(',', self::toStr($server['HTTP_X_FORWARDED_PROTO']));
             $scheme = strtolower(trim($forwarded[0]));
         }
+        $schemeForwarded = $scheme !== '';
         if ($scheme === '' && !empty($server['REQUEST_SCHEME'])) {
             $scheme = strtolower(self::toStr($server['REQUEST_SCHEME']));
         }
@@ -233,7 +234,14 @@ final class RequestUrl
         if ($host === '' && !empty($server['SERVER_NAME'])) {
             $host = self::toStr($server['SERVER_NAME']);
         }
-        if ($port === null && isset($server['SERVER_PORT']) && is_numeric($server['SERVER_PORT'])) {
+        if ($schemeForwarded) {
+            // The client's port is the one the proxy names, or else the forwarded
+            // scheme's default; the Host header and SERVER_PORT describe the hop
+            // from the proxy to here.
+            $forwardedPort = explode(',', self::toStr($server['HTTP_X_FORWARDED_PORT'] ?? ''))[0];
+            $port = is_numeric(trim($forwardedPort)) ? (int) trim($forwardedPort) : null;
+        }
+        if ($port === null && !$schemeForwarded && isset($server['SERVER_PORT']) && is_numeric($server['SERVER_PORT'])) {
             $port = (int)$server['SERVER_PORT'];
         }
         if ($port === null) {

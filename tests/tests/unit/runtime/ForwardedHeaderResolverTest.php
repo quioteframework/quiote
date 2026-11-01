@@ -158,4 +158,42 @@ final class ForwardedHeaderResolverTest extends TestCase
         $this->assertSame('[2001:db8::1]', $authority->host);
         $this->assertSame(8443, $authority->port);
     }
+
+    public function testAForwardedSchemeWithoutAPortMeansThatSchemesDefault(): void
+    {
+        $https = (new ForwardedHeaderResolver())->resolve(self::request(['X-Forwarded-Proto' => 'https']));
+        $http = (new ForwardedHeaderResolver())->resolve(self::request(['Forwarded' => 'proto=http']));
+
+        $this->assertSame(443, $https->port);
+        $this->assertTrue($https->portExplicit);
+        $this->assertSame(80, $http->port);
+        $this->assertTrue($http->portExplicit);
+    }
+
+    public function testAPortInTheForwardedHostWinsOverTheSchemesDefault(): void
+    {
+        $authority = (new ForwardedHeaderResolver())->resolve(self::request([
+            'X-Forwarded-Proto' => 'https',
+            'X-Forwarded-Host' => 'public.example:8443',
+        ]));
+
+        $this->assertSame(8443, $authority->port);
+    }
+
+    public function testASchemeWithoutADefaultPortLeavesThePortUnknown(): void
+    {
+        $authority = (new ForwardedHeaderResolver())->resolve(self::request(['X-Forwarded-Proto' => 'gopher']));
+
+        $this->assertSame('gopher', $authority->scheme);
+        $this->assertNull($authority->port);
+        $this->assertFalse($authority->portExplicit);
+    }
+
+    public function testDefaultPortsPerScheme(): void
+    {
+        $this->assertSame(443, ForwardedHeaderResolver::defaultPort('HTTPS'));
+        $this->assertSame(80, ForwardedHeaderResolver::defaultPort('http'));
+        $this->assertNull(ForwardedHeaderResolver::defaultPort('gopher'));
+        $this->assertNull(ForwardedHeaderResolver::defaultPort(null));
+    }
 }

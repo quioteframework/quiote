@@ -377,7 +377,11 @@ abstract class Routing implements ResetInterface, \Quiote\ContextComponentInterf
 			}
 		}
 
-		if ($scheme === null || $scheme === '') {
+		// A scheme from the proxy with no port from it means that scheme's default
+		// port: the Host header's port and SERVER_PORT belong to the hop from the
+		// proxy to here, not to the client.
+		$schemeForwarded = $scheme !== null && $scheme !== '';
+		if (!$schemeForwarded) {
 			$scheme = $this->detectSchemeFromServer($server);
 		}
 
@@ -387,7 +391,7 @@ abstract class Routing implements ResetInterface, \Quiote\ContextComponentInterf
 			$serverAddr = $this->serverStringValue($server, 'SERVER_ADDR');
 			if ($fallbackHost !== null && $fallbackHost !== '') {
 				$host = $fallbackHost;
-				if ($port === null && $fallbackPort !== null) {
+				if ($port === null && $fallbackPort !== null && !$schemeForwarded) {
 					$port = $fallbackPort;
 					$explicitPort = $explicitPort || $fallbackExplicit;
 				}
@@ -401,7 +405,7 @@ abstract class Routing implements ResetInterface, \Quiote\ContextComponentInterf
 		}
 
 		$serverPort = $this->serverStringValue($server, 'SERVER_PORT');
-		if ($port === null && $serverPort !== null && $serverPort !== '' && is_numeric($serverPort)) {
+		if ($port === null && !$schemeForwarded && $serverPort !== null && $serverPort !== '' && is_numeric($serverPort)) {
 			$port = (int) $serverPort;
 		}
 

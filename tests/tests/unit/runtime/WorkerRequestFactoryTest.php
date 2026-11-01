@@ -98,16 +98,57 @@ final class WorkerRequestFactoryTest extends TestCase
         $this->assertSame(8443, $result->getUri()->getPort());
     }
 
-    public function testAProtoOnlyHeaderDoesNotInventAPort(): void
+    /**
+     * The proxy said the client used https and named no port, so the client used
+     * 443. The 8080 in SERVER_PORT and the Host header is the hop from the proxy
+     * to here; keeping it produced URLs like https://app.internal:8080/.
+     */
+    public function testAProtoOnlyHeaderMeansThatSchemesDefaultPort(): void
     {
         $result = (new WorkerRequestFactory(trustForwardedHeaders: true))->fromPsr(self::request([
             'X-Forwarded-Proto' => 'https',
         ]));
 
-        // The original connection's port must not be pinned into the corrected
-        // authority just because the scheme changed.
-        $this->assertSame('8080', $result->getServerParams()['SERVER_PORT']);
-        $this->assertSame('https', $result->getUri()->getScheme());
+        $params = $result->getServerParams();
+        $this->assertSame('443', $params['SERVER_PORT']);
+        $this->assertSame('app.internal', $params['HTTP_HOST']);
+        $this->assertSame('app.internal', $result->getHeaderLine('Host'));
+        $this->assertNull($result->getUri()->getPort());
+        $this->assertSame('https://app.internal/thing?a=1', (string) $result->getUri());
+        $this->assertSame(443, $result->getUrlPort());
+        $this->assertSame('app.internal', $result->getUrlAuthority());
+    }
+
+    public function testAForwardedPlainHttpSchemeMeansPort80(): void
+    {
+        $result = (new WorkerRequestFactory(trustForwardedHeaders: true))->fromPsr(self::request([
+            'X-Forwarded-Proto' => 'http',
+        ]));
+
+        $this->assertSame('80', $result->getServerParams()['SERVER_PORT']);
+        $this->assertSame('http://app.internal/thing?a=1', (string) $result->getUri());
+    }
+
+    public function testAForwardedPortStillWinsOverTheSchemesDefault(): void
+    {
+        $result = (new WorkerRequestFactory(trustForwardedHeaders: true))->fromPsr(self::request([
+            'X-Forwarded-Proto' => 'https',
+            'X-Forwarded-Port' => '8443',
+        ]));
+
+        $this->assertSame('8443', $result->getServerParams()['SERVER_PORT']);
+        $this->assertSame('app.internal:8443', $result->getServerParams()['HTTP_HOST']);
+        $this->assertSame('https://app.internal:8443/thing?a=1', (string) $result->getUri());
+    }
+
+    public function testAForwardedPortAloneReplacesTheHopsPortInTheHostParam(): void
+    {
+        $result = (new WorkerRequestFactory(trustForwardedHeaders: true))->fromPsr(self::request([
+            'X-Forwarded-Port' => '9000',
+        ]));
+
+        $this->assertSame('app.internal:9000', $result->getServerParams()['HTTP_HOST']);
+        $this->assertSame(9000, $result->getUrlPort());
     }
 
     public function testTheRfc7239ForwardedHeaderIsHonoured(): void

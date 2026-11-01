@@ -56,6 +56,62 @@ class RoutingAdditionalTest extends TestCase
     }
 
     /**
+     * @param array<string, string> $server
+     */
+    private function baseHrefWith(array $server): string
+    {
+        $keys = ['HTTP_HOST', 'SERVER_PORT', 'HTTP_X_FORWARDED_PROTO', 'HTTP_X_FORWARDED_HOST', 'HTTP_X_FORWARDED_PORT', 'HTTP_X_ORIGINAL_HOST', 'HTTP_FORWARDED'];
+        $previous = [];
+        foreach ($keys as $key) {
+            $previous[$key] = $_SERVER[$key] ?? null;
+            unset($_SERVER[$key]);
+        }
+        try {
+            foreach ($server as $key => $value) {
+                $_SERVER[$key] = $value;
+            }
+
+            return $this->routing([])->getBaseHref();
+        } finally {
+            foreach ($previous as $key => $value) {
+                if ($value === null) { unset($_SERVER[$key]); } else { $_SERVER[$key] = $value; }
+            }
+        }
+    }
+
+    public function testBaseHrefUsesTheForwardedSchemesDefaultPortRatherThanTheHops(): void
+    {
+        $this->assertSame('https://localhost', $this->baseHrefWith([
+            'HTTP_HOST' => 'localhost',
+            'SERVER_PORT' => '80',
+            'HTTP_X_FORWARDED_PROTO' => 'https',
+        ]));
+        $this->assertSame('https://localhost', $this->baseHrefWith([
+            'HTTP_HOST' => 'localhost:8080',
+            'SERVER_PORT' => '8080',
+            'HTTP_X_FORWARDED_PROTO' => 'https',
+        ]));
+    }
+
+    public function testBaseHrefKeepsAPortTheProxyNamed(): void
+    {
+        $this->assertSame('https://localhost:8443', $this->baseHrefWith([
+            'HTTP_HOST' => 'localhost',
+            'SERVER_PORT' => '80',
+            'HTTP_X_FORWARDED_PROTO' => 'https',
+            'HTTP_X_FORWARDED_PORT' => '8443',
+        ]));
+    }
+
+    public function testBaseHrefWithoutProxyHeadersKeepsTheServerPort(): void
+    {
+        $this->assertSame('http://localhost:8080', $this->baseHrefWith([
+            'HTTP_HOST' => 'localhost',
+            'SERVER_PORT' => '8080',
+        ]));
+    }
+
+    /**
      * X-Forwarded-Host is a request header like any other -- nothing in this
      * process can tell one a proxy wrote from one a client did -- and the value
      * becomes the origin of generated absolute URLs, including the Location

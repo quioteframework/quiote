@@ -9,10 +9,11 @@ namespace Quiote\Runtime\Proxy;
  * resolved by {@see ForwardedHeaderResolver}. Any field may be null when the
  * corresponding header was absent or unusable.
  *
- * $portExplicit distinguishes "the proxy told us a port" from "we inferred
- * nothing": only an explicit port is written back into the request's
- * SERVER_PORT / authority, so a plain `X-Forwarded-Proto: https` does not
- * silently pin port 80 from the original connection.
+ * $portExplicit says the port is the client's and is written back into the
+ * request's SERVER_PORT / authority: either the proxy sent it, or the proxy
+ * sent a scheme and no port, which makes it that scheme's default. A plain
+ * `X-Forwarded-Proto: https` therefore means port 443, never the port of the
+ * connection from the proxy.
  */
 final readonly class ForwardedAuthority
 {
