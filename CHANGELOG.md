@@ -1,3 +1,9 @@
+## [4.6.0-beta2] - 2026-11-01
+
+### 🐛 Bug Fixes
+
+- *(composer)* Accept any version of the in-tree dev-overlay package
+
 ## [4.6.0-beta1] - 2026-11-01
 
 ### 🚀 Features
