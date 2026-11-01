@@ -1,3 +1,14 @@
+## [4.6.0-beta1] - 2026-11-01
+
+### 🚀 Features
+
+- *(error)* Report exceptions the application handled itself
+
+### 🐛 Bug Fixes
+
+- *(request)* Let a [] wildcard whitelist negative and string keys
+- *(runtime)* Discard $_SESSION at every persistent worker request boundary
+
 ## [4.5.2-beta1] - 2026-10-30
 
 ### 🚜 Refactor

@@ -11,8 +11,8 @@
 \Quiote\Config\Config::set('quiote.name', 'Quiote');
 
 \Quiote\Config\Config::set('quiote.major_version', '4');
-\Quiote\Config\Config::set('quiote.minor_version', '5');
-\Quiote\Config\Config::set('quiote.micro_version', '2');
+\Quiote\Config\Config::set('quiote.minor_version', '6');
+\Quiote\Config\Config::set('quiote.micro_version', '0');
 \Quiote\Config\Config::set('quiote.status', 'beta1');
 \Quiote\Config\Config::set('quiote.branch', 'main');
 
