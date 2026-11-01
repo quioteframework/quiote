@@ -1,3 +1,9 @@
+## [4.6.0-beta3] - 2026-11-01
+
+### 🐛 Bug Fixes
+
+- *(proxy)* Use a forwarded scheme's default port when the proxy names none
+
 ## [4.6.0-beta2] - 2026-11-01
 
 ### 🐛 Bug Fixes
