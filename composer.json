@@ -113,7 +113,7 @@
 		"quioteframework/replay-storage": "^4.0",
 		"quioteframework/replay-azure": "^4.0",
 		"quioteframework/exception-notifier": "^4.0",
-		"quioteframework/dev-overlay": "^1.0"
+		"quioteframework/dev-overlay": "*"
 	},
 	"suggest": {
 		"phpunit/phpunit": "Install phpunit if you want to run your tests",
