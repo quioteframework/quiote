@@ -4,6 +4,8 @@
  * Injected by DevOverlayMiddleware into HTML pages while core.developer_exceptions is on. Shows a
  * badge in the bottom-left corner and collects an exception report for the page itself and for
  * every same-origin fetch() or XMLHttpRequest whose response carries an X-Quiote-Exception header.
+ * A report holds the exception the request ended in, the exceptions the application handled
+ * itself, or both.
  *
  * Everything renders inside a shadow root styled through a constructable stylesheet, so the page's
  * CSS cannot reach in, the overlay's cannot leak out, and a `style-src 'self'` policy does not
@@ -98,10 +100,12 @@
         :host { all: initial; position: fixed; left: 16px; bottom: 16px; z-index: 2147483647;
             font: 13px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
             --bg: #ffffff; --fg: #1d1d1f; --muted: #6b6b73; --line: #e3e3e8; --soft: #f5f5f7;
-            --accent: #d92d20; --accent-soft: #fdecea; --code-hl: #fff3c4; --badge: #18181b; }
+            --accent: #d92d20; --accent-soft: #fdecea; --code-hl: #fff3c4; --badge: #18181b;
+            --handled: #b54708; --handled-soft: #fef0c7; }
         @media (prefers-color-scheme: dark) {
             :host { --bg: #1c1c1f; --fg: #ececf1; --muted: #9b9ba6; --line: #34343a; --soft: #26262b;
-                --accent: #ff6b5e; --accent-soft: #3a1f1d; --code-hl: #4a3f12; --badge: #f4f4f5; }
+                --accent: #ff6b5e; --accent-soft: #3a1f1d; --code-hl: #4a3f12; --badge: #f4f4f5;
+                --handled: #fdb022; --handled-soft: #3b2a10; }
         }
         * { box-sizing: border-box; }
         button { font: inherit; color: inherit; cursor: pointer; }
@@ -131,10 +135,17 @@
             display: grid; grid-template-columns: auto 1fr auto; gap: 2px 10px; align-items: baseline; }
         .summary:hover { background: var(--soft); }
         .status { font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+        .status.handled { color: var(--handled); }
         .where { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .when { color: var(--muted); font-size: 12px; }
         .what { grid-column: 2 / 4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .what b { font-weight: 600; }
+        .tag { display: inline-block; margin-right: 6px; padding: 0 6px; border-radius: 4px; font-size: 11px;
+            font-weight: 600; text-transform: uppercase; letter-spacing: .04em; background: var(--handled-soft); color: var(--handled); }
+        .group { margin-top: 12px; }
+        .group-title { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+        .note { color: var(--muted); }
+        .group .message { background: var(--handled-soft); }
         .details { padding: 4px 12px 14px; }
         .details[hidden] { display: none; }
         .exception { margin-top: 10px; }
@@ -250,6 +261,18 @@
         }
     }
 
+    function handledGroup(handled) {
+        const group = el('section', 'group');
+        const title = el('div', 'group-title');
+        title.append(el('span', 'tag', 'Handled'));
+        if (handled.note) {
+            title.append(el('span', 'note', handled.note));
+        }
+        group.append(title);
+        (handled.exceptions || []).forEach((entry, index) => group.append(exceptionBlock(entry, index)));
+        return group;
+    }
+
     function reportItem(report) {
         const item = el('div', 'item');
         const summary = el('button', 'summary');
@@ -261,17 +284,27 @@
             summary.append(el('span', 'status', '?'), el('span', 'where', 'Report ' + report.id), el('span', 'when', ''));
             summary.append(el('span', 'what', 'The report could not be loaded (' + report.unavailable + ').'));
         } else {
-            const first = (report.exceptions && report.exceptions[0]) || {class: 'Exception', message: ''};
+            const caught = Array.isArray(report.exceptions) ? report.exceptions : [];
+            const handled = Array.isArray(report.handled) ? report.handled : [];
+            const firstHandled = (handled[0] && handled[0].exceptions && handled[0].exceptions[0]) || null;
+            const first = caught[0] || firstHandled || {class: 'Exception', message: ''};
             const when = report.time ? new Date(report.time).toLocaleTimeString() : '';
             summary.append(
-                el('span', 'status', report.status),
+                el('span', caught.length === 0 ? 'status handled' : 'status', report.status),
                 el('span', 'where', (report.request ? report.request.method + ' ' + displayPath(report.request.uri) : '')),
                 el('span', 'when', when),
             );
             const what = el('span', 'what');
+            if (caught.length === 0) {
+                what.append(el('span', 'tag', handled.length === 1 ? 'Handled' : handled.length + ' handled'));
+            }
             what.append(el('b', '', first.class.split('\\').pop()), document.createTextNode(first.message ? ': ' + first.message : ''));
+            if (caught.length > 0 && handled.length > 0) {
+                what.append(document.createTextNode(' (+' + handled.length + ' handled)'));
+            }
             summary.append(what);
-            (report.exceptions || []).forEach((entry, index) => details.append(exceptionBlock(entry, index)));
+            caught.forEach((entry, index) => details.append(exceptionBlock(entry, index)));
+            handled.forEach((entry) => details.append(handledGroup(entry)));
         }
 
         summary.setAttribute('aria-expanded', 'false');

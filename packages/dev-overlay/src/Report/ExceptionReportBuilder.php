@@ -5,15 +5,18 @@ declare(strict_types=1);
 namespace Quiote\DevOverlay\Report;
 
 use Psr\Http\Message\ServerRequestInterface;
+use Quiote\Error\HandledException;
 use Quiote\Logging\Log;
 use Quiote\Support\Clock\ClockInterface;
 use SplFileObject;
 use Throwable;
 
 /**
- * Turns a caught exception into the JSON-ready report the overlay renders: the request it came
- * from, and every exception in its `getPrevious()` chain with its throw site, a source excerpt and
- * its stack frames.
+ * Turns a request's exceptions into the JSON-ready report the overlay renders: the request they
+ * came from, the exception the request ended in (`exceptions`, empty when it ended normally), and
+ * every exception the application reported as handled (`handled`, each with the caller's note).
+ * Each exception is given with its whole `getPrevious()` chain, every entry carrying its throw
+ * site, a source excerpt and its stack frames.
  *
  * Frames are listed by location, each labelled with the function that location sits in -- the
  * reading a developer expects, and not PHP's own `getTrace()` shape, where each entry's
@@ -23,7 +26,8 @@ use Throwable;
  * @phpstan-type SourceExcerpt array{start: int, highlight: int, lines: list<string>}
  * @phpstan-type Frame array{file: ?string, line: ?int, call: string, vendor: bool, source: ?SourceExcerpt}
  * @phpstan-type ExceptionEntry array{class: string, message: string, code: int|string, file: string, line: int, source: ?SourceExcerpt, frames: list<Frame>}
- * @phpstan-type ExceptionReport array{id: string, time: string, status: int, request: array{method: string, uri: string}, exceptions: list<ExceptionEntry>}
+ * @phpstan-type HandledEntry array{note: ?string, exceptions: list<ExceptionEntry>}
+ * @phpstan-type ExceptionReport array{id: string, time: string, status: int, request: array{method: string, uri: string}, exceptions: list<ExceptionEntry>, handled: list<HandledEntry>}
  */
 final readonly class ExceptionReportBuilder
 {
@@ -41,14 +45,13 @@ final readonly class ExceptionReportBuilder
     ) {
     }
 
-    /** @return ExceptionReport */
-    public function build(string $id, Throwable $exception, ServerRequestInterface $request, int $status): array
+    /**
+     * @param ?Throwable $exception The exception the request ended in, if it did.
+     * @param list<HandledException> $handled The exceptions the application reported as handled.
+     * @return ExceptionReport
+     */
+    public function build(string $id, ?Throwable $exception, ServerRequestInterface $request, int $status, array $handled = []): array
     {
-        $entries = [];
-        for ($current = $exception; $current !== null && count($entries) < $this->maxChain; $current = $current->getPrevious()) {
-            $entries[] = $this->entry($current);
-        }
-
         return [
             'id' => $id,
             'time' => $this->clock->now()->format(DATE_ATOM),
@@ -57,8 +60,23 @@ final readonly class ExceptionReportBuilder
                 'method' => $request->getMethod(),
                 'uri' => (string) $request->getUri(),
             ],
-            'exceptions' => $entries,
+            'exceptions' => $exception === null ? [] : $this->chain($exception),
+            'handled' => array_map(
+                fn(HandledException $entry): array => ['note' => $entry->note, 'exceptions' => $this->chain($entry->exception)],
+                $handled,
+            ),
         ];
+    }
+
+    /** @return list<ExceptionEntry> */
+    private function chain(Throwable $exception): array
+    {
+        $entries = [];
+        for ($current = $exception; $current !== null && count($entries) < $this->maxChain; $current = $current->getPrevious()) {
+            $entries[] = $this->entry($current);
+        }
+
+        return $entries;
     }
 
     /** @return ExceptionEntry */

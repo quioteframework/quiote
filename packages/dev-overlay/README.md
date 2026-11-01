@@ -6,7 +6,8 @@ While `core.developer_exceptions` is on, every HTML page the app serves gets a s
 the bottom-left corner. Any exception the app catches — on the page itself, or on a same-origin
 `fetch()` or `XMLHttpRequest` the page makes afterwards — shows up on the badge as a count. Click
 it to see the exception class and message, the request, a source excerpt around the throw site,
-the stack frames (library frames folded away), and the whole `getPrevious()` chain.
+the stack frames (library frames folded away), and the whole `getPrevious()` chain. Exceptions
+the app caught and answered itself show up too, once it reports them (see below).
 
 Whoops only helps when the browser renders the error page. A failing JSON call made from
 JavaScript gives you a status code and nothing else. The overlay fills that gap.
@@ -27,11 +28,40 @@ return [
 Then turn on `core.developer_exceptions` in development. Nothing happens while it is off: the
 middleware passes every request straight through, and the overlay's URLs don't exist.
 
+## Exceptions your code handles
+
+An action that catches an exception to answer usefully, such as a 400 with a message for the user
+or a fallback value, ends normally, so `ErrorHandlingMiddleware` never sees the exception. Report
+it through `Quiote\Error\ErrorReporting` to have the overlay show it anyway:
+
+```php
+use Quiote\Error\ErrorReporting;
+
+public function __construct(private readonly ErrorReporting $errors) {}
+
+// ...
+} catch (ConnectException $e) {
+    $this->errors->handled($e, 'AuthService unreachable; answered 400');
+    // ...answer 400 with a message for the user
+}
+```
+
+The overlay lists it under the request, marked **handled**, with your note and the status the
+response still had. A request can report several. `ErrorReporting` is a singleton, so any service
+can inject it.
+
+`handled()` does nothing while `core.developer_exceptions` is off, so it can stay in production
+code. It doesn't log, so keep your own log call. It also doesn't mark the request as failed: the
+`Throwable` request attribute that `ErrorHandlingMiddleware` publishes means "this request ended in
+this exception", and replay recordings classify requests by it. Don't publish that attribute
+yourself to reach the overlay.
+
 ## How it works
 
 - `DevOverlayMiddleware` runs in the bootstrap phase, just outside `ErrorHandlingMiddleware`. When
-  that middleware catches an exception, the overlay stores a report and adds an
-  `X-Quiote-Exception: <id>` header to the response, whatever its content type.
+  that middleware catches an exception, or the request reported handled exceptions, the overlay
+  stores one report for the request and adds an `X-Quiote-Exception: <id>` header to the response,
+  whatever its content type.
 - For a full HTML document (one with a `</body>`), the middleware also adds
   `<script src="/_quiote/overlay/overlay.js" defer>` before `</body>`. HTML fragments, JSON,
   compressed bodies and `HEAD` responses are left untouched.

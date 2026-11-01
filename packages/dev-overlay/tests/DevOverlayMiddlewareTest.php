@@ -19,6 +19,8 @@ use Quiote\DevOverlay\Http\OverlayEndpoint;
 use Quiote\DevOverlay\Report\ExceptionReportBuilder;
 use Quiote\DevOverlay\Report\ExceptionReportStoreInterface;
 use Quiote\DI\Container;
+use Quiote\Error\HandledException;
+use Quiote\Error\HandledExceptions;
 use Quiote\Logging\Level;
 use Quiote\Logging\Log;
 use Quiote\Logging\LogEvent;
@@ -118,11 +120,14 @@ final class DevOverlayMiddlewareTest extends TestCase
         );
     }
 
-    private function context(?RequestState $requestState): Context
+    private function context(?RequestState $requestState, ?HandledExceptions $handled = null): Context
     {
         $container = new Container();
         if ($requestState !== null) {
             $container->set(RequestState::class, $requestState);
+        }
+        if ($handled !== null) {
+            $container->set(HandledExceptions::class, $handled);
         }
         $context = $this->createStub(Context::class);
         $context->method('getContainer')->willReturn($container);
@@ -188,6 +193,47 @@ final class DevOverlayMiddlewareTest extends TestCase
                 return $this->response;
             }
         };
+    }
+
+    /**
+     * Reports `$exception` as handled, then republishes the request it was handed -- what
+     * DispatchMiddleware does after the action -- and answers `$response`.
+     */
+    private static function handlingHandler(RequestState $requestState, HandledExceptions $handled, Throwable $exception, ResponseInterface $response): RequestHandlerInterface
+    {
+        return new class ($requestState, $handled, $exception, $response) implements RequestHandlerInterface {
+            public function __construct(
+                private readonly RequestState $requestState,
+                private readonly HandledExceptions $handled,
+                private readonly Throwable $exception,
+                private readonly ResponseInterface $response,
+            ) {
+            }
+
+            public function handle(ServerRequestInterface $request): ResponseInterface
+            {
+                $this->handled->add(new HandledException($this->exception, 'answered 400'));
+                $this->requestState->publish($request);
+
+                return $this->response;
+            }
+        };
+    }
+
+    /**
+     * @param array<string, mixed> $report
+     * @return list<array<array-key, mixed>>
+     */
+    private static function handledOf(array $report): array
+    {
+        self::assertIsArray($report['handled']);
+        $entries = [];
+        foreach ($report['handled'] as $entry) {
+            self::assertIsArray($entry);
+            $entries[] = $entry;
+        }
+
+        return $entries;
     }
 
     private static function page(int $status = 200): ResponseInterface
@@ -374,5 +420,103 @@ final class DevOverlayMiddlewareTest extends TestCase
         $warnings = array_values(array_filter($sink->captured, static fn(LogEvent $event): bool => $event->level === Level::Warning));
         $this->assertCount(1, $warnings);
         $this->assertStringContainsString('could not be stored for the developer overlay: disk full', $warnings[0]->renderMessage());
+    }
+
+    public function testAnExceptionTheApplicationHandledIsReported(): void
+    {
+        $request = new ServerRequest('POST', '/integrations/oauth');
+        $requestState = self::requestState($request);
+        $handled = new HandledExceptions();
+        $json = new Response(400, ['Content-Type' => 'application/json'], '{"error":"AuthService is unavailable"}');
+
+        $response = $this->middleware($this->context($requestState, $handled))
+            ->process($request, self::handlingHandler($requestState, $handled, new RuntimeException('cURL error 7'), $json));
+
+        $this->assertSame(self::fixedId(), $response->getHeaderLine(DevOverlayMiddleware::HEADER));
+        $report = $this->store->reports[self::fixedId()];
+        $this->assertSame(400, $report['status']);
+        $this->assertSame([], $report['exceptions'], 'the request did not end in an exception');
+        $entries = self::handledOf($report);
+        $this->assertCount(1, $entries);
+        $this->assertSame('answered 400', $entries[0]['note']);
+        $this->assertIsArray($entries[0]['exceptions']);
+        $this->assertIsArray($entries[0]['exceptions'][0]);
+        $this->assertSame('cURL error 7', $entries[0]['exceptions'][0]['message']);
+    }
+
+    public function testAHandledExceptionOnAPageReachesTheInjectedScript(): void
+    {
+        $request = new ServerRequest('GET', '/orders');
+        $requestState = self::requestState($request);
+        $handled = new HandledExceptions();
+
+        $response = $this->middleware($this->context($requestState, $handled))
+            ->process($request, self::handlingHandler($requestState, $handled, new RuntimeException('fallback'), self::page()));
+
+        $this->assertStringContainsString('data-exception="' . self::fixedId() . '"', (string) $response->getBody());
+    }
+
+    public function testCaughtAndHandledExceptionsShareOneReport(): void
+    {
+        $request = new ServerRequest('GET', '/orders');
+        $requestState = self::requestState($request);
+        $handled = new HandledExceptions();
+        $handled->add(new HandledException(new LogicException('retried once')));
+
+        $this->middleware($this->context($requestState, $handled))
+            ->process($request, self::failingHandler($requestState, new RuntimeException('gave up'), self::page(500)));
+
+        $this->assertCount(1, $this->store->reports);
+        $report = $this->store->reports[self::fixedId()];
+        $this->assertIsArray($report['exceptions']);
+        $this->assertIsArray($report['exceptions'][0]);
+        $this->assertSame('gave up', $report['exceptions'][0]['message']);
+        $this->assertCount(1, self::handledOf($report));
+    }
+
+    public function testAHandledExceptionThatWasRethrownIsShownOnce(): void
+    {
+        $request = new ServerRequest('GET', '/orders');
+        $requestState = self::requestState($request);
+        $exception = new RuntimeException('reported, then rethrown');
+        $handled = new HandledExceptions();
+        $handled->add(new HandledException($exception));
+
+        $this->middleware($this->context($requestState, $handled))
+            ->process($request, self::failingHandler($requestState, $exception, self::page(500)));
+
+        $report = $this->store->reports[self::fixedId()];
+        $this->assertIsArray($report['exceptions']);
+        $this->assertCount(1, $report['exceptions']);
+        $this->assertSame([], self::handledOf($report));
+    }
+
+    public function testAnEmptyHandledListReportsNothing(): void
+    {
+        $request = new ServerRequest('GET', '/orders');
+
+        $response = $this->middleware($this->context(self::requestState($request), new HandledExceptions()))
+            ->process($request, self::handler(self::page()));
+
+        $this->assertFalse($response->hasHeader(DevOverlayMiddleware::HEADER));
+        $this->assertSame([], $this->store->reports);
+    }
+
+    public function testAStoreFailureForHandledExceptionsIsLogged(): void
+    {
+        $sink = new DevOverlayCapturingSink();
+        Log::addSink($sink);
+        $this->store->fail = true;
+        $request = new ServerRequest('GET', '/orders');
+        $requestState = self::requestState($request);
+        $handled = new HandledExceptions();
+
+        $response = $this->middleware($this->context($requestState, $handled))
+            ->process($request, self::handlingHandler($requestState, $handled, new RuntimeException('fallback'), self::page()));
+
+        $this->assertFalse($response->hasHeader(DevOverlayMiddleware::HEADER));
+        $warnings = array_values(array_filter($sink->captured, static fn(LogEvent $event): bool => $event->level === Level::Warning));
+        $this->assertCount(1, $warnings);
+        $this->assertStringContainsString('The handled exceptions on GET /orders could not be stored', $warnings[0]->renderMessage());
     }
 }

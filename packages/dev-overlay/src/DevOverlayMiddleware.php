@@ -14,6 +14,8 @@ use Quiote\DevOverlay\Http\HtmlScriptInjector;
 use Quiote\DevOverlay\Http\OverlayEndpoint;
 use Quiote\DevOverlay\Report\ExceptionReportBuilder;
 use Quiote\DevOverlay\Report\ExceptionReportStoreInterface;
+use Quiote\Error\HandledException;
+use Quiote\Error\HandledExceptions;
 use Quiote\Logging\Log;
 use Quiote\Request\RequestState;
 use Quiote\Support\Random\RandomnessInterface;
@@ -22,16 +24,18 @@ use Throwable;
 /**
  * Connects the browser overlay to the exceptions this app catches.
  *
- * For every response that carries an exception `ErrorHandlingMiddleware` caught, the exception is
- * stored as a report and the response gains an {@see HEADER} naming it -- HTML page, JSON API
- * response or anything else alike, since that header is how the overlay script recognises a
- * failed `fetch()` or XHR. A full HTML document additionally gets the overlay script injected,
- * along with the id of its own exception if it has one.
+ * A request is reported when it ended in an exception -- the one `ErrorHandlingMiddleware` caught
+ * and published on {@see RequestState} as the `Throwable` attribute -- or when the application
+ * reported exceptions it handled itself through {@see \Quiote\Error\ErrorReporting::handled()}.
+ * Its exceptions are stored as one report and the response gains an {@see HEADER} naming it --
+ * HTML page, JSON API response or anything else alike, since that header is how the overlay script
+ * recognises a `fetch()` or XHR worth showing. A full HTML document additionally gets the overlay
+ * script injected, along with the id of its own report if it has one.
  *
  * Registered `phase: 'bootstrap', priority: 1050`: outside `ErrorHandlingMiddleware` (1000), so it
- * sees the response that middleware rendered and the exception it published on
- * {@see RequestState}, and inside `RecorderMiddleware` (1100), so a recorded cassette carries the
- * response exactly as the browser received it.
+ * sees the response that middleware rendered and the exception it published, and inside
+ * `RecorderMiddleware` (1100), so a recorded cassette carries the response exactly as the browser
+ * received it.
  */
 #[\Quiote\Middleware\Attribute\Middleware(phase: 'bootstrap', priority: 1050)]
 final class DevOverlayMiddleware implements MiddlewareInterface
@@ -63,7 +67,7 @@ final class DevOverlayMiddleware implements MiddlewareInterface
 
         $response = $handler->handle($request);
 
-        $reportId = $this->reportCaughtException($request, $response);
+        $reportId = $this->reportExceptions($request, $response);
         if ($reportId !== null) {
             $response = $response->withHeader(self::HEADER, $reportId);
         }
@@ -71,21 +75,25 @@ final class DevOverlayMiddleware implements MiddlewareInterface
         return $this->withOverlayScript($request, $response, $config, $reportId);
     }
 
-    /** Stores the exception this request ended in, if any, and answers the id it was stored under. */
-    private function reportCaughtException(ServerRequestInterface $request, ResponseInterface $response): ?string
+    /**
+     * Stores the exception this request ended in and the ones it handled, if there are any, and
+     * answers the id they were stored under.
+     */
+    private function reportExceptions(ServerRequestInterface $request, ResponseInterface $response): ?string
     {
-        $exception = $this->caughtException();
-        if ($exception === null) {
+        $caught = $this->caughtException();
+        $handled = $this->handledExceptions($caught);
+        if ($caught === null && $handled === []) {
             return null;
         }
 
         $id = bin2hex($this->randomness->bytes(16));
         try {
-            $this->store->put($id, $this->builder->build($id, $exception, $request, $response->getStatusCode()));
+            $this->store->put($id, $this->builder->build($id, $caught, $request, $response->getStatusCode(), $handled));
         } catch (Throwable $e) {
             Log::for($this)->warning(sprintf(
-                'The %s caught on %s %s could not be stored for the developer overlay: %s',
-                $exception::class,
+                'The %s on %s %s could not be stored for the developer overlay: %s',
+                $caught === null ? 'handled exceptions' : $caught::class . ' caught',
                 $request->getMethod(),
                 $request->getUri()->getPath(),
                 $e->getMessage(),
@@ -110,6 +118,26 @@ final class DevOverlayMiddleware implements MiddlewareInterface
         $exception = $requestState->current()->getAttribute(Throwable::class);
 
         return $exception instanceof Throwable ? $exception : null;
+    }
+
+    /**
+     * The exceptions the application reported as handled, less the one the request ended in: an
+     * action that reports an exception and then rethrows it would otherwise show it twice.
+     * `tryGet()`: a core without {@see HandledExceptions} has none to report.
+     *
+     * @return list<HandledException>
+     */
+    private function handledExceptions(?Throwable $caught): array
+    {
+        $handled = $this->context->getContainer()->tryGet(HandledExceptions::class);
+        if (!$handled instanceof HandledExceptions) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            $handled->all(),
+            static fn(HandledException $entry): bool => $entry->exception !== $caught,
+        ));
     }
 
     private function withOverlayScript(ServerRequestInterface $request, ResponseInterface $response, DevOverlayConfig $config, ?string $reportId): ResponseInterface

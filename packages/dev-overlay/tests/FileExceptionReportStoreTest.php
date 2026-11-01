@@ -34,10 +34,10 @@ final class FileExceptionReportStoreTest extends TestCase
         return str_pad(dechex($n), 32, '0', STR_PAD_LEFT);
     }
 
-    /** @return array{id: string, time: string, status: int, request: array{method: string, uri: string}, exceptions: list<never>} */
+    /** @return array{id: string, time: string, status: int, request: array{method: string, uri: string}, exceptions: list<never>, handled: list<never>} */
     private static function report(string $id): array
     {
-        return ['id' => $id, 'time' => '2026-10-30T12:00:00+00:00', 'status' => 500, 'request' => ['method' => 'GET', 'uri' => '/'], 'exceptions' => []];
+        return ['id' => $id, 'time' => '2026-10-30T12:00:00+00:00', 'status' => 500, 'request' => ['method' => 'GET', 'uri' => '/'], 'exceptions' => [], 'handled' => []];
     }
 
     public function testAStoredReportReadsBack(): void

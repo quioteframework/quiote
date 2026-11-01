@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\TestCase;
 use Quiote\DevOverlay\Report\ExceptionReportBuilder;
+use Quiote\Error\HandledException;
 use Quiote\Support\Clock\FrozenClock;
 
 final class ExceptionReportBuilderTest extends TestCase
@@ -145,5 +146,39 @@ final class ExceptionReportBuilderTest extends TestCase
         $json = json_encode($this->builder()->build('id', $exception, new ServerRequest('GET', '/'), 500), JSON_THROW_ON_ERROR);
 
         $this->assertStringNotContainsString($secret, $json);
+    }
+
+    public function testARequestThatEndedNormallyHasNoCaughtChain(): void
+    {
+        $report = $this->builder()->build('id', null, new ServerRequest('GET', '/'), 200);
+
+        $this->assertSame([], $report['exceptions']);
+        $this->assertSame([], $report['handled']);
+    }
+
+    public function testDescribesEachHandledExceptionWithItsNoteAndChain(): void
+    {
+        $handled = [
+            new HandledException(self::thrownHere('outer', new LogicException('inner')), 'answered 400'),
+            new HandledException(self::thrownHere('second')),
+        ];
+
+        $report = $this->builder()->build('id', null, new ServerRequest('GET', '/'), 400, $handled);
+
+        $this->assertCount(2, $report['handled']);
+        $this->assertSame('answered 400', $report['handled'][0]['note']);
+        $this->assertSame(['outer', 'inner'], array_column($report['handled'][0]['exceptions'], 'message'));
+        $this->assertNull($report['handled'][1]['note']);
+        $this->assertSame(__FILE__, $report['handled'][1]['exceptions'][0]['file']);
+        $this->assertNotNull($report['handled'][1]['exceptions'][0]['source']);
+    }
+
+    public function testAHandledChainIsCappedLikeTheCaughtOne(): void
+    {
+        $exception = new RuntimeException('3', 0, new RuntimeException('2', 0, new RuntimeException('1')));
+
+        $report = $this->builder(maxChain: 2)->build('id', null, new ServerRequest('GET', '/'), 400, [new HandledException($exception)]);
+
+        $this->assertSame(['3', '2'], array_column($report['handled'][0]['exceptions'], 'message'));
     }
 }
