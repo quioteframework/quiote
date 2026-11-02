@@ -1,3 +1,9 @@
+## [4.6.0-beta4] - 2026-11-02
+
+### 🐛 Bug Fixes
+
+- *(validator)* [**breaking**] Treat an empty array as no value
+
 ## [4.6.0-beta3] - 2026-11-01
 
 ### 🐛 Bug Fixes
