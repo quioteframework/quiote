@@ -657,7 +657,8 @@ abstract class Validator extends ParameterHolder implements ResetInterface, Vali
 
 	/**
 	 * Returns whether all arguments are set in the validation input parameters.
-	 * Set means anything but empty string.
+	 * Set means anything but null, an empty string or an empty array
+	 * (WebRequest::isEmptyValue()).
 	 * @param      bool $throwError Whether an error should be thrown for each missing
 	 *                  argument if this validator is required.
 	 * @param      ?array<int, string> $fullArgumentNames Precomputed full path per
@@ -692,7 +693,7 @@ abstract class Validator extends ParameterHolder implements ResetInterface, Vali
 				// Directly inspect current base value out of the parameter tree because isValueEmpty() cannot resolve nested bracket paths for dynamic indices.
 				$array = $request->getParameters($paramType);
 				$baseValue = $base->getValue($array, null);
-				$empty = ($baseValue === null || $baseValue === '' || (is_array($baseValue) && count($baseValue) === 0));
+				$empty = WebRequest::isEmptyValue($baseValue);
 				if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) { $logger->debug('[Validator][debug][checkAllArgumentsSet] emptyArgBaseInspect base=' . $base->__toString() . ' empty=' . ($empty?'1':'0') . ' baseValueType=' . gettype($baseValue)); }
 			} else {
 				try {

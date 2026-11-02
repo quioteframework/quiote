@@ -19,8 +19,8 @@ trait RequestInspectionTrait
     private array $sourceNames = ['parameters' => 'parameter', 'cookies' => 'cookie', 'files' => 'file', 'headers' => 'header'];
 
     /**
-     * Checks if a field has no value (In web context this would only return true
-     * when the strings length is 0 or the field is not set.
+     * Checks if a field has no value: it is not set, or it is null, an empty
+     * string or an empty array (see isEmptyValue()).
      */
     public function isValueEmpty(string $source, string $field): bool
     {
@@ -32,16 +32,26 @@ trait RequestInspectionTrait
     }
 
     /**
-     * Checks if there is a value of a parameter is empty or not set.
+     * Whether a request value counts as "no value": null (absent), an empty
+     * string or an empty array. A `required` validator rejects such a value and
+     * a non-required one skips it, so `[]` posted to an IsNotEmptyValidator
+     * neither succeeds nor provides its dependency tokens.
+     */
+    public static function isEmptyValue(mixed $value): bool
+    {
+        return $value === null || $value === '' || $value === [];
+    }
+
+    /**
+     * Checks if a parameter is not set or its value is empty (see isEmptyValue()).
      */
     public function isParameterValueEmpty(string $field): bool
     {
         $value = $this->getParameter($field);
-        $empty = ($value === null || $value === '');
-        $logger = \Quiote\Logging\Log::for($this);
-        if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
-            $logger->debug('[WebRequest][debug][isParameterValueEmpty] field=' . $field . ' empty=' . ($empty ? '1' : '0') . ' valueType=' . gettype($value));
-        }
+        $empty = self::isEmptyValue($value);
+        \Quiote\Logging\Log::for($this)->debugWith(
+            static fn(): string => 'parameter "' . $field . '" empty=' . ($empty ? '1' : '0') . ' valueType=' . gettype($value)
+        );
         return $empty;
     }
 
@@ -68,8 +78,7 @@ trait RequestInspectionTrait
         // Explicitly inspect cookie params to avoid indirect parameter precedence side-effects.
         $cookies = $this->getCookieParams();
         if (array_key_exists($name, $cookies)) {
-            $val = $cookies[$name];
-            return $val === null || $val === '';
+            return self::isEmptyValue($cookies[$name]);
         }
         // A nested cookie (prefs[theme]) is addressed by its bracket path.
         try {
@@ -80,7 +89,7 @@ trait RequestInspectionTrait
             );
             return true;
         }
-        return $val === null || $val === '';
+        return self::isEmptyValue($val);
     }
 
     /**

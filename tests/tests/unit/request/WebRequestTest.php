@@ -97,6 +97,31 @@ class WebRequestTest extends UnitTestCase
 		$this->assertTrue($this->_r->isParameterValueEmpty('k'));
 	}
 
+	public function testAnEmptyArrayParameterIsEmpty(): void
+	{
+		$this->_r = $this->_r->enforceValidatedParameters(['tags', 'zero', 'list']);
+		$this->_r = $this->_r->setParameter('tags', []);
+		$this->_r = $this->_r->setParameter('zero', '0');
+		$this->_r = $this->_r->setParameter('list', [[]]);
+
+		$this->assertTrue($this->_r->isParameterValueEmpty('tags'));
+		$this->assertTrue($this->_r->isValueEmpty('parameters', 'tags'));
+		$this->assertFalse($this->_r->isParameterValueEmpty('zero'), '"0" is a value');
+		$this->assertFalse($this->_r->isParameterValueEmpty('list'), 'a list holding an empty list is not empty');
+	}
+
+	public function testIsEmptyValue(): void
+	{
+		$this->assertTrue(WebRequest::isEmptyValue(null));
+		$this->assertTrue(WebRequest::isEmptyValue(''));
+		$this->assertTrue(WebRequest::isEmptyValue([]));
+		$this->assertFalse(WebRequest::isEmptyValue('0'));
+		$this->assertFalse(WebRequest::isEmptyValue(0));
+		$this->assertFalse(WebRequest::isEmptyValue(false));
+		$this->assertFalse(WebRequest::isEmptyValue(' '));
+		$this->assertFalse(WebRequest::isEmptyValue(['']));
+	}
+
 	public function testCookieAndHeaderEmptinessChecks(): void
 	{
 		$this->_r = $this->_r
@@ -110,7 +135,8 @@ class WebRequestTest extends UnitTestCase
 
 	public function testNestedCookieEmptinessIsResolvedByPath(): void
 	{
-		$this->_r = $this->_r->withCookieParams(['prefs' => ['theme' => 'dark', 'blank' => '']]);
+		$this->_r = $this->_r->withCookieParams(['prefs' => ['theme' => 'dark', 'blank' => '', 'none' => []]]);
+		$this->assertTrue($this->_r->isCookieValueEmpty('prefs[none]'), 'an empty array is empty');
 
 		$this->assertFalse($this->_r->isCookieValueEmpty('prefs[theme]'));
 		$this->assertTrue($this->_r->isCookieValueEmpty('prefs[blank]'));

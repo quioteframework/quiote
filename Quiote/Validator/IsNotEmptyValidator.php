@@ -4,8 +4,9 @@ namespace Quiote\Validator;
 /**
  * IsNotEmptyValidator verifies a parameter is not empty
  * The content of the input value is not verified in any manner, it is only
- * checked if the input value exists and is not empty. It lets the data holder
- * implementation decide what is regarded as empty.
+ * checked if the input value exists and is not empty. Null, an empty string and
+ * an empty array are empty (WebRequest::isEmptyValue()); to accept an empty
+ * list while still validating the field, use ArraylengthValidator with min 0.
  * @since      1.0.0
  * @version    1.0.0
  */
