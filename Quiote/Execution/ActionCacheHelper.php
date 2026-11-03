@@ -24,7 +24,7 @@ final class ActionCacheHelper
     /**
      * Unified cache payload write.
      *
-     * @param array<string, mixed> $actionAttributes
+     * @param array<array-key, mixed> $actionAttributes
      */
     public static function store(ActionViewCache $cache, ActionDescriptor $desc, ExecutionState $state, string $content, array $actionAttributes, bool $isSimple, ?int $ttl = null, ?string $userFingerprint = null, ?string $locale = null): void
     {
@@ -125,16 +125,9 @@ final class ActionCacheHelper
         if (!is_string($content)) {
             throw new \UnexpectedValueException(sprintf('Cached "response_content" must be a string, %s given.', get_debug_type($content)));
         }
-        $rawActionAttributes = $payload['action_attributes'] ?? [];
-        if (!is_array($rawActionAttributes)) {
-            throw new \UnexpectedValueException(sprintf('Cached "action_attributes" must be an array, %s given.', get_debug_type($rawActionAttributes)));
-        }
-        $actionAttributes = [];
-        foreach ($rawActionAttributes as $attributeKey => $attributeValue) {
-            if (!is_string($attributeKey)) {
-                throw new \UnexpectedValueException(sprintf('Cached "action_attributes" keys must be strings, %s given.', get_debug_type($attributeKey)));
-            }
-            $actionAttributes[$attributeKey] = $attributeValue;
+        $actionAttributes = $payload['action_attributes'] ?? [];
+        if (!is_array($actionAttributes)) {
+            throw new \UnexpectedValueException(sprintf('Cached "action_attributes" must be an array, %s given.', get_debug_type($actionAttributes)));
         }
         return new ActionExecutionContext(
             $actionInstance,

@@ -7,7 +7,7 @@ namespace Quiote\Execution;
 final class ExecutionState
 {
     /**
-     * @param array<string, mixed> $actionAttributes
+     * @param array<array-key, mixed> $actionAttributes
      * @param ?array<string, mixed> $metrics
      */
     public function __construct(

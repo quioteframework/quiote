@@ -31,7 +31,7 @@ use Quiote\Validator\ValidationManager;
 final class ImmutableViewInitContext extends AttributeHolder implements ViewInitContext
 {
     /**
-     * @param array<string, mixed> $actionAttributes
+     * @param array<array-key, mixed> $actionAttributes
      */
     public function __construct(
         private readonly Context $context,
@@ -83,7 +83,7 @@ final class ImmutableViewInitContext extends AttributeHolder implements ViewInit
     {
         return $this->actionName;
     }
-    /** @return array<string, mixed> */
+    /** @return array<array-key, mixed> */
     public function getActionAttributes(): array
     {
         return $this->actionAttributes;

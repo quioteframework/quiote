@@ -50,6 +50,23 @@ XSL);
         $this->assertStringContainsString('Hello, Quiote!', $output);
     }
 
+    public function testNumericAttributeNameDoesNotBreakTheTransformation(): void
+    {
+        $renderer = new XsltRenderer();
+        $renderer->initialize($this->getContext());
+
+        $layer = new FileTemplateLayer(['template' => $this->templateBase]);
+        $layer->initialize($this->getContext());
+        $layer->setRenderer($renderer);
+
+        // PHP keys '403' as the integer 403; the renderer must still hand XSLT a string name.
+        $attributes = ['403' => true, 'name' => 'Quiote'];
+        $moreAssigns = ['inner' => '<root/>'];
+        $output = $layer->execute($renderer, $attributes, $moreAssigns);
+
+        $this->assertStringContainsString('Hello, Quiote!', $output);
+    }
+
     public function testEnvelopeWrapsInnerAndSlots(): void
     {
         file_put_contents($this->templateBase . '.xsl', <<<'XSL'

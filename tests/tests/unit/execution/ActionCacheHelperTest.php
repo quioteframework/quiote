@@ -156,16 +156,19 @@ class ActionCacheHelperTest extends UnitTestCase
         );
     }
 
-    public function testBuildContextFromPayloadRejectsNonStringActionAttributeKeys(): void
+    public function testBuildContextFromPayloadKeepsNumericActionAttributeNames(): void
     {
-        $this->expectException(\UnexpectedValueException::class);
-        ActionCacheHelper::buildContextFromPayload(
-            ['action_attributes' => [0 => 'value']],
+        // An action that called setAttribute('403', true) is cached with the integer key 403.
+        $ctx = ActionCacheHelper::buildContextFromPayload(
+            ['action_attributes' => ['403' => true, 'foo' => 'bar']],
             $this->makeDescriptor(),
             new ExecutionState(),
             $this->makeActionInstance(),
             $this->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class)
         );
+
+        $this->assertSame([403 => true, 'foo' => 'bar'], $ctx->actionAttributes);
+        $this->assertArrayHasKey('403', $ctx->actionAttributes);
     }
 
     /**

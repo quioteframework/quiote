@@ -207,4 +207,24 @@ class ViewAttributeTest extends UnitTestCase
 
         $this->assertNull($view->getContext());
     }
+
+    public function testNumericActionAttributeNameReachesTheViewUnchanged(): void
+    {
+        $ctx = $this->getContext();
+        $ctx->initialize();
+        $controller = $ctx->getContainer()->get(\Quiote\Controller\Controller::class);
+        $init = new \Quiote\Execution\ImmutableViewInitContext(
+            $ctx, 'Test', 'TestError', 'html', 'Test', 'Test',
+            ['403' => true, 'foo' => 'bar'],
+            $controller->getGlobalResponse()
+        );
+        $view = new SampleAttributeView();
+        $view->initialize($init);
+
+        $this->assertTrue($view->hasAttribute('403'));
+        $this->assertTrue($view->getAttribute('403'));
+        $this->assertSame([403 => true, 'foo' => 'bar'], $view->getAttributes());
+        // A renumbering copy would have moved the value to index 0.
+        $this->assertFalse($view->hasAttribute('0'));
+    }
 }

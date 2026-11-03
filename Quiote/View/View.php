@@ -102,14 +102,9 @@ abstract class View implements ResetInterface
 		if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
 			$logger->debug('[View] renderLayers count=' . count($this->layers) . ' view=' . static::class);
 		}
-		// Attribute names are always strings in practice; rekey defensively so the
-		// map handed to the layer is guaranteed string-keyed (attributes are never
-		// mutated back into the view's store from here, so a copy is safe). Built
-		// once before the loop: the only thing that changes per layer is 'inner', so
-		// re-fetching getAttributes() and rebuilding the string-keyed map on every
-		// iteration was pure waste (O(attributes) per layer).
-		$rawAttrs = $this->getAttributes();
-		$baseAttrs = array_combine(array_map('strval', array_keys($rawAttrs)), $rawAttrs);
+		// Copied once before the loop; only 'inner' changes per layer, and the
+		// copy keeps layer writes out of the view's own attribute store.
+		$baseAttrs = $this->getAttributes();
 		foreach ($this->layers as $layer) {
 			$attrsForLayer = $baseAttrs;
 			$attrsForLayer['inner'] = $out;
@@ -274,8 +269,9 @@ abstract class View implements ResetInterface
 		// values in this local store.
 		try {
 			if ($context instanceof \Quiote\Execution\ImmutableViewInitContext) {
-				$attrs = $context->getActionAttributes();
-				$this->localAttributes = array_merge([], $attrs);
+				// Plain assignment copies the array; array_merge() would renumber a
+				// numeric attribute name such as '403' and lose it.
+				$this->localAttributes = $context->getActionAttributes();
 			} elseif ($context instanceof \Quiote\Util\AttributeHolder) {
 				$this->localAttributes = $context->getAttributes();
 			} else {

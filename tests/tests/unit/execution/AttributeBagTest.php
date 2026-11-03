@@ -45,6 +45,28 @@ class AttributeBagTest extends TestCase
         $this->assertFalse(isset($bag['start']));
     }
 
+    public function testNumericNameIsFoundByEitherSpelling(): void
+    {
+        $bag = new AttributeBag(['403' => true]);
+        $this->assertSame([403 => true], $bag->all());
+        $this->assertTrue($bag->has('403'));
+        $this->assertTrue($bag->has(403));
+        $this->assertTrue($bag->get('403'));
+        $this->assertFalse($bag->without('403')->has(403));
+        $this->assertSame('x', $bag->with(404, 'x')->get('404'));
+
+        $bag[500] = 'int offset';
+        $this->assertSame('int offset', $bag['500']);
+    }
+
+    public function testAppendOffsetIsRejected(): void
+    {
+        $bag = new AttributeBag();
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('AttributeBag keys must be strings or integers, null given.');
+        $bag[] = 'no name';
+    }
+
     public function testIterationAndCount(): void
     {
         $bag = new AttributeBag(['a'=>1,'b'=>2,'c'=>3]);

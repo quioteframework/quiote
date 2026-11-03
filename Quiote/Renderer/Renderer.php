@@ -269,7 +269,7 @@ abstract class Renderer extends ParameterHolder implements ResetInterface
 	/**
 	 * Render the presentation and return the result.
 	 * @param      TemplateLayer $layer The template layer to render.
-	 * @param      array<string, mixed> $attributes The template variables.
+	 * @param      array<array-key, mixed> $attributes The template variables.
 	 * @param      array<string, mixed> $slots The slots.
 	 * @param      array<int|string, mixed> $moreAssigns Associative array of additional assigns.
 	 * @return     string A rendered result.

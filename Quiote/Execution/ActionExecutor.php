@@ -314,16 +314,10 @@ final class ActionExecutor
         $attributeSnapshot = [];
         try {
             $attributeSnapshot = $action->getAttributes();
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            $logger->warning('could not snapshot the action attributes; the view starts without them: ' . $e->getMessage());
             $attributeSnapshot = [];
         }
-        // Shallow clone to detach from holder internal storage (defensive). Attribute names
-        // are always strings by contract; re-key defensively so a stray int-keyed entry from
-        // AttributeHolder internals can never desync downstream string-keyed consumers.
-        $attributeSnapshot = array_combine(
-            array_map('strval', array_keys($attributeSnapshot)),
-            array_values($attributeSnapshot)
-        );
 
         [$vm, $vn] = $this->viewNameResolver->resolve($desc->module, $desc->action, $rawView);
         [$view, $content] = $this->renderView($vm, $vn, $desc, $actionRequest, $attributeSnapshot, $dbg, $logger);
@@ -349,7 +343,7 @@ final class ActionExecutor
      * {@see execute()}. Gated by the
      * same `telemetry.spans.action` toggle; when `$vn` is `View::NONE` no
      * span is opened at all, since there is nothing to render.
-     * @param array<string, mixed> $attributeSnapshot
+     * @param array<array-key, mixed> $attributeSnapshot
      * @return array{0: ?View, 1: string} [$view, $content]
      */
     private function renderView(?string $vm, ?string $vn, ActionDescriptor $desc, WebRequest $actionRequest, array $attributeSnapshot, bool $dbg, \Quiote\Logging\CategoryLogger $logger): array
@@ -399,7 +393,7 @@ final class ActionExecutor
     }
 
     /**
-     * @param array<string, mixed> $attributeSnapshot
+     * @param array<array-key, mixed> $attributeSnapshot
      */
     private function createAndInitView(string $vm, string $vn, string $module, string $action, ServerRequestInterface $rd, array $attributeSnapshot = []): ?View
     {

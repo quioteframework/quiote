@@ -44,6 +44,19 @@ class ImmutableViewInitContextTest extends TestCase
         $this->assertSame('v',$ivc->getAttribute('k'));
     }
 
+    public function testNumericAttributeNameSurvivesTheSnapshot(): void
+    {
+        $context = $this->ctx();
+        $response = new TestImmutableInitContextResponse();
+        $response->initialize($context, []);
+        $ivc = new ImmutableViewInitContext($context, 'ViewModule', 'Main', 'html', 'ActionModule', 'Edit', ['403' => true, 'k' => 'v'], $response);
+
+        $this->assertSame([403 => true, 'k' => 'v'], $ivc->getActionAttributes());
+        $this->assertTrue($ivc->hasAttribute('403'));
+        $this->assertTrue($ivc->getAttribute('403'));
+        $this->assertFalse($ivc->hasAttribute('404'));
+    }
+
     public function testLegacyOutputTypeProxyAndModuleFallback(): void
     {
         $context = $this->ctx();

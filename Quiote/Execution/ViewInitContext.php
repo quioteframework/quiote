@@ -36,7 +36,7 @@ interface ViewInitContext
     /** Returns the name of the action that selected this view, or null when there was none. */
     public function getActionName(): ?string;       // originating action name
     /**
-     * @return array<string, mixed>
+     * @return array<array-key, mixed>
      */
     public function getActionAttributes(): array;   // snapshot of action attributes (read-only for templates)
     /** Returns the response the view writes its rendered output into. */

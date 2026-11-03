@@ -68,23 +68,6 @@ class SlotDispatcher
     }
 
     /**
-     * Action attribute names are always strings by contract; re-key defensively so a
-     * stray int-keyed entry from AttributeHolder internals can never desync consumers
-     * (ViewFactory::create(), ImmutableViewInitContext, ActionExecutionContext) that
-     * index this snapshot by name.
-     *
-     * @param array<int|string, mixed> $attributes
-     * @return array<string, mixed>
-     */
-    private static function normalizeAttributeKeys(array $attributes): array
-    {
-        return array_combine(
-            array_map('strval', array_keys($attributes)),
-            array_values($attributes)
-        );
-    }
-
-    /**
      * Dispatch a slot (sub-action) and return its response content.
      * @param ServerRequestInterface $parentRequest The parent PSR request containing SlotStack attribute.
      * @param string $module Module name.
@@ -217,8 +200,9 @@ class SlotDispatcher
                 }
                 $attributeSnapshot = [];
                 try {
-                    $attributeSnapshot = self::normalizeAttributeKeys($actionInstance->getAttributes());
-                } catch (\Throwable) {
+                    $attributeSnapshot = $actionInstance->getAttributes();
+                } catch (\Throwable $e) {
+                    $logger->warning('could not snapshot the attributes of slot ' . $key . '; its view starts without them: ' . $e->getMessage());
                     $attributeSnapshot = [];
                 }
                 [$viewModule, $viewCanonical] = $this->viewNameResolver->resolve($module, $action, $rawViewName);
@@ -245,7 +229,7 @@ class SlotDispatcher
                         }
                         if ($viewInstance) {
                             try {
-                                $vic = new \Quiote\Execution\ImmutableViewInitContext($this->controller->getContext(), $viewModule, $viewCanonical, $resolvedOutputTypeLower, $module, $action, (array)$attributeSnapshot, $this->controller->getGlobalResponse());
+                                $vic = new \Quiote\Execution\ImmutableViewInitContext($this->controller->getContext(), $viewModule, $viewCanonical, $resolvedOutputTypeLower, $module, $action, $attributeSnapshot, $this->controller->getGlobalResponse());
                                 $viewInstance->initialize($vic);
                             } catch (\Throwable $e) {
                                 // An uninitialized view renders without its init context rather
@@ -410,7 +394,7 @@ class SlotDispatcher
                     $content = '';
                     if ($vn !== View::NONE && $vm !== null) {
                         try {
-                            $viewInstance = $this->viewFactory->create($vm, $vn, $module, $action, $resolvedOutputTypeLower, $rd, self::normalizeAttributeKeys($actionInstance->getAttributes()), $validationService->getValidationManager());
+                            $viewInstance = $this->viewFactory->create($vm, $vn, $module, $action, $resolvedOutputTypeLower, $rd, $actionInstance->getAttributes(), $validationService->getValidationManager());
                         } catch (\Throwable $e) {
                             if ($logExceptions) {
                                 $this->logSlotException($e, $module, $action, $parameters, 'nonsimple_error_view_factory_create');
@@ -429,7 +413,7 @@ class SlotDispatcher
                             }
                             if ($viewInstance) {
                                 try {
-                                    $vic = new \Quiote\Execution\ImmutableViewInitContext($this->controller->getContext(), $vm, $vn, $resolvedOutputTypeLower, $module, $action, self::normalizeAttributeKeys($actionInstance->getAttributes()), $this->controller->getGlobalResponse(), validationManager: $validationService->getValidationManager());
+                                    $vic = new \Quiote\Execution\ImmutableViewInitContext($this->controller->getContext(), $vm, $vn, $resolvedOutputTypeLower, $module, $action, $actionInstance->getAttributes(), $this->controller->getGlobalResponse(), validationManager: $validationService->getValidationManager());
                                     $viewInstance->initialize($vic);
                                 } catch (\Throwable $e) {
                                     // An uninitialized view renders without its init context rather
@@ -480,7 +464,7 @@ class SlotDispatcher
                 $viewInstance = null;
                 $result = '';
                 if ($vn !== View::NONE && $vm !== null) {
-                    $attrs = self::normalizeAttributeKeys($actionInstance->getAttributes());
+                    $attrs = $actionInstance->getAttributes();
                     try {
                         $viewInstance = $this->viewFactory->create($vm, $vn, $module, $action, $resolvedOutputTypeLower, $rd, $attrs, $validationService->getValidationManager());
                     } catch (\Throwable $e) {
@@ -552,7 +536,7 @@ class SlotDispatcher
                         );
                     }
                 }
-                $attrsFinal = self::normalizeAttributeKeys($actionInstance->getAttributes());
+                $attrsFinal = $actionInstance->getAttributes();
                 $ctx = new ActionExecutionContext($actionInstance, $viewInstance, $module, $action, $resolvedOutputType, $rd, (string)$result, $vm, $vn, $attrsFinal);
                 $this->lastContext = $ctx;
                 return $ctx->content;

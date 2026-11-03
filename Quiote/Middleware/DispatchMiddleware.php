@@ -536,7 +536,7 @@ class DispatchMiddleware implements MiddlewareInterface
         if ($cacheEnabled && $cacheUsable && !$execState->cacheHit && !$cacheBypass) {
             $ttl = $actionInstance->cacheTtlSeconds($actionDesc->outputType);
             if ($avCache) {
-                ActionCacheHelper::store($avCache, $actionDesc, $execState, $ctx->content, $this->stringKeyedAttributes($actionInstance), true, $ttl, $fingerprint, $locale);
+                ActionCacheHelper::store($avCache, $actionDesc, $execState, $ctx->content, $this->actionAttributes($actionInstance), true, $ttl, $fingerprint, $locale);
             }
         }
         if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {
@@ -562,23 +562,16 @@ class DispatchMiddleware implements MiddlewareInterface
     }
 
     /**
-     * An action's attributes narrowed to the string-keyed shape the cache
-     * helper expects, or an empty map when there is no action instance.
+     * An action's attributes, or an empty map when there is no action instance.
      *
-     * @return array<string, mixed>
+     * A numeric attribute name such as `'403'` is keyed as an integer, as PHP
+     * stores it, so the map is not string-keyed.
+     *
+     * @return array<array-key, mixed>
      */
-    private function stringKeyedAttributes(?\Quiote\Action\Action $actionInstance): array
+    private function actionAttributes(?\Quiote\Action\Action $actionInstance): array
     {
-        if ($actionInstance === null) {
-            return [];
-        }
-
-        $result = [];
-        foreach ($actionInstance->getAttributes() as $key => $value) {
-            $result[(string)$key] = $value;
-        }
-
-        return $result;
+        return $actionInstance?->getAttributes() ?? [];
     }
 
     /**
@@ -743,7 +736,7 @@ class DispatchMiddleware implements MiddlewareInterface
         self::$executedNonSimpleActions[$actionDesc->module . ':' . $actionDesc->action . ':' . $actionDesc->outputType] = true;
         if ($cacheEnabled && $cacheUsable && !$execState->cacheHit && !$cacheBypass && $avCache) {
             $ttl = $actionInstance->cacheTtlSeconds($actionDesc->outputType);
-            ActionCacheHelper::store($avCache, $actionDesc, $execState, $ctx->content, $this->stringKeyedAttributes($actionInstance), false, $ttl, $fingerprint, $locale);
+            ActionCacheHelper::store($avCache, $actionDesc, $execState, $ctx->content, $this->actionAttributes($actionInstance), false, $ttl, $fingerprint, $locale);
         }
         if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {
             $rid = $this->correlationId($request);

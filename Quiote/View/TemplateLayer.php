@@ -200,7 +200,7 @@ abstract class TemplateLayer extends ParameterHolder implements ResetInterface
 	 * Useful in your custom models to render an email, for example.
 	 * @param      Renderer $renderer An optional renderer instance that will be used
 	 *                           instead of the one set on the layer.
-	 * @param      array<string, mixed> $attributes The template variables.
+	 * @param      array<array-key, mixed> $attributes The template variables.
 	 * @param      array<int|string, mixed> $moreAssigns Associative array of additional assigns.
 	 * @return     string The rendered result.
 	 * @since      1.0.0

@@ -74,7 +74,7 @@ final class XsltRenderer extends Renderer implements IReusableRenderer
 
         foreach ($attributes as $name => $value) {
             if (is_scalar($value) || $value instanceof \Stringable) {
-                $processor->setParameter('', $name, (string) $value);
+                $processor->setParameter('', (string) $name, (string) $value);
             }
         }
 
