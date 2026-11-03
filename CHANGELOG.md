@@ -1,3 +1,9 @@
+## [4.6.0-beta5] - 2026-11-03
+
+### 🐛 Bug Fixes
+
+- *(execution)* Keep numeric action attribute names intact
+
 ## [4.6.0-beta4] - 2026-11-02
 
 ### 🐛 Bug Fixes
