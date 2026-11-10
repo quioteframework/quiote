@@ -1,3 +1,9 @@
+## [4.1.0-beta1] - 2026-11-11
+
+### 🐛 Bug Fixes
+
+- *(database)* Reset ORM request state at the worker request boundary
+
 ## [4.0.1] - 2026-09-01
 
 ### 🚀 Features
