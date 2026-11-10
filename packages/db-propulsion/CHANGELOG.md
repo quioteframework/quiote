@@ -1,3 +1,17 @@
+## [4.1.0-beta1] - 2026-11-11
+
+### 🚀 Features
+
+- *(clock)* Add a Quiote\Support\Clock seam and convert every ambient now() read
+
+### 🐛 Bug Fixes
+
+- *(database)* Reset ORM request state at the worker request boundary
+
+### ⚙️ Miscellaneous Tasks
+
+- Fix dev-main branch-alias for every package with a release
+
 ## [4.0.1] - 2026-08-13
 
 ### 🐛 Bug Fixes
