@@ -645,6 +645,113 @@ class PropulsionDatabaseTest extends TestCase
         return $configPath;
     }
 
+    // --- request boundary ---------------------------------------------------
+
+    /**
+     * The instance pool is what made a worker keep serving a row it loaded in an earlier
+     * request: once another process updates that row, the pooled copy is stale. The boundary
+     * has to empty the pool while keeping the connection and the configuration for reuse.
+     */
+    public function testResetRequestStateEmptiesTheInstancePoolAndKeepsTheConnection(): void
+    {
+        $db = $this->initializedRuntimeDatabase();
+        $connection = $db->getPropulsionConnection();
+        Propulsion::getSession()->addPooledInstance(\stdClass::class, '1', (object) ['logo' => 'old.png']);
+
+        $db->resetRequestState();
+
+        $this->assertNull(
+            Propulsion::getSession()->getPooledInstance(\stdClass::class, '1'),
+            'the next request must load the row again instead of reusing the pooled copy'
+        );
+        $this->assertSame($connection, $db->getPropulsionConnection(), 'the connection is reused, not reopened');
+        $this->assertSame('runtime', $db->getDatasource());
+        $this->assertTrue($db->hasParameter('config'), 'the configuration survives the request boundary');
+    }
+
+    public function testResetRequestStateRollsBackATransactionARequestLeftOpen(): void
+    {
+        $db = $this->initializedRuntimeDatabase();
+        $connection = $db->getPropulsionConnection();
+        $connection->exec('CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT NOT NULL)');
+        $connection->beginTransaction();
+        $connection->exec("INSERT INTO items (name) VALUES ('uncommitted')");
+
+        $db->resetRequestState();
+
+        $this->assertFalse($connection->isInTransaction());
+        $count = $connection->query('SELECT COUNT(*) FROM items');
+        $this->assertNotFalse($count);
+        $this->assertSame(0, (int) $count->fetchColumn(), 'the uncommitted row was rolled back');
+    }
+
+    public function testResetRequestStateClearsTheForceMasterFlagAndThePoolingSuspension(): void
+    {
+        $db = $this->initializedRuntimeDatabase();
+        $session = Propulsion::getSession();
+        $session->setForceMasterConnection(true);
+        $session->suspendInstancePooling();
+
+        $db->resetRequestState();
+
+        $this->assertFalse($session->getForceMasterConnection());
+        $this->assertFalse($session->isInstancePoolingSuspended());
+    }
+
+    public function testResetRequestStateBeforePropulsionIsInitializedDoesNothing(): void
+    {
+        // close() releases the connections but leaves Propulsion marked as initialized, so the
+        // never-initialized state a fresh worker starts in has to be restored by hand.
+        (new ReflectionProperty(Propulsion::class, 'isInit'))->setValue(null, false);
+        $session = new \Propulsion\Session();
+        Propulsion::setSession($session);
+        $session->addPooledInstance(\stdClass::class, '1', new \stdClass());
+
+        (new PropulsionDatabase())->resetRequestState();
+
+        $this->assertFalse(Propulsion::isInit());
+        $this->assertNotNull($session->getPooledInstance(\stdClass::class, '1'), 'an uninitialized Propulsion is not touched');
+    }
+
+    /**
+     * A session that cannot be reset must still not hand its pooled rows to the next request:
+     * a fresh session replaces it, and the failure is reported to the caller.
+     */
+    public function testASessionThatCannotBeResetIsReplacedWithAFreshOneAndReported(): void
+    {
+        $db = $this->initializedRuntimeDatabase();
+        $broken = new class extends \Propulsion\Session {
+            #[\Override]
+            public function reset(): void
+            {
+                throw new \RuntimeException('rollback on a dropped connection');
+            }
+        };
+        $broken->addPooledInstance(\stdClass::class, '1', new \stdClass());
+        Propulsion::setSession($broken);
+
+        try {
+            $db->resetRequestState();
+            $this->fail('the failed session reset should have been reported');
+        } catch (\Quiote\Exception\DatabaseException $e) {
+            $this->assertStringContainsString('rollback on a dropped connection', $e->getMessage());
+            $this->assertInstanceOf(\RuntimeException::class, $e->getPrevious());
+        }
+
+        $this->assertNotSame($broken, Propulsion::getSession());
+        $this->assertNull(Propulsion::getSession()->getPooledInstance(\stdClass::class, '1'));
+    }
+
+    private function initializedRuntimeDatabase(): PropulsionDatabase
+    {
+        $db = new PropulsionDatabase();
+        $manager = new DatabaseManager();
+        (new ReflectionProperty($manager, 'databases'))->setValue($manager, ['propulsion' => $db]);
+        $db->initialize($manager, ['config' => $this->writeRuntimeConfigFile(), 'datasource' => 'runtime']);
+
+        return $db;
+    }
+
     private function writeRuntimeConfigFile(): string
     {
         $sqlitePath = $this->newTempFilePath('.sqlite');

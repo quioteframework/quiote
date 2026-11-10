@@ -947,14 +947,16 @@ class Context implements \Stringable, ResetInterface, ContextInterface
           continue;
         }
         if ($component === $this->databaseManager) {
-          // Recycle (ping + null dead connections) instead of full shutdown so the manager
-          // stays alive across requests, avoiding re-initialization cost.
+          // Discard the request's ORM state (identity maps, instance pools, open transactions),
+          // then recycle (ping + null dead connections) instead of a full shutdown, so the
+          // manager and its connections stay alive across requests without carrying data over.
           if ($vd) {
             $logger->debug(
-              "context.reset recycleConnections databaseManager - id=" .
+              "context.reset resetRequestState + recycleConnections databaseManager - id=" .
                 spl_object_id($component),
             );
           }
+          $component->resetRequestState();
           $component->recycleConnections();
         }
         // Skip controller, request, routing, translationManager shutdowns

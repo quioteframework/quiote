@@ -204,6 +204,25 @@ abstract class Database extends ParameterHolder implements ResetInterface
 	}
 
 	/**
+	 * Discard the state a request built up on this database, keeping the
+	 * connection and the configuration.
+	 *
+	 * Called by {@see DatabaseManager::resetRequestState()} at every worker
+	 * request boundary. Adapters override it to drop what would otherwise
+	 * outlive the request in a persistent worker: an ORM identity map or
+	 * instance pool (rows served from it would be stale once another process
+	 * updates them), a transaction a failed request left open, per-request
+	 * query caches. Unlike {@see reset()}, the instance stays initialized and
+	 * its connection stays open. A database that holds no request state needs
+	 * nothing here, which is the default.
+	 *
+	 * @throws DatabaseException If the request state could not be discarded.
+	 */
+	public function resetRequestState(): void
+	{
+	}
+
+	/**
 	 * Retrieve the raw PDO connection underlying this database, for callers
 	 * that need to hand-write SQL (custom queries, driver-specific
 	 * optimizations) rather than go through an ORM's query builder.

@@ -207,6 +207,47 @@ class CycleDatabase extends AbstractOrmDatabase
     }
 
     /**
+     * Rolls back any transaction a request left open and cleans the ORM heap,
+     * keeping the ORM and its connections.
+     *
+     * Without the clean, a worker's heap (identity map) would keep handing out
+     * the entities an earlier request loaded, however often another process
+     * has updated those rows since. Every driver Cycle's database manager has
+     * opened is rolled back to transaction level zero. Nothing happens when
+     * the ORM has not been built yet.
+     *
+     * Carries no #[\Override]: the hook it implements exists from quiote 4.6.0-beta6, and this
+     * adapter also runs on older cores, which never call it.
+     *
+     * @throws DatabaseException If a rollback or the heap clean failed.
+     */
+    public function resetRequestState(): void
+    {
+        $orm = $this->connection;
+        if (!$orm instanceof ORMInterface) {
+            return;
+        }
+
+        try {
+            if ($this->resource instanceof CycleDatabaseManager) {
+                foreach ($this->resource->getDrivers() as $driver) {
+                    while ($driver->getTransactionLevel() > 0) {
+                        $driver->rollbackTransaction();
+                    }
+                }
+            }
+
+            $orm->getHeap()->clean();
+        } catch (\Throwable $e) {
+            throw new DatabaseException(sprintf(
+                'CycleDatabase "%s" could not reset its request state: %s',
+                (string) $this->getName(),
+                $e->getMessage()
+            ), 0, $e);
+        }
+    }
+
+    /**
      * Returns this database to its pre-initialize() state, cleaning the ORM
      * heap first.
      *
@@ -217,9 +258,9 @@ class CycleDatabase extends AbstractOrmDatabase
      * rebuilt from the parameters on the next initialize(). Re-initialize()
      * this instance before using it again.
      *
-     * To recycle a worker's connection between requests without discarding
-     * the configuration, use {@see ping()} -- which is what
-     * {@see \Quiote\Database\DatabaseManager::recycleConnections()} calls at
+     * To end a worker request without discarding the configuration or the
+     * connection, use {@see resetRequestState()} -- which is what
+     * {@see \Quiote\Database\DatabaseManager::resetRequestState()} calls at
      * the request boundary.
      *
      * @throws DatabaseException If shutting the connection down fails.

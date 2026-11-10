@@ -85,9 +85,6 @@ class WorkerRequestBoundaryTest extends TestCase
      */
     private function injectFaultyShutdownComponent(\Throwable $toThrow): void
     {
-        $sequence = $this->context->getShutdownSequence();
-        $this->savedShutdownSequence ??= $sequence->all();
-
         // A DatabaseManager subclass, because the context's property is typed: the loop recognises
         // its database manager by identity with that property, not by duck-typing a method.
         $faulty = new class($toThrow) extends \Quiote\Database\DatabaseManager {
@@ -110,16 +107,26 @@ class WorkerRequestBoundaryTest extends TestCase
 
         // Prepended, so it runs before anything else in the sequence and the abort
         // happens as early as possible -- the worst case for the clears.
-        $sequence->replaceAll([$faulty, ...$this->savedShutdownSequence]);
+        $this->installDatabaseManager($faulty);
+    }
 
-        // The loop only calls recycleConnections() on the component it recognises as
-        // the database manager, so point that at the faulty one too.
+    /**
+     * Make $manager the context's database manager, first in the shutdown sequence. The loop
+     * only resets and recycles the component it recognises, by identity, as the database
+     * manager, so both the sequence and the property have to point at it.
+     */
+    private function installDatabaseManager(\Quiote\Database\DatabaseManager $manager): void
+    {
+        $sequence = $this->context->getShutdownSequence();
+        $this->savedShutdownSequence ??= $sequence->all();
+        $sequence->replaceAll([$manager, ...$this->savedShutdownSequence]);
+
         $databaseManager = new ReflectionProperty(Context::class, 'databaseManager');
         if (!$this->savedDatabaseManagerCaptured) {
             $this->savedDatabaseManager = $databaseManager->getValue($this->context);
             $this->savedDatabaseManagerCaptured = true;
         }
-        $databaseManager->setValue($this->context, $faulty);
+        $databaseManager->setValue($this->context, $manager);
     }
 
     private function restoreShutdownSequence(): void
@@ -370,5 +377,79 @@ class WorkerRequestBoundaryTest extends TestCase
 
         $this->assertSame(1, $emitter->count, 'the response was emitted');
         $this->assertNextRequestSeesNoIdentity('the request completed normally');
+    }
+
+    // --- database request state --------------------------------------------
+
+    /**
+     * The database manager survives the request boundary so its connections can be reused, but
+     * what a request built up on those connections -- ORM identity maps and instance pools, open
+     * transactions -- must not. Rows a worker pooled in one request would otherwise be served
+     * from the pool in every later one, however often another worker has updated them.
+     */
+    public function testResetDiscardsDatabaseRequestStateBeforeRecyclingConnections(): void
+    {
+        $manager = new class extends \Quiote\Database\DatabaseManager {
+            /** @var list<string> */
+            public array $calls = [];
+
+            public function __construct()
+            {
+            }
+
+            #[\Override]
+            public function resetRequestState(): void
+            {
+                $this->calls[] = 'resetRequestState';
+                parent::resetRequestState();
+            }
+
+            #[\Override]
+            public function recycleConnections(): void
+            {
+                $this->calls[] = 'recycleConnections';
+                parent::recycleConnections();
+            }
+        };
+        $this->installDatabaseManager($manager);
+
+        $this->context->reset();
+
+        $this->assertSame(['resetRequestState', 'recycleConnections'], $manager->calls);
+    }
+
+    /**
+     * End to end over a real connection: a transaction one request left open is rolled back by
+     * the boundary, and the next request reuses the same connection rather than a new one.
+     */
+    public function testATransactionARequestLeftOpenIsRolledBackAtTheBoundary(): void
+    {
+        if (!in_array('sqlite', \PDO::getAvailableDrivers(), true)) {
+            $this->markTestSkipped('pdo_sqlite driver not available');
+        }
+
+        $manager = new class extends \Quiote\Database\DatabaseManager {
+            public function __construct()
+            {
+            }
+        };
+        $database = new \Quiote\Database\PdoDatabase();
+        $database->initialize($manager, ['dsn' => 'sqlite::memory:']);
+        (new ReflectionProperty(\Quiote\Database\DatabaseManager::class, 'databases'))
+            ->setValue($manager, ['default' => $database]);
+        $this->installDatabaseManager($manager);
+
+        $pdo = $database->getPdo();
+        $pdo->exec('CREATE TABLE t (id INTEGER PRIMARY KEY, name TEXT)');
+        $pdo->beginTransaction();
+        $pdo->exec("INSERT INTO t (name) VALUES ('from the failed request')");
+
+        $this->context->reset();
+
+        $this->assertSame($pdo, $database->getPdo(), 'the next request reuses the connection');
+        $this->assertFalse($pdo->inTransaction(), 'the next request must not inherit the open transaction');
+        $count = $pdo->query('SELECT COUNT(*) FROM t');
+        $this->assertNotFalse($count);
+        $this->assertSame(0, (int) $count->fetchColumn(), 'the uncommitted write was rolled back');
     }
 }

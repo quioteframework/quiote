@@ -9,6 +9,7 @@ use Quiote\Util\Toolkit;
 use Propulsion\Config\PropulsionConfiguration;
 use Propulsion\Connection\PropulsionPDO;
 use Propulsion\Propulsion;
+use Propulsion\Session;
 
 /**
  * First-class adapter for Propulsion (the quioteframework/propulsion fork of
@@ -331,6 +332,44 @@ class PropulsionDatabase extends Database
     }
 
     /**
+     * Resets Propulsion's request-scoped session, keeping the connections open.
+     *
+     * The session reset rolls back any transaction left open, empties every
+     * instance pool, clears the force-master flag, the pooling-suspend count
+     * and the query-result cache. Without it a worker keeps serving the rows
+     * it pooled in an earlier request from findPk() however often another
+     * process has updated them since.
+     *
+     * If the session cannot be reset -- typically because rolling back a
+     * dangling transaction failed on a connection the server dropped -- a
+     * fresh, empty session is installed in its place, so no pooled row
+     * survives into the next request either way, and the failure is reported.
+     *
+     * Carries no #[\Override]: the hook it implements exists from quiote 4.6.0-beta6, and this
+     * adapter also runs on older cores, which never call it.
+     *
+     * @throws DatabaseException If the session reset failed; the fresh session
+     *                           is already in place when this is thrown.
+     */
+    public function resetRequestState(): void
+    {
+        if (!Propulsion::isInit()) {
+            return;
+        }
+
+        try {
+            Propulsion::getSession()->reset();
+        } catch (\Throwable $e) {
+            Propulsion::setSession(new Session());
+            throw new DatabaseException(sprintf(
+                'PropulsionDatabase "%s" could not reset the Propulsion session, so a fresh one was installed: %s',
+                (string) $this->getName(),
+                $e->getMessage()
+            ), 0, $e);
+        }
+    }
+
+    /**
      * Returns this database to its pre-initialize() state, dropping
      * Propulsion's request-scoped session first.
      *
@@ -340,14 +379,13 @@ class PropulsionDatabase extends Database
      * reference and the name -- would leave it behind. Re-initialize() this
      * instance before using it again.
      *
-     * @throws DatabaseException If shutting the connection down fails.
+     * @throws DatabaseException If resetting the session or shutting the
+     *                           connection down fails.
      */
     #[\Override]
     public function reset(): void
     {
-        if (Propulsion::isInit()) {
-            Propulsion::getSession()->reset();
-        }
+        $this->resetRequestState();
 
         parent::reset();
     }

@@ -239,6 +239,55 @@ class EloquentDatabaseTest extends TestCase
         $this->assertSame(0, (int) $count->fetchColumn(), 'the uncommitted row was rolled back');
     }
 
+    public function testResetRequestStateRollsBackATransactionARequestLeftOpenAndKeepsTheCapsule(): void
+    {
+        $db = new EloquentDatabase();
+        $db->initialize(new DatabaseManager(), ['driver' => 'sqlite', 'database' => ':memory:']);
+        $capsule = $db->getCapsule();
+        $conn = $db->getEloquentConnection();
+        $conn->statement('CREATE TABLE t (id INTEGER PRIMARY KEY, name TEXT)');
+        $conn->beginTransaction();
+        $conn->beginTransaction();
+        $conn->table('t')->insert(['name' => 'uncommitted']);
+
+        $db->resetRequestState();
+
+        $this->assertSame(0, $conn->transactionLevel(), 'every nesting level is rolled back');
+        $this->assertFalse($conn->getPdo()->inTransaction());
+        $this->assertSame($capsule, $db->getCapsule(), 'the capsule is reused, not rebuilt');
+        $this->assertSame(0, $conn->table('t')->count(), 'the uncommitted row was rolled back');
+    }
+
+    public function testResetRequestStateBeforeConnectingDoesNothing(): void
+    {
+        $db = new EloquentDatabase();
+        $db->initialize(new DatabaseManager(), ['driver' => 'sqlite', 'database' => ':memory:']);
+
+        $db->resetRequestState();
+
+        $this->assertNull((new ReflectionProperty(\Quiote\Database\Database::class, 'connection'))->getValue($db), 'resetting does not connect');
+    }
+
+    public function testResetRequestStateReportsARollbackThatFails(): void
+    {
+        $db = new EloquentDatabase();
+        $db->initialize(new DatabaseManager(), ['driver' => 'sqlite', 'database' => ':memory:']);
+        $conn = $db->getEloquentConnection();
+        // setPdo() zeroes the connection's transaction count, so the handle is swapped first.
+        $conn->setPdo(new class ('sqlite::memory:') extends PDO {
+            #[\Override]
+            public function rollBack(): bool
+            {
+                throw new PDOException('server has gone away');
+            }
+        });
+        $conn->beginTransaction();
+
+        $this->expectException(DatabaseException::class);
+        $this->expectExceptionMessage('server has gone away');
+        $db->resetRequestState();
+    }
+
     public function testShutdownDropsTheCapsuleSoTheNextUseRebuildsIt(): void
     {
         $db = new EloquentDatabase();

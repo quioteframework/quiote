@@ -136,6 +136,39 @@ class DoctrineDbalDatabase extends AbstractOrmDatabase
     }
 
     /**
+     * Rolls back any transaction a request left open, keeping the connection.
+     *
+     * In a persistent worker the connection outlives the request, so an
+     * uncommitted transaction from a request that failed half-way would
+     * otherwise carry its locks, and its writes, into the next request.
+     * Nothing happens when no connection has been opened yet.
+     *
+     * Carries no #[\Override]: the hook it implements exists from quiote 4.6.0-beta6, and this
+     * adapter also runs on older cores, which never call it.
+     *
+     * @throws DatabaseException If the rollback failed.
+     */
+    public function resetRequestState(): void
+    {
+        $connection = $this->connection;
+        if (!$connection instanceof DbalConnection) {
+            return;
+        }
+
+        try {
+            while ($connection->isTransactionActive()) {
+                $connection->rollBack();
+            }
+        } catch (\Throwable $e) {
+            throw new DatabaseException(sprintf(
+                'DoctrineDbalDatabase "%s" could not roll back the transaction a request left open: %s',
+                (string) $this->getName(),
+                $e->getMessage()
+            ), 0, $e);
+        }
+    }
+
+    /**
      * Rolls back any open transaction, closes the connection and drops it.
      *
      * A failure to roll back or close is logged at warning and does not stop

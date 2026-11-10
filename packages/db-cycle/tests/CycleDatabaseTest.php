@@ -270,6 +270,64 @@ class CycleDatabaseTest extends TestCase
         $db->getCycleDatabaseManager();
     }
 
+    // --- request boundary ---------------------------------------------------
+
+    /**
+     * The heap is the identity map: an entity a worker hydrated in one request would otherwise
+     * be served in the next however often another process has updated its row since. The
+     * boundary has to clean it while keeping the ORM for reuse.
+     */
+    public function testResetRequestStateCleansTheHeapAndKeepsTheOrm(): void
+    {
+        $db = $this->database(['schema' => []]);
+        $orm = $db->getOrm();
+        $entity = new stdClass();
+        $orm->getHeap()->attach($entity, new Node(Node::MANAGED, ['id' => 1], 'user'));
+
+        $db->resetRequestState();
+
+        $this->assertFalse($orm->getHeap()->has($entity));
+        $this->assertSame($orm, $db->getOrm(), 'the ORM is reused, not rebuilt');
+        $this->assertTrue($db->hasParameter('cycle'), 'the configuration survives the request boundary');
+    }
+
+    public function testResetRequestStateRollsBackATransactionARequestLeftOpen(): void
+    {
+        $db = $this->database(['schema' => []]);
+        $database = $db->getCycleDatabaseManager()->database('default');
+        $database->execute('CREATE TABLE t (id INTEGER PRIMARY KEY, name TEXT)');
+        $driver = $database->getDriver();
+        $driver->beginTransaction();
+        $driver->beginTransaction();
+        $database->execute("INSERT INTO t (name) VALUES ('uncommitted')");
+
+        $db->resetRequestState();
+
+        $this->assertSame(0, $driver->getTransactionLevel(), 'every nesting level is rolled back');
+        $this->assertSame(0, $database->query('SELECT COUNT(*) FROM t')->fetchColumn());
+    }
+
+    public function testResetRequestStateBeforeConnectingDoesNothing(): void
+    {
+        $db = $this->database(['schema' => []]);
+
+        $db->resetRequestState();
+
+        $this->assertNull((new ReflectionProperty(\Quiote\Database\Database::class, 'connection'))->getValue($db), 'resetting does not connect');
+    }
+
+    public function testResetRequestStateReportsAFailure(): void
+    {
+        $orm = $this->createStub(ORMInterface::class);
+        $orm->method('getHeap')->willThrowException(new RuntimeException('heap is locked'));
+        $db = $this->database(['schema' => []]);
+        (new ReflectionProperty(\Quiote\Database\Database::class, 'connection'))->setValue($db, $orm);
+
+        $this->expectException(DatabaseException::class);
+        $this->expectExceptionMessage('heap is locked');
+        $db->resetRequestState();
+    }
+
     /**
      * @param array<string, mixed> $parameters Merged over a working sqlite `cycle` config.
      */

@@ -284,6 +284,46 @@ class DoctrineDbalDatabaseTest extends TestCase
         $connection->executeQuery('SELECT 1');
     }
 
+    // --- request boundary ---------------------------------------------------
+
+    public function testResetRequestStateRollsBackATransactionARequestLeftOpenAndKeepsTheConnection(): void
+    {
+        $db = $this->sqliteDatabase();
+        $connection = $db->getDbalConnection();
+        $connection->executeStatement('CREATE TABLE t (id INTEGER PRIMARY KEY, name TEXT)');
+        $connection->beginTransaction();
+        $connection->beginTransaction();
+        $connection->executeStatement("INSERT INTO t (name) VALUES ('uncommitted')");
+
+        $db->resetRequestState();
+
+        $this->assertFalse($connection->isTransactionActive(), 'every nesting level is rolled back');
+        $this->assertSame($connection, $db->getDbalConnection(), 'the connection is reused, not reopened');
+        $this->assertSame(0, $connection->fetchOne('SELECT COUNT(*) FROM t'));
+    }
+
+    public function testResetRequestStateBeforeConnectingDoesNothing(): void
+    {
+        $db = $this->sqliteDatabase();
+
+        $db->resetRequestState();
+
+        $this->assertNull((new ReflectionProperty(\Quiote\Database\Database::class, 'connection'))->getValue($db), 'resetting does not connect');
+    }
+
+    public function testResetRequestStateReportsARollbackThatFails(): void
+    {
+        $connection = $this->createStub(\Doctrine\DBAL\Connection::class);
+        $connection->method('isTransactionActive')->willReturn(true);
+        $connection->method('rollBack')->willThrowException(new \RuntimeException('server has gone away'));
+        $db = $this->sqliteDatabase();
+        (new ReflectionProperty(\Quiote\Database\Database::class, 'connection'))->setValue($db, $connection);
+
+        $this->expectException(DatabaseException::class);
+        $this->expectExceptionMessage('server has gone away');
+        $db->resetRequestState();
+    }
+
     private function sqliteDatabase(): DoctrineDbalDatabase
     {
         if (!in_array('sqlite', PDO::getAvailableDrivers(), true)) {

@@ -283,6 +283,115 @@ class DoctrineDatabaseTest extends TestCase
         $this->assertInstanceOf(\Doctrine\ORM\EntityManagerInterface::class, $db->getEntityManager());
     }
 
+    // --- request boundary ---------------------------------------------------
+
+    /**
+     * The identity map is what keeps a worker serving a row it loaded in an earlier request:
+     * find() answers from it without querying, so an update another worker made is never seen.
+     * The boundary has to detach everything while keeping the entity manager for reuse.
+     */
+    public function testResetRequestStateMakesTheNextRequestSeeRowsAnotherProcessUpdated(): void
+    {
+        $db = $this->sqliteDatabaseWithUsersTable();
+        $entityManager = $db->getEntityManager();
+
+        $user = new \Quiote\Test\Database\Entity\DoctrineUser();
+        $user->name = 'old-logo';
+        $entityManager->persist($user);
+        $entityManager->flush();
+        $id = $user->id;
+        $this->assertNotNull($id);
+
+        // Another worker updates the row behind this entity manager's back.
+        $db->getDbalConnection()->executeStatement(
+            'UPDATE doctrine_users SET name = ? WHERE id = ?',
+            ['new-logo', $id]
+        );
+        $stale = $entityManager->find(\Quiote\Test\Database\Entity\DoctrineUser::class, $id);
+        $this->assertNotNull($stale);
+        $this->assertSame('old-logo', $stale->name, 'precondition: within one request the identity map answers');
+
+        $db->resetRequestState();
+
+        $this->assertSame($entityManager, $db->getEntityManager(), 'the entity manager is reused, not rebuilt');
+        $fresh = $db->getEntityManager()->find(\Quiote\Test\Database\Entity\DoctrineUser::class, $id);
+        $this->assertNotNull($fresh);
+        $this->assertSame('new-logo', $fresh->name);
+    }
+
+    public function testResetRequestStateRollsBackATransactionARequestLeftOpen(): void
+    {
+        $db = $this->sqliteDatabaseWithUsersTable();
+        $connection = $db->getDbalConnection();
+        $connection->beginTransaction();
+        $connection->beginTransaction();
+        $connection->executeStatement("INSERT INTO doctrine_users (name) VALUES ('uncommitted')");
+
+        $db->resetRequestState();
+
+        $this->assertFalse($connection->isTransactionActive(), 'every nesting level is rolled back');
+        $this->assertSame(0, $connection->fetchOne('SELECT COUNT(*) FROM doctrine_users'));
+    }
+
+    /**
+     * A failed flush closes the entity manager for good; reused as-is, every later request in
+     * the worker would fail with "the EntityManager is closed".
+     */
+    public function testAClosedEntityManagerIsDroppedSoTheNextRequestGetsAWorkingOne(): void
+    {
+        $db = $this->sqliteDatabaseWithUsersTable();
+        $closed = $db->getEntityManager();
+        $closed->close();
+
+        $db->resetRequestState();
+
+        $next = $db->getEntityManager();
+        $this->assertNotSame($closed, $next);
+        $this->assertTrue($next->isOpen());
+    }
+
+    public function testResetRequestStateBeforeConnectingDoesNothing(): void
+    {
+        $db = $this->sqliteDatabase();
+
+        $db->resetRequestState();
+
+        $this->assertNull((new ReflectionProperty(\Quiote\Database\Database::class, 'connection'))->getValue($db), 'resetting does not connect');
+    }
+
+    public function testResetRequestStateReportsAFailure(): void
+    {
+        $entityManager = $this->createStub(\Doctrine\ORM\EntityManagerInterface::class);
+        $entityManager->method('getConnection')->willThrowException(new \RuntimeException('server has gone away'));
+        $db = new class ($entityManager) extends DoctrineDatabase {
+            public function __construct(private readonly \Doctrine\ORM\EntityManagerInterface $stub)
+            {
+                parent::__construct();
+            }
+
+            #[\Override]
+            protected function connect()
+            {
+                $this->connection = $this->stub;
+            }
+        };
+        $db->getConnection();
+
+        $this->expectException(DatabaseException::class);
+        $this->expectExceptionMessage('server has gone away');
+        $db->resetRequestState();
+    }
+
+    private function sqliteDatabaseWithUsersTable(): DoctrineDatabase
+    {
+        $db = $this->sqliteDatabase();
+        $db->getDbalConnection()->executeStatement(
+            'CREATE TABLE doctrine_users (id INTEGER PRIMARY KEY AUTOINCREMENT, name VARCHAR(255) NOT NULL)'
+        );
+
+        return $db;
+    }
+
     private function sqliteDatabase(): DoctrineDatabase
     {
         if (!in_array('sqlite', PDO::getAvailableDrivers(), true)) {

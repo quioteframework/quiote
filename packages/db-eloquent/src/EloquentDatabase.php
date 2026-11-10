@@ -233,6 +233,42 @@ class EloquentDatabase extends AbstractOrmDatabase
     }
 
     /**
+     * Rolls back any transaction a request left open, keeping the capsule and
+     * its connection.
+     *
+     * In a persistent worker the connection outlives the request, so an
+     * uncommitted transaction from a request that failed half-way would
+     * otherwise carry its locks, and its writes, into the next request.
+     * Eloquent keeps no identity map, so there is nothing else to discard.
+     * Nothing happens when the capsule has not been built yet.
+     *
+     * Carries no #[\Override]: the hook it implements exists from quiote 4.6.0-beta6, and this
+     * adapter also runs on older cores, which never call it.
+     *
+     * @throws DatabaseException If the rollback failed.
+     */
+    public function resetRequestState(): void
+    {
+        $capsule = $this->connection;
+        if (!$capsule instanceof Capsule) {
+            return;
+        }
+
+        try {
+            $connection = $capsule->getConnection($this->connectionName());
+            if ($connection->transactionLevel() > 0) {
+                $connection->rollBack(0);
+            }
+        } catch (\Throwable $e) {
+            throw new DatabaseException(sprintf(
+                'EloquentDatabase "%s" could not roll back the transaction a request left open: %s',
+                (string) $this->getName(),
+                $e->getMessage()
+            ), 0, $e);
+        }
+    }
+
+    /**
      * Rolls back any open transaction, purges the connection from Eloquent's
      * database manager and drops the capsule.
      *

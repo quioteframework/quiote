@@ -272,6 +272,52 @@ class DoctrineDatabase extends AbstractOrmDatabase
     }
 
     /**
+     * Rolls back any transaction a request left open and detaches every
+     * managed entity, keeping the entity manager and its connection.
+     *
+     * Without the clear, a worker's identity map would keep handing out the
+     * entities an earlier request loaded, however often another process has
+     * updated those rows since. An entity manager that a failed flush closed
+     * cannot be reopened, so it is dropped instead and the next
+     * getConnection() builds a new one; otherwise every later request in this
+     * worker would fail with "the EntityManager is closed".
+     *
+     * Nothing happens when no entity manager has been built yet.
+     *
+     * Carries no #[\Override]: the hook it implements exists from quiote 4.6.0-beta6, and this
+     * adapter also runs on older cores, which never call it.
+     *
+     * @throws DatabaseException If the rollback or the clear failed.
+     */
+    public function resetRequestState(): void
+    {
+        $entityManager = $this->connection;
+        if (!$entityManager instanceof EntityManagerInterface) {
+            return;
+        }
+
+        try {
+            $dbal = $entityManager->getConnection();
+            while ($dbal->isTransactionActive()) {
+                $dbal->rollBack();
+            }
+
+            if (!$entityManager->isOpen()) {
+                $this->connection = $this->resource = null;
+                return;
+            }
+
+            $entityManager->clear();
+        } catch (\Throwable $e) {
+            throw new DatabaseException(sprintf(
+                'DoctrineDatabase "%s" could not reset its request state: %s',
+                (string) $this->getName(),
+                $e->getMessage()
+            ), 0, $e);
+        }
+    }
+
+    /**
      * Returns this database to its pre-initialize() state, detaching every
      * managed entity first.
      *
@@ -280,9 +326,9 @@ class DoctrineDatabase extends AbstractOrmDatabase
      * the connection down and clears the parameters, the manager reference
      * and the name. Re-initialize() this instance before using it again.
      *
-     * To recycle a worker's connection between requests without discarding
-     * the configuration, use {@see ping()} -- which is what
-     * {@see \Quiote\Database\DatabaseManager::recycleConnections()} calls at
+     * To end a worker request without discarding the configuration or the
+     * connection, use {@see resetRequestState()} -- which is what
+     * {@see \Quiote\Database\DatabaseManager::resetRequestState()} calls at
      * the request boundary.
      *
      * @throws DatabaseException If shutting the connection down fails.

@@ -186,6 +186,37 @@ class PdoDatabase extends Database
 	}
 
 	/**
+	 * Roll back any transaction a request left open, keeping the connection.
+	 *
+	 * In a persistent worker the connection outlives the request, so an
+	 * uncommitted transaction from a request that failed half-way would
+	 * otherwise carry its locks, and its writes, into the next request.
+	 * Nothing happens when no connection has been opened yet.
+	 *
+	 * @throws     DatabaseException If the rollback failed.
+	 */
+	#[\Override]
+	public function resetRequestState(): void
+	{
+		$connection = $this->connection;
+		if (!$connection instanceof PDO) {
+			return;
+		}
+
+		try {
+			if ($connection->inTransaction()) {
+				$connection->rollBack();
+			}
+		} catch (\PDOException $e) {
+			throw new DatabaseException(sprintf(
+				'PdoDatabase "%s" could not roll back the transaction a request left open: %s',
+				(string) $this->getName(),
+				$e->getMessage()
+			), 0, $e);
+		}
+	}
+
+	/**
 	 * Probe whether the PDO connection is still alive by running a lightweight query.
 	 * On failure (e.g. the MySQL server went away because the laptop slept while
 	 * Docker was running) the stale connection is nulled so that the next call to

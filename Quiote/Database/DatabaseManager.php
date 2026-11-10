@@ -204,6 +204,30 @@ class DatabaseManager implements \Quiote\ContextComponentInterface
 	}
 
 	/**
+	 * Discard every managed database's request state at a worker request boundary.
+	 *
+	 * Each database is reset independently: one that fails is logged at error,
+	 * because whatever it could not discard (stale ORM rows, an open
+	 * transaction) is what the next request in this worker will see, and the
+	 * remaining databases are still reset.
+	 */
+	public function resetRequestState(): void
+	{
+		foreach ($this->databases as $name => $database) {
+			try {
+				$database->resetRequestState();
+			} catch (\Throwable $e) {
+				\Quiote\Logging\Log::for($this)->error(
+					'Could not reset the request state of database "' . $name
+					. '"; the next request in this worker may see this request\'s state: '
+					. $e->getMessage(),
+					['exception' => $e]
+				);
+			}
+		}
+	}
+
+	/**
 	 * Probe all managed database connections and null any that are stale.
 	 * Called from Context::reset() instead of shutdown() so that this
 	 * manager object stays alive across requests, avoiding the re-initialization
