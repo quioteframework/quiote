@@ -1,3 +1,9 @@
+## [4.6.0-beta6] - 2026-11-11
+
+### 🐛 Bug Fixes
+
+- *(database)* Reset ORM request state at the worker request boundary
+
 ## [4.6.0-beta5] - 2026-11-03
 
 ### 🐛 Bug Fixes
