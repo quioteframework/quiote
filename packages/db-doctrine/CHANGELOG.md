@@ -1,3 +1,13 @@
+## [4.2.0-beta1] - 2026-11-11
+
+### 🐛 Bug Fixes
+
+- *(database)* Reset ORM request state at the worker request boundary
+
+### ⚙️ Miscellaneous Tasks
+
+- Fix dev-main branch-alias for every package with a release
+
 ## [4.1.0] - 2026-08-20
 
 ### 🚀 Features
