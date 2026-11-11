@@ -14,6 +14,14 @@ use Quiote\Context;
  * a {@see \Quiote\Middleware\Compiler\MiddlewareDefinition}'s own `enabled`
  * field rather than this map -- this map still wins when both are present
  * (see the precedence check in {@see MiddlewarePipeline::doBuild()}).
+ *
+ * Middleware contributed by plugins (through {@see \Quiote\Plugin\PluginRegistrar})
+ * is kept apart from middleware the application or a test registers directly.
+ * Plugins register once per process, so {@see reset()} leaves their contributions
+ * in place; only {@see resetPluginRegistrations()}, which
+ * {@see \Quiote\Plugin\PluginManager::reset()} calls along with the rest of the
+ * plugin state, removes them. A test that registers plugin contributions itself
+ * puts the catalog back with {@see snapshot()} and {@see restore()}.
  */
 class MiddlewareCatalog
 {
@@ -34,21 +42,34 @@ class MiddlewareCatalog
      */
     private static array $registered = [];
 
-    /** @var (callable(Context): list<\Psr\Http\Server\MiddlewareInterface>)|null */
-    private static $coreStackFactory = null;
+    /**
+     * {@see register()}-style entries contributed by plugins, kept out of {@see reset()}'s reach.
+     * @var array<string,array{fqcn: string, factory: callable, after: ?string, before: ?string, priority: int}>
+     */
+    private static array $pluginRegistered = [];
+
+    /** @var (\Closure(Context): list<\Psr\Http\Server\MiddlewareInterface>)|null */
+    private static ?\Closure $coreStackFactory = null;
 
     /**
-     * FQCNs of app/plugin middleware to include in `#[Middleware]` attribute
+     * FQCNs of application middleware to include in `#[Middleware]` attribute
      * scanning, in addition to the framework's own core classes. Populated
      * via {@see registerAttributed()}. Value is `true` when the class is
      * expected to be constructible by the DI container unassisted (the common
      * case), or a factory callable when it needs a hand-built factory (e.g. a
-     * plugin middleware that needs the building pipeline's {@see Context} —
+     * middleware that needs the building pipeline's {@see Context} —
      * see {@see attributedFactory()}) while still being *ordered* by its own
      * `#[Middleware]` attribute like any other attribute-scanned class.
      * @var array<string,true|callable(Context): \Psr\Http\Server\MiddlewareInterface>
      */
     private static array $attributedCandidates = [];
+
+    /**
+     * {@see registerAttributed()}-style candidates contributed by plugins, kept out of
+     * {@see reset()}'s reach.
+     * @var array<string,true|callable(Context): \Psr\Http\Server\MiddlewareInterface>
+     */
+    private static array $pluginAttributedCandidates = [];
 
     /**
      * Initialize the catalog (idempotent overwrite).
@@ -72,7 +93,7 @@ class MiddlewareCatalog
     }
 
     /**
-     * Register an app/plugin middleware class as a candidate for `#[Middleware]`
+     * Register an application middleware class as a candidate for `#[Middleware]`
      * attribute scanning. No explicit before/after/priority is needed here —
      * the class must carry a `#[Middleware(...)]` attribute describing its own
      * placement. If the same FQCN is also passed to {@see register()},
@@ -81,7 +102,7 @@ class MiddlewareCatalog
      * By default the class is resolved through the DI container when the
      * pipeline builds (`$container->get($fqcn)`), which only works if every
      * constructor dependency is either type-hinted and container-resolvable
-     * or has a default. A plugin middleware that needs the currently-building
+     * or has a default. A middleware that needs the currently-building
      * pipeline's {@see Context} itself (e.g. to pull the context's own
      * `Controller` instance rather than risk autowiring an unrelated one)
      * supplies `$factory` instead; it is
@@ -95,17 +116,41 @@ class MiddlewareCatalog
         self::$attributedCandidates[$fqcn] = $factory ?? true;
     }
 
-    /** @return string[] FQCNs registered via {@see registerAttributed()}. */
-    public static function getAttributedCandidates(): array
+    /**
+     * Plugin counterpart of {@see registerAttributed()}, called by
+     * {@see \Quiote\Plugin\PluginRegistrar::attributedMiddleware()}. The candidate
+     * survives {@see reset()}; an application's own {@see registerAttributed()} of the
+     * same FQCN takes precedence over it.
+     *
+     * @param ?callable(Context): \Psr\Http\Server\MiddlewareInterface $factory
+     */
+    public static function registerAttributedFromPlugin(string $fqcn, ?callable $factory = null): void
     {
-        return array_keys(self::$attributedCandidates);
+        self::$pluginAttributedCandidates[$fqcn] = $factory ?? true;
     }
 
-    /** @return (callable(Context): \Psr\Http\Server\MiddlewareInterface)|null The custom factory for $fqcn, if one was supplied to {@see registerAttributed()}. */
+    /** @return list<string> FQCNs registered via {@see registerAttributed()} or {@see registerAttributedFromPlugin()}. */
+    public static function getAttributedCandidates(): array
+    {
+        return array_keys(self::attributedEntries());
+    }
+
+    /** @return (callable(Context): \Psr\Http\Server\MiddlewareInterface)|null The custom factory for $fqcn, if one was supplied to {@see registerAttributed()} or {@see registerAttributedFromPlugin()}. */
     public static function attributedFactory(string $fqcn): ?callable
     {
-        $entry = self::$attributedCandidates[$fqcn] ?? null;
+        $entry = self::attributedEntries()[$fqcn] ?? null;
         return is_callable($entry) ? $entry : null;
+    }
+
+    /**
+     * Plugin candidates first, in registration order, with the application's own
+     * entries replacing a plugin's entry for the same FQCN in place.
+     *
+     * @return array<string,true|callable(Context): \Psr\Http\Server\MiddlewareInterface>
+     */
+    private static function attributedEntries(): array
+    {
+        return array_replace(self::$pluginAttributedCandidates, self::$attributedCandidates);
     }
 
     /**
@@ -144,18 +189,84 @@ class MiddlewareCatalog
         ];
     }
 
-    /** @return array<string,array{fqcn: string, factory: callable, after: ?string, before: ?string, priority: int}> */
-    public static function getRegistered(): array
+    /**
+     * Plugin counterpart of {@see register()}, called by
+     * {@see \Quiote\Plugin\PluginRegistrar::middleware()}. The entry survives
+     * {@see reset()}; an application's own {@see register()} of the same FQCN takes
+     * precedence over it.
+     */
+    public static function registerFromPlugin(string $fqcn, callable $factory, ?string $after = null, ?string $before = null, int $priority = 0): void
     {
-        return self::$registered;
+        self::$pluginRegistered[$fqcn] = [
+            'fqcn'     => $fqcn,
+            'factory'  => $factory,
+            'after'    => $after,
+            'before'   => $before,
+            'priority' => $priority,
+        ];
     }
 
-    /** Clear all registered middleware (mainly for tests). */
+    /**
+     * Every registered middleware: plugin entries first, in registration order, with
+     * the application's own {@see register()} entries replacing a plugin's entry for
+     * the same FQCN in place.
+     *
+     * @return array<string,array{fqcn: string, factory: callable, after: ?string, before: ?string, priority: int}>
+     */
+    public static function getRegistered(): array
+    {
+        return array_replace(self::$pluginRegistered, self::$registered);
+    }
+
+    /**
+     * Clears what the application or a test set up directly: the enable map,
+     * {@see register()} and {@see registerAttributed()} entries, and a
+     * {@see replaceCoreStack()} override. Plugin contributions stay, because
+     * plugins register once per process and nothing would put them back; clear
+     * those through {@see \Quiote\Plugin\PluginManager::reset()}.
+     */
     public static function reset(): void
     {
+        self::$enabledMap = [];
         self::$registered = [];
         self::$coreStackFactory = null;
         self::$attributedCandidates = [];
+    }
+
+    /**
+     * Clears the middleware plugins contributed through
+     * {@see registerFromPlugin()} and {@see registerAttributedFromPlugin()}.
+     * Called by {@see \Quiote\Plugin\PluginManager::reset()}, which also clears
+     * the booted flag so the plugins can register again.
+     */
+    public static function resetPluginRegistrations(): void
+    {
+        self::$pluginRegistered = [];
+        self::$pluginAttributedCandidates = [];
+    }
+
+    /** Captures the whole catalog, plugin contributions included, for {@see restore()}. */
+    public static function snapshot(): MiddlewareCatalogSnapshot
+    {
+        return new MiddlewareCatalogSnapshot(
+            self::$enabledMap,
+            self::$registered,
+            self::$pluginRegistered,
+            self::$attributedCandidates,
+            self::$pluginAttributedCandidates,
+            self::$coreStackFactory,
+        );
+    }
+
+    /** Puts the catalog back exactly as {@see snapshot()} captured it. */
+    public static function restore(MiddlewareCatalogSnapshot $snapshot): void
+    {
+        self::$enabledMap = $snapshot->enabledMap;
+        self::$registered = $snapshot->registered;
+        self::$pluginRegistered = $snapshot->pluginRegistered;
+        self::$attributedCandidates = $snapshot->attributedCandidates;
+        self::$pluginAttributedCandidates = $snapshot->pluginAttributedCandidates;
+        self::$coreStackFactory = $snapshot->coreStackFactory;
     }
 
     /**
@@ -195,7 +306,7 @@ class MiddlewareCatalog
                 . 'MiddlewareCatalog::REPLACE_CORE_STACK_ACKNOWLEDGEMENT verbatim as the second argument.'
             );
         }
-        self::$coreStackFactory = $factory;
+        self::$coreStackFactory = $factory(...);
     }
 
     /** Whether an app has installed a full core-stack replacement via {@see replaceCoreStack()}. */

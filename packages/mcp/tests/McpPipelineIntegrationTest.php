@@ -13,6 +13,7 @@ use Quiote\Mcp\McpPlugin;
 use Quiote\Mcp\Middleware\McpAuthMiddleware;
 use Quiote\Mcp\Middleware\McpEndpointMiddleware;
 use Quiote\Middleware\MiddlewareCatalog;
+use Quiote\Middleware\MiddlewareCatalogSnapshot;
 use Quiote\Middleware\MiddlewarePipeline;
 use Quiote\Middleware\SecurityMiddleware;
 use Quiote\Plugin\PluginRegistrar;
@@ -41,11 +42,28 @@ final class McpPipelineIntegrationTest extends PhpUnitTestCase
 {
     private ?string $originalDefaultContext = null;
 
+    private ?MiddlewareCatalogSnapshot $catalog = null;
+
+    /** registerPluginDirectly() adds plugin contributions, which MiddlewareCatalog::reset() keeps. */
+    #[Before]
+    public function captureCatalog(): void
+    {
+        $this->catalog = MiddlewareCatalog::snapshot();
+        MiddlewareCatalog::reset();
+    }
+
+    #[After]
+    public function restoreCatalog(): void
+    {
+        if ($this->catalog !== null) {
+            MiddlewareCatalog::restore($this->catalog);
+        }
+    }
+
     #[Before]
     #[After]
     public function resetState(): void
     {
-        MiddlewareCatalog::reset();
         McpCatalog::reset();
         Config::remove('mcp.enabled');
         Config::remove('mcp.transports');

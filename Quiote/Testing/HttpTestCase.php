@@ -6,6 +6,7 @@ use Nyholm\Psr7\ServerRequest;
 use Quiote\Context;
 use Quiote\Http\Psr17;
 use Quiote\Middleware\MiddlewareCatalog;
+use Quiote\Plugin\PluginManager;
 use Quiote\Testing\Http\TestResponse;
 
 /**
@@ -25,8 +26,20 @@ abstract class HttpTestCase extends PhpUnitTestCase
     {
         parent::setUp();
         MiddlewareCatalog::initialize([]);
+        $this->ensurePluginsBooted();
         $this->resetCachedPipeline();
         $this->initialObLevel = ob_get_level();
+    }
+
+    /**
+     * Plugin middleware (CSRF, CORS, ...) is registered once per process, so a test earlier in the
+     * same process that called {@see PluginManager::reset()} would leave every later pipeline
+     * without it, and a CSRF assertion would pass against a stack that has no CSRF at all.
+     * Booting is idempotent, so this only does work after such a reset.
+     */
+    private function ensurePluginsBooted(): void
+    {
+        PluginManager::bootFromConfig();
     }
 
     /**

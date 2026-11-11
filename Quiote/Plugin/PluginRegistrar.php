@@ -58,14 +58,14 @@ final class PluginRegistrar
     }
 
     /**
-     * Insert a middleware at a position (routes to {@see MiddlewareCatalog::register()}).
+     * Insert a middleware at a position (routes to {@see MiddlewareCatalog::registerFromPlugin()}).
      * $factory is called with the building pipeline's {@see \Quiote\Context} as its
      * argument (ignore it if unneeded — e.g. a single-context feature like MCP
      * captures a fixed context name instead; see `Quiote\Mcp\McpPlugin`).
      */
     public function middleware(string $fqcn, callable $factory, ?string $after = null, ?string $before = null, int $priority = 0): self
     {
-        MiddlewareCatalog::register($fqcn, $factory, $after, $before, $priority);
+        MiddlewareCatalog::registerFromPlugin($fqcn, $factory, $after, $before, $priority);
         return $this;
     }
 
@@ -76,13 +76,13 @@ final class PluginRegistrar
      * class needs the building pipeline's {@see \Quiote\Context} itself (e.g.
      * to pull that context's own `Controller` instance rather than risk the
      * container autowiring an unrelated one) — see
-     * {@see MiddlewareCatalog::registerAttributed()}.
+     * {@see MiddlewareCatalog::registerAttributedFromPlugin()}.
      *
      * @param ?callable(\Quiote\Context): \Psr\Http\Server\MiddlewareInterface $factory
      */
     public function attributedMiddleware(string $fqcn, ?callable $factory = null): self
     {
-        MiddlewareCatalog::registerAttributed($fqcn, $factory);
+        MiddlewareCatalog::registerAttributedFromPlugin($fqcn, $factory);
         return $this;
     }
 

@@ -312,6 +312,7 @@ final class PluginManager
         \Quiote\Event\Events::reset();
         PluginConfigRegistry::reset();
         \Quiote\Middleware\MiddlewareCatalog::reset();
+        \Quiote\Middleware\MiddlewareCatalog::resetPluginRegistrations();
         \Quiote\Middleware\Config\MiddlewareConfigRegistry::reset();
         \Quiote\Database\DatabaseDriverRegistry::reset();
         \Quiote\Exception\Rendering\ExceptionRendererRegistry::reset();
