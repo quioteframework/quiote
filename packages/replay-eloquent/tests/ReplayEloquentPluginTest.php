@@ -24,6 +24,7 @@ final class ReplayEloquentPluginTest extends TestCase
         if (!class_exists(\Illuminate\Database\Capsule\Manager::class)) {
             $this->markTestSkipped('illuminate/database not installed');
         }
+        PluginManager::reset();
         DatabaseDriverRegistry::reset();
     }
 

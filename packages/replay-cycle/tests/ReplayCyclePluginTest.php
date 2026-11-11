@@ -24,6 +24,7 @@ final class ReplayCyclePluginTest extends TestCase
         if (!class_exists(\Cycle\Database\DatabaseManager::class)) {
             $this->markTestSkipped('cycle/database not installed');
         }
+        PluginManager::reset();
         DatabaseDriverRegistry::reset();
     }
 

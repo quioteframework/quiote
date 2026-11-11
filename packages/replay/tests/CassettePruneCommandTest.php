@@ -35,6 +35,7 @@ final class CassettePruneCommandTest extends TestCase
         Config::set('replay.store', 'file', true, false);
         Config::set('replay.store.path', $this->dir, true, false);
 
+        PluginManager::reset();
         PluginManager::add(new ReplayPlugin());
         PluginManager::bootFromConfig();
         ContextRegistry::shared()->clear();

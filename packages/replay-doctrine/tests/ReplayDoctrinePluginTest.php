@@ -25,6 +25,7 @@ final class ReplayDoctrinePluginTest extends TestCase
         if (!class_exists(\Doctrine\DBAL\DriverManager::class)) {
             $this->markTestSkipped('doctrine/dbal not installed');
         }
+        PluginManager::reset();
         DatabaseDriverRegistry::reset();
     }
 

@@ -25,6 +25,7 @@ final class ReplayPropulsionPluginTest extends TestCase
         if (!class_exists(Propulsion::class)) {
             $this->markTestSkipped('quioteframework/propulsion not installed');
         }
+        PluginManager::reset();
     }
 
     protected function tearDown(): void

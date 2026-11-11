@@ -55,6 +55,7 @@ final class ReplayCommandTest extends TestCase
         Config::set('replay.local_path', $this->dir, true, false);
         Config::set('replay.allow_live', false, true, false);
 
+        PluginManager::reset();
         PluginManager::add(new ReplayPlugin());
         PluginManager::bootFromConfig();
         ContextRegistry::shared()->clear();

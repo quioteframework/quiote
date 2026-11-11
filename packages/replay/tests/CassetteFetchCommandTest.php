@@ -41,6 +41,7 @@ final class CassetteFetchCommandTest extends TestCase
         Config::set('replay.store.path', $this->storeDir, true, false);
         Config::set('replay.local_path', $this->localDir, true, false);
 
+        PluginManager::reset();
         PluginManager::add(new ReplayPlugin());
         PluginManager::bootFromConfig();
         ContextRegistry::shared()->clear();
