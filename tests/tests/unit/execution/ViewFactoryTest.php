@@ -1,5 +1,6 @@
 <?php
 
+use Quiote\Exception\ClassNotFoundException;
 use Quiote\Testing\UnitTestCase;
 use Quiote\Execution\ViewFactory;
 use Quiote\Execution\ImmutableViewInitContext; // implicitly used
@@ -31,17 +32,31 @@ class ViewFactoryTest extends UnitTestCase
         // Now re-create the view via factory to ensure deterministic creation works standalone
         $factory = $this->makeFactory();
     $view = $factory->create($ctx->viewModuleName, $ctx->viewName, $descriptor->module, $descriptor->action, $descriptor->outputType, $this->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class), $ctx->actionAttributes);
-        $this->assertNotNull($view, 'ViewFactory should create view instance');
         $initContext = $view->getInitContext();
         $this->assertNotNull($initContext, 'View should have an init context after creation');
         $this->assertSame($ctx->viewModuleName, $initContext->getViewModuleName());
         $this->assertSame($ctx->viewName, $initContext->getViewName());
     }
 
-    public function testCreateMissingViewReturnsNull(): void
+    public function testCreateMissingViewThrowsNamingTheClassesItTried(): void
     {
         $factory = $this->makeFactory();
-        $view = $factory->create('Cache','__DoesNotExist__','Cache','Cache','html',null,[]);
-        $this->assertNull($view, 'Missing view should return null');
+
+        try {
+            $factory->create('Cache', '__DoesNotExist__', 'Cache', 'Cache', 'html', null, []);
+            $this->fail('a view that cannot be created must not come back as null');
+        } catch (ClassNotFoundException $e) {
+            $this->assertStringContainsString('Sandbox\\Modules\\Cache\\Views\\__DoesNotExist__View', $e->getMessage());
+            $this->assertStringContainsString('Module "Cache"', $e->getMessage());
+        }
+    }
+
+    public function testAnExceptionFromTheViewsInitializePropagatesUnchanged(): void
+    {
+        $factory = $this->makeFactory();
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('view initialize exploded');
+        $factory->create('Cache', 'CacheBrokenInit', 'Cache', 'Cache', 'html', null, []);
     }
 }

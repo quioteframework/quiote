@@ -10,7 +10,6 @@ use Quiote\Execution\ValidationService;
 use Quiote\Execution\SecurityService; // still injected to keep signature stable (may be removed later)
 use Quiote\Execution\SecurityDecision;
 use Quiote\Execution\LightweightActionInitContext;
-use Quiote\Execution\ImmutableViewInitContext;
 use Quiote\Execution\ViewInitContext;
 use Quiote\Response\WebResponse;
 use Quiote\Execution\ViewNameResolver;
@@ -25,7 +24,7 @@ use Quiote\Request\WebRequest;
  * - Simple actions: execute() method.
  * - Non-simple actions: use ActionResolver for method dispatch.
  * - View resolution via ViewNameResolver (pure).
- * - View initialization via legacy container (temporary) if needed until ViewFactory extracted.
+ * - View creation and initialization via ViewFactory; a view that cannot be created fails the request.
  * Future work will remove any dependency on containers entirely.
  */
 final class ActionExecutor
@@ -360,28 +359,20 @@ final class ActionExecutor
             : \Quiote\Telemetry\NoopSpanHandle::instance();
         try {
             $view = $this->viewFactory->create($vm, $vn, $desc->module, $desc->action, strtolower($this->controller->getOutputType()->getName()), $actionRequest, $attributeSnapshot, $this->validationService->getValidationManager());
-            if (!$view) {
-                $view = $this->createAndInitView($vm, $vn, $desc->module, $desc->action, $actionRequest, $attributeSnapshot);
-            }
             $content = '';
-            $method = 'execute';
-            if ($view !== null) {
-                $method = $this->selectViewMethod($view, $desc->outputType);
-                $res = $view->$method($actionRequest);
-                if ($res !== null) {
-                    $content = (string)$res;
-                } elseif ($view->getLayers()) {
-                    $layerContent = $view->renderLayers();
-                    if ($layerContent !== '') {
-                        $content = $layerContent;
-                    }
+            $method = $this->selectViewMethod($view, $desc->outputType);
+            $res = $view->$method($actionRequest);
+            if ($res !== null) {
+                $content = (string)$res;
+            } elseif ($view->getLayers()) {
+                $layerContent = $view->renderLayers();
+                if ($layerContent !== '') {
+                    $content = $layerContent;
                 }
-            } else {
-                // No view could be created; leave content empty (legacy tests expect this behaviour)
             }
             if ($dbg) {
                 $prefix = substr($content, 0, 120);
-                $logger->debug('[ActionExecutor] view=' . ($view === null ? 'none' : $view::class) . ' method=' . $method . ' contentLen=' . strlen($content) . ' prefix=' . $prefix);
+                $logger->debug('[ActionExecutor] view=' . $view::class . ' method=' . $method . ' contentLen=' . strlen($content) . ' prefix=' . $prefix);
             }
             return [$view, $content];
         } catch (\Throwable $e) {
@@ -392,41 +383,8 @@ final class ActionExecutor
         }
     }
 
-    /**
-     * @param array<array-key, mixed> $attributeSnapshot
-     */
-    private function createAndInitView(string $vm, string $vn, string $module, string $action, ServerRequestInterface $rd, array $attributeSnapshot = []): ?View
+    private function selectViewMethod(View $view, string $outputType): string
     {
-        try {
-            /** @var View $view */
-            $view = $this->controller->createViewInstance($vm, $vn);
-            // Snapshot action attributes if action already executed (not passed here; minimal for now)
-            $global = $this->controller->getGlobalResponse();
-            $psr = new \Quiote\Http\PsrResponseAdapter($global);
-            $vic = new ImmutableViewInitContext(
-                context: $this->controller->getContext(),
-                viewModule: $vm,
-                viewName: $vn,
-                outputType: strtolower($this->controller->getOutputType()->getName()),
-                actionModule: $module,
-                actionName: $action,
-                actionAttributes: $attributeSnapshot,
-                response: $global,
-                psrResponse: $psr,
-                validationManager: $this->validationService->getValidationManager()
-            );
-            $view->initialize($vic);
-            return $view;
-        } catch (\Throwable) {
-            return null;
-        }
-    }
-
-    private function selectViewMethod(?View $view, string $outputType): string
-    {
-        if (!$view) {
-            return 'execute';
-        }
         $candidate = 'execute' . ucfirst($outputType);
         return is_callable([$view, $candidate]) ? $candidate : 'execute';
     }

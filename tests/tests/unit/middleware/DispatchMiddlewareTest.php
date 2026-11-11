@@ -425,21 +425,18 @@ class DispatchMiddlewareTest extends TestCase
 
     public function testInvalidActionReturnTriggersViewResolutionFailure(): void
     {
-        // Return a type that is neither string nor View::NONE to exercise failure path; expect exception or empty content.
+        // A one-element array return is read as a [module] view reference naming a view no class
+        // implements, so dispatch fails rather than answering 200 with an empty body.
         $action = new class extends \Quiote\Action\Action { public function initialize(\Quiote\Execution\ActionInitContext $ctx): void {} public function isCacheable(?string $ot=null): bool { return false; } public function isSecure(){ return false; } public function execute(mixed $r = null): mixed { return ['unexpected']; } };
         $controller = $this->makeController(fn()=>$action);
         $this->bootstrapOutputType($controller);
         $mw = new DispatchMiddleware($controller);
         $ad = new ActionDescriptor('Foo','Bar','execute','html', true);
         $req = (new ServerRequest('GET','/'))->withAttribute(ActionDescriptor::class,$ad);
-        try {
-            $resp = $mw->process($req, $this->createStub(RequestHandlerInterface::class));
-            $this->assertSame(200, $resp->getStatusCode());
-            // If it reached here without exception, body may be empty due to missing view.
-            $this->assertSame('', (string)$resp->getBody());
-        } catch (Error|RuntimeException $e) {
-            $this->assertStringContainsString('execute', $e->getMessage());
-        }
+
+        $this->expectException(\Quiote\Exception\ClassNotFoundException::class);
+        $this->expectExceptionMessage('View "unexpected" in Module "unexpected"');
+        $mw->process($req, $this->createStub(RequestHandlerInterface::class));
     }
 
     public function testPrePopulatedExecutionStatePreserved(): void

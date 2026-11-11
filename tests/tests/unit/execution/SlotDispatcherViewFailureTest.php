@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Nyholm\Psr7\ServerRequest;
 use Quiote\Controller\Controller;
+use Quiote\Exception\ClassNotFoundException;
 use Quiote\Execution\SlotDispatcher;
 use Quiote\Execution\SlotStack;
 use Quiote\Execution\ViewFactory;
@@ -26,17 +27,20 @@ final class ThrowingSlotViewFactory extends ViewFactory
         ?WebRequest $request,
         array $actionAttributeSnapshot,
         ?object $validationManager = null,
-    ): ?View {
+    ): View {
         ++$this->calls;
 
         throw new RuntimeException('view factory exploded');
     }
 }
 
-/** A view factory that builds nothing without failing, leaving the fallback to the controller. */
-final class NullReturningSlotViewFactory extends ViewFactory
+/** Builds the requested slot's view under a different name, as a misconfigured view name would. */
+final class RenamingSlotViewFactory extends ViewFactory
 {
-    public int $calls = 0;
+    public function __construct(Controller $controller, private readonly string $viewName)
+    {
+        parent::__construct($controller);
+    }
 
     #[\Override]
     public function create(
@@ -48,21 +52,18 @@ final class NullReturningSlotViewFactory extends ViewFactory
         ?WebRequest $request,
         array $actionAttributeSnapshot,
         ?object $validationManager = null,
-    ): ?View {
-        ++$this->calls;
-
-        return null;
+    ): View {
+        return parent::create($viewModule, $this->viewName, $actionModule, $actionName, $outputType, $request, $actionAttributeSnapshot);
     }
 }
 
 /**
  * What a slot does when its view cannot be built.
  *
- * The two outcomes are deliberately different. A factory that *throws* is a
- * broken view class, and the slot rethrows so the error-handling middleware
- * decides what the client sees. A factory that merely returns null is "I have
- * no view for this", which falls back to the controller and, failing that, to
- * rendering without a view -- a slot with no view is a normal thing.
+ * A slot whose action names a view that cannot be built fails, the same as a
+ * page does: the exception reaches the error-handling middleware, which decides
+ * what the client sees, instead of the slot rendering as an empty gap. A slot
+ * with no view at all is View::NONE, which is not a failure.
  */
 final class SlotDispatcherViewFailureTest extends UnitTestCase
 {
@@ -111,17 +112,26 @@ final class SlotDispatcherViewFailureTest extends UnitTestCase
     }
 
     /**
-     * Returning null is not a failure: the dispatcher falls back to the
-     * controller's own view creation, and a slot still renders.
+     * A view name that resolves to no class -- a typo, or a module whose
+     * quiote.view.name pattern no longer matches its views -- names the classes
+     * it tried rather than rendering an empty slot.
      */
-    public function testAViewFactoryReturningNullFallsBackRatherThanFailing(): void
+    public function testAMissingViewClassFailsTheSlot(): void
     {
-        $factory = new NullReturningSlotViewFactory($this->getContext()->getContainer()->get(Controller::class));
+        $factory = new RenamingSlotViewFactory($this->getContext()->getContainer()->get(Controller::class), '__DoesNotExist__');
 
-        $content = $this->dispatcher($factory)->dispatch($this->slotRequest(), 'Cache', 'Cache');
+        $this->expectException(ClassNotFoundException::class);
+        $this->expectExceptionMessage('__DoesNotExist__View');
+        $this->dispatcher($factory)->dispatch($this->slotRequest(), 'Cache', 'Cache');
+    }
 
-        $this->assertSame(1, $factory->calls);
-        $this->assertStringContainsString('CACHE_', $content, 'the controller fallback still produced the slot');
+    public function testAViewThatFailsToInitializeFailsTheSlot(): void
+    {
+        $factory = new RenamingSlotViewFactory($this->getContext()->getContainer()->get(Controller::class), 'CacheBrokenInit');
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('view initialize exploded');
+        $this->dispatcher($factory)->dispatch($this->slotRequest(), 'Cache', 'Cache');
     }
 
     /** The default factory is used when none is injected, so the seam is opt-in. */

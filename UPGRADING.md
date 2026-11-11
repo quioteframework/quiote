@@ -7,6 +7,25 @@ Everything else — features, fixes, refactors — is in [CHANGELOG.md](CHANGELO
 Package versions move independently of the framework's (see [RELEASING.md](RELEASING.md)),
 so a section here is titled by the framework release that introduced the change.
 
+## 4.5.1 → 4.6.0
+
+### A view that cannot be created fails the request
+
+**Action required if an action or slot returns a view name with no matching view class.** Such
+a request used to answer `200` with an empty body and log nothing. It now throws, and your error
+handling renders it as a server error. The `ClassNotFoundException` names both classes it tried
+and the module, for example `Unable to find View class "App\Modules\Shop\Views\CartSuccessView"
+or "Shop_CartSuccessView" for View "CartSuccess" in Module "Shop"`. An exception thrown from a
+view's own `initialize()` now reaches the error handler unchanged as well.
+
+Check modules whose `quiote.view.name` pattern does not match their view classes, such as a
+module that shares one view across all its actions. The `MISSING_VIEW` diagnostic reports
+these ahead of time. An action that should render nothing returns `View::NONE`, and a simple
+action returns it from `getDefaultViewName()`.
+
+`ViewFactory::create()` now returns `View` rather than `?View`. A subclass that overrides it
+must narrow its return type to match, and must throw rather than return `null`.
+
 ## 4.5.0 → 4.5.1
 
 ### Array parameters now carry validated values, and strict mode prunes inside them

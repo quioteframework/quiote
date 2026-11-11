@@ -217,36 +217,12 @@ class SlotDispatcher
                         }
                         throw $e;
                     }
-                    if (!$viewInstance) {
-                        try {
-                            $viewInstance = $this->controller->createViewInstance($viewModule, $viewCanonical);
-                        } catch (\Throwable $e) {
-                            // Left null; the caller falls through to rendering without a view.
-                            $logger->warning(
-                                '[SlotDisp] could not create view ' . $viewModule . ':' . $viewCanonical
-                                . ' for slot ' . $key . ': ' . $e->getMessage()
-                            );
-                        }
-                        if ($viewInstance) {
-                            try {
-                                $vic = new \Quiote\Execution\ImmutableViewInitContext($this->controller->getContext(), $viewModule, $viewCanonical, $resolvedOutputTypeLower, $module, $action, $attributeSnapshot, $this->controller->getGlobalResponse());
-                                $viewInstance->initialize($vic);
-                            } catch (\Throwable $e) {
-                                // An uninitialized view renders without its init context rather
-                                // than aborting the whole page.
-                                $logger->warning(
-                                    '[SlotDisp] could not initialize the view for slot ' . $key . ': '
-                                    . $e->getMessage()
-                                );
-                            }
-                        }
-                    }
                     $method = 'execute' . ($resolvedOutputType);
-                    if (!$viewInstance || !is_callable([$viewInstance, $method])) {
+                    if (!is_callable([$viewInstance, $method])) {
                         $method = 'execute';
                     }
                     try {
-                        $res = $viewInstance?->$method($rd);
+                        $res = $viewInstance->$method($rd);
                     } catch (\Throwable $e) {
                         if ($logExceptions) {
                             $this->logSlotException($e, $module, $action, $parameters, 'simple_view_execute');
@@ -255,7 +231,7 @@ class SlotDispatcher
                     }
                     if ($res !== null) {
                         $result = (string)$res;
-                    } elseif ($viewInstance && $viewInstance->getLayers()) {
+                    } elseif ($viewInstance->getLayers()) {
                         $layerContent = $viewInstance->renderLayers();
                         if ($layerContent !== '') {
                             $result = $layerContent;
@@ -401,36 +377,12 @@ class SlotDispatcher
                             }
                             throw $e;
                         }
-                        if (!$viewInstance) {
-                            try {
-                                $viewInstance = $this->controller->createViewInstance($vm, $vn);
-                            } catch (\Throwable $e) {
-                                // Left null; the caller falls through to rendering without a view.
-                                $logger->warning(
-                                    '[SlotDisp] could not create view ' . $vm . ':' . $vn
-                                    . ' for slot ' . $key . ': ' . $e->getMessage()
-                                );
-                            }
-                            if ($viewInstance) {
-                                try {
-                                    $vic = new \Quiote\Execution\ImmutableViewInitContext($this->controller->getContext(), $vm, $vn, $resolvedOutputTypeLower, $module, $action, $actionInstance->getAttributes(), $this->controller->getGlobalResponse(), validationManager: $validationService->getValidationManager());
-                                    $viewInstance->initialize($vic);
-                                } catch (\Throwable $e) {
-                                    // An uninitialized view renders without its init context rather
-                                    // than aborting the whole page.
-                                    $logger->warning(
-                                        '[SlotDisp] could not initialize the view for slot ' . $key . ': '
-                                        . $e->getMessage()
-                                    );
-                                }
-                            }
-                        }
                         $methodExec = 'execute' . ($resolvedOutputType);
-                        if (!$viewInstance || !is_callable([$viewInstance, $methodExec])) {
+                        if (!is_callable([$viewInstance, $methodExec])) {
                             $methodExec = 'execute';
                         }
                         try {
-                            $res = $viewInstance?->$methodExec($rd);
+                            $res = $viewInstance->$methodExec($rd);
                         } catch (\Throwable $e) {
                             if ($logExceptions) {
                                 $this->logSlotException($e, $module, $action, $parameters, 'nonsimple_error_view_execute');
@@ -439,7 +391,7 @@ class SlotDispatcher
                         }
                         if ($res !== null) {
                             $content = (string)$res;
-                        } elseif ($viewInstance && $viewInstance->getLayers()) {
+                        } elseif ($viewInstance->getLayers()) {
                             $layerContent = $viewInstance->renderLayers();
                             if ($layerContent !== '') {
                                 $content = $layerContent;
@@ -473,36 +425,12 @@ class SlotDispatcher
                         }
                         throw $e;
                     }
-                    if (!$viewInstance) {
-                        try {
-                            $viewInstance = $this->controller->createViewInstance($vm, $vn);
-                        } catch (\Throwable $e) {
-                            // Left null; the caller falls through to rendering without a view.
-                            $logger->warning(
-                                '[SlotDisp] could not create view ' . $vm . ':' . $vn
-                                . ' for slot ' . $key . ': ' . $e->getMessage()
-                            );
-                        }
-                        if ($viewInstance) {
-                            try {
-                                $vic = new \Quiote\Execution\ImmutableViewInitContext($this->controller->getContext(), $vm, $vn, $resolvedOutputTypeLower, $module, $action, $attrs, $this->controller->getGlobalResponse(), validationManager: $validationService->getValidationManager());
-                                $viewInstance->initialize($vic);
-                            } catch (\Throwable $e) {
-                                // An uninitialized view renders without its init context rather
-                                // than aborting the whole page.
-                                $logger->warning(
-                                    '[SlotDisp] could not initialize the view for slot ' . $key . ': '
-                                    . $e->getMessage()
-                                );
-                            }
-                        }
-                    }
                     $methodExec = 'execute' . ($resolvedOutputType);
-                    if (!$viewInstance || !is_callable([$viewInstance, $methodExec])) {
+                    if (!is_callable([$viewInstance, $methodExec])) {
                         $methodExec = 'execute';
                     }
                     try {
-                        $res = $viewInstance?->$methodExec($rd);
+                        $res = $viewInstance->$methodExec($rd);
                     } catch (\Throwable $e) {
                         if ($logExceptions) {
                             $this->logSlotException($e, $module, $action, $parameters, 'nonsimple_view_execute');
@@ -511,7 +439,7 @@ class SlotDispatcher
                     }
                     if ($res !== null) {
                         $result = (string)$res;
-                    } elseif ($viewInstance && $viewInstance->getLayers()) {
+                    } elseif ($viewInstance->getLayers()) {
                         $layerContent = $viewInstance->renderLayers();
                         if ($layerContent !== '') {
                             $result = $layerContent;
