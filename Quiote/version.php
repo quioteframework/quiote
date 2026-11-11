@@ -13,7 +13,7 @@
 \Quiote\Config\Config::set('quiote.major_version', '4');
 \Quiote\Config\Config::set('quiote.minor_version', '6');
 \Quiote\Config\Config::set('quiote.micro_version', '0');
-\Quiote\Config\Config::set('quiote.status', 'beta6');
+\Quiote\Config\Config::set('quiote.status', 'beta7');
 \Quiote\Config\Config::set('quiote.branch', 'main');
 
 // Config::has() is true for a directive set to '', and a stable release leaves

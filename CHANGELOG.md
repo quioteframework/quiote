@@ -1,3 +1,10 @@
+## [4.6.0-beta7] - 2026-11-11
+
+### 🐛 Bug Fixes
+
+- *(middleware)* Keep plugin middleware across MiddlewareCatalog::reset()
+- *(execution)* [**breaking**] Fail the request when its view cannot be created
+
 ## [4.6.0-beta6] - 2026-11-11
 
 ### 🐛 Bug Fixes
