@@ -61,9 +61,9 @@ final class CoreMiddlewareRegistry
         SecurityMiddleware::class,
         ValidationMiddleware::class,
         SlotMiddleware::class,
+        FormPopulationMiddleware::class,
         DispatchMiddleware::class,
         AssetAggregationMiddleware::class,
-        FormPopulationMiddleware::class,
         ExecutionTimeMiddleware::class,
         StealthMiddleware::class,
     ];
@@ -114,9 +114,9 @@ final class CoreMiddlewareRegistry
             SecurityMiddleware::class => static fn(): SecurityMiddleware => new SecurityMiddleware($controller),
             ValidationMiddleware::class => static fn(): ValidationMiddleware => new ValidationMiddleware($controller),
             SlotMiddleware::class => static fn(): SlotMiddleware => new SlotMiddleware($context),
+            FormPopulationMiddleware::class => static fn(): FormPopulationMiddleware => new FormPopulationMiddleware($controller),
             DispatchMiddleware::class => static fn(): DispatchMiddleware => new DispatchMiddleware($controller),
             AssetAggregationMiddleware::class => static fn(): AssetAggregationMiddleware => new AssetAggregationMiddleware(),
-            FormPopulationMiddleware::class => static fn(): FormPopulationMiddleware => new FormPopulationMiddleware($controller),
             ExecutionTimeMiddleware::class => static fn(): ExecutionTimeMiddleware => new ExecutionTimeMiddleware(),
             StealthMiddleware::class => static fn(): StealthMiddleware => new StealthMiddleware(
                 \Quiote\Config\Config::getBool('core.stealth_mode', false),

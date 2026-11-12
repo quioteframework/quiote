@@ -92,9 +92,11 @@ class MiddlewareAttributeOrderingTest extends TestCase
             SecurityMiddleware::class,
             ValidationMiddleware::class,
             SlotMiddleware::class,
+            // Around DispatchMiddleware, which is terminal: post-processing the rendered page is
+            // only possible from outside it.
+            FormPopulationMiddleware::class,
             DispatchMiddleware::class,
             AssetAggregationMiddleware::class,
-            FormPopulationMiddleware::class,
             ExecutionTimeMiddleware::class,
             '__TERMINAL__',
         ], $this->order());

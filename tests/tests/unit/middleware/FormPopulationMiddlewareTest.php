@@ -2,6 +2,7 @@
 
 use Quiote\Context;
 use Quiote\Middleware\FormPopulationMiddleware;
+use Quiote\Request\RequestState;
 use Quiote\Request\WebRequest;
 use Quiote\Testing\UnitTestCase;
 use Quiote\Util\FormPopulationConfig;
@@ -52,162 +53,155 @@ class FormPopulationMiddlewareTest extends UnitTestCase
         parent::tearDown();
     }
 
-    public function testMiddlewarePopulatesResponseBody(): void
+    public function testPopulatesTheFormsNamedInThePublishedPopulateMap(): void
     {
-        $middleware = new FormPopulationMiddleware($this->controller);
-        $webRequest = $this->makeIsolatedRequest(['foo']);
+        $this->publishCurrent(['populate' => ['record' => ['foo' => 'stored']]]);
 
-        $psrRequest = (new ServerRequest('POST', 'https://example.test/form'))
-            ->withAttribute('quiote.request_data', $webRequest)
-            ->withParsedBody(['foo' => 'bar']);
+        $content = $this->populate(new ServerRequest('GET', 'https://example.test/form'), self::page());
 
-        $factory = new Psr17Factory();
-        $handler = new readonly class($factory) implements RequestHandlerInterface {
-            public function __construct(private Psr17Factory $factory) {}
-            public function handle(ServerRequestInterface $request): ResponseInterface
-            {
-                $html = '<!DOCTYPE html><html><body><form action="/form">'
-                    . '<input type="text" name="foo"></form></body></html>';
-                return $this->factory->createResponse(200)
-                    ->withBody($this->factory->createStream($html));
-            }
-        };
-
-        $response = $middleware->process($psrRequest, $handler);
-        $response->getBody()->rewind();
-        $content = $response->getBody()->getContents();
-
-    $this->assertStringContainsString("value=\"bar\"", $content);
+        $this->assertStringContainsString('<input type="text" name="foo" value="stored">', $content);
+        $this->assertStringContainsString('<input type="text" name="q">', $content, 'a form the map does not name keeps its markup');
     }
 
-    public function testMiddlewareSetsForceRequestDefaults(): void
+    public function testPopulateTrueFillsTheFormsFromTheCurrentRequestsParameters(): void
     {
-        $middleware = new FormPopulationMiddleware($this->controller);
-        $webRequest = $this->makeIsolatedRequest();
+        $this->publishCurrent(['populate' => true], ['foo' => 'validated'], 'POST');
 
-        $psrRequest = (new ServerRequest('POST', 'https://example.test/account/login?via=mid'))
-            ->withAttribute('quiote.request_data', $webRequest);
+        // The PSR body carries a different value: population reads the current request, which
+        // validation has already pruned, never the raw submission.
+        $request = (new ServerRequest('POST', 'https://example.test/form'))->withParsedBody(['foo' => 'raw', 'q' => 'raw']);
+        $content = $this->populate($request, self::page());
 
-        $factory = new Psr17Factory();
-        $handler = new readonly class($factory) implements RequestHandlerInterface {
-            public function __construct(private Psr17Factory $factory) {}
-            public function handle(ServerRequestInterface $request): ResponseInterface
-            {
-                return $this->factory->createResponse(200)
-                    ->withBody($this->factory->createStream('<html></html>'));
-            }
-        };
-
-        $response = $middleware->process($psrRequest, $handler);
-        $response->getBody()->rewind();
-        $response->getBody()->getContents(); // drain to mimic consumption
-
-    // WebRequest is immutable: the middleware's internal chain of with*()/setParameter()
-    // calls produced new instances distinct from our local $webRequest. It re-syncs the
-    // final instance into the context, so fetch it from there.
-    $webRequest = $this->context()->getContainer()->get(\Quiote\Request\WebRequest::class);
-    $config = FormPopulationConfig::get($webRequest);
-    $this->assertArrayHasKey('force_request_uri', $config);
-    $this->assertArrayHasKey('force_request_url', $config);
-    $this->assertSame('/account/login', $config['force_request_uri']);
-    $this->assertSame('https://example.test/account/login?via=mid', $config['force_request_url']);
+        $this->assertStringContainsString('value="validated"', $content);
+        $this->assertStringNotContainsString('raw', $content);
     }
 
-    public function testMiddlewareSkipsPopulationForNonHtmlContentType(): void
+    public function testWithoutPopulationConfigTheResponseIsLeftAsRendered(): void
     {
-        $middleware = new FormPopulationMiddleware($this->controller);
-        $webRequest = $this->makeIsolatedRequest(['foo']);
+        $this->publishCurrent([], ['foo' => 'from-the-request']);
 
-        $psrRequest = (new ServerRequest('POST', 'https://example.test/form'))
-            ->withAttribute('quiote.request_data', $webRequest)
-            ->withParsedBody(['foo' => 'bar']);
+        $content = $this->populate(new ServerRequest('GET', 'https://example.test/form?foo=from-the-request'), self::page());
 
-        $factory = new Psr17Factory();
-        $handler = new readonly class($factory) implements RequestHandlerInterface {
-            public function __construct(private Psr17Factory $factory) {}
-            public function handle(ServerRequestInterface $request): ResponseInterface
-            {
-                // Contains a literal "<form" so if the DOM engine ran against it
-                // regardless of Content-Type, the assertion below would catch it.
-                $json = '{"note":"<form action=\"/form\"><input name=\"foo\"></form>"}';
-                return $this->factory->createResponse(200)
-                    ->withHeader('Content-Type', 'application/json')
-                    ->withBody($this->factory->createStream($json));
-            }
-        };
-
-        $response = $middleware->process($psrRequest, $handler);
-        $response->getBody()->rewind();
-        $content = $response->getBody()->getContents();
-
-        $this->assertSame(
-            '{"note":"<form action=\"/form\"><input name=\"foo\"></form>"}',
-            $content
-        );
+        $this->assertSame(self::page(), $content);
     }
 
-    public function testMiddlewareSkipsPopulationWhenHtmlHasNoForm(): void
+    public function testAPopulateOfFalseIsLeftAsRendered(): void
     {
-        $middleware = new FormPopulationMiddleware($this->controller);
-        $webRequest = $this->makeIsolatedRequest(['foo']);
+        $this->publishCurrent(['populate' => false, 'methods' => []], ['foo' => 'from-the-request']);
 
-        $psrRequest = (new ServerRequest('GET', 'https://example.test/plain?foo=bar'))
-            ->withAttribute('quiote.request_data', $webRequest);
-
-        $factory = new Psr17Factory();
-        $handler = new readonly class($factory) implements RequestHandlerInterface {
-            public function __construct(private Psr17Factory $factory) {}
-            public function handle(ServerRequestInterface $request): ResponseInterface
-            {
-                $html = '<!DOCTYPE html><html><body><p>Hello bar</p></body></html>';
-                return $this->factory->createResponse(200)
-                    ->withHeader('Content-Type', 'text/html')
-                    ->withBody($this->factory->createStream($html));
-            }
-        };
-
-        $response = $middleware->process($psrRequest, $handler);
-        $response->getBody()->rewind();
-        $content = $response->getBody()->getContents();
-
-        $this->assertSame(
-            '<!DOCTYPE html><html><body><p>Hello bar</p></body></html>',
-            $content
-        );
+        $this->assertSame(self::page(), $this->populate(new ServerRequest('POST', 'https://example.test/form'), self::page()));
     }
 
-    public function testMiddlewareMergesQueryBodyAndRouteParamsWithRouteParamsWinningOnConflict(): void
+    public function testAMethodsListNamingTheRequestMethodFillsFromTheRequest(): void
+    {
+        $this->publishCurrent(['methods' => ['write']], ['foo' => 'posted'], 'POST');
+
+        $content = $this->populate(new ServerRequest('POST', 'https://example.test/form'), self::page());
+
+        $this->assertStringContainsString('value="posted"', $content);
+    }
+
+    public function testAMethodsListNotNamingTheRequestMethodLeavesTheFormsAlone(): void
+    {
+        $this->publishCurrent(['methods' => ['write']], ['foo' => 'queried'], 'GET');
+
+        $content = $this->populate(new ServerRequest('GET', 'https://example.test/form'), self::page());
+
+        $this->assertStringNotContainsString('queried', $content);
+    }
+
+    public function testSetsTheForceRequestDefaultsOnTheCurrentRequest(): void
+    {
+        $this->publishCurrent(['populate' => ['record' => ['foo' => 'stored']]]);
+
+        $this->populate(new ServerRequest('POST', 'https://example.test/account/login?via=mid'), self::page());
+
+        $config = FormPopulationConfig::get($this->requestState()->current());
+        $this->assertSame('/account/login', $config['force_request_uri'] ?? null);
+        $this->assertSame('https://example.test/account/login?via=mid', $config['force_request_url'] ?? null);
+    }
+
+    public function testSkipsPopulationForNonHtmlContentType(): void
+    {
+        $this->publishCurrent(['populate' => ['record' => ['foo' => 'stored']]]);
+        // Contains a literal "<form" so if the DOM engine ran against it regardless of
+        // Content-Type, the assertion below would catch it.
+        $json = '{"note":"<form id=\\"record\\" action=\\"/form\\"><input name=\\"foo\\"></form>"}';
+
+        $content = $this->populate(new ServerRequest('GET', 'https://example.test/form'), $json, 'application/json');
+
+        $this->assertSame($json, $content);
+    }
+
+    public function testSkipsPopulationWhenTheHtmlHasNoForm(): void
+    {
+        $this->publishCurrent(['populate' => ['record' => ['foo' => 'stored']]]);
+        $html = '<!DOCTYPE html><html><body><p>Hello</p></body></html>';
+
+        $this->assertSame($html, $this->populate(new ServerRequest('GET', 'https://example.test/plain'), $html));
+    }
+
+    public function testAnExceptionFromTheHandlerPropagates(): void
     {
         $middleware = new FormPopulationMiddleware($this->controller);
-        $webRequest = $this->makeIsolatedRequest();
-
-        $psrRequest = (new ServerRequest('POST', 'https://example.test/form?shared=query&onlyQuery=q'))
-            ->withAttribute('quiote.request_data', $webRequest)
-            ->withParsedBody(['shared' => 'body', 'onlyBody' => 'b'])
-            ->withAttribute('route_params', ['shared' => 'route', 'onlyRoute' => 'r']);
-
-        $factory = new Psr17Factory();
-        $handler = new readonly class($factory) implements RequestHandlerInterface {
-            public function __construct(private Psr17Factory $factory) {}
+        $handler = new class implements RequestHandlerInterface {
             public function handle(ServerRequestInterface $request): ResponseInterface
             {
-                return $this->factory->createResponse(200)
-                    ->withBody($this->factory->createStream('<html></html>'));
+                throw new \RuntimeException('dispatch failed');
             }
         };
 
-        $response = $middleware->process($psrRequest, $handler);
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('dispatch failed');
+        $middleware->process(new ServerRequest('GET', 'https://example.test/form'), $handler);
+    }
+
+    private static function page(): string
+    {
+        return '<!DOCTYPE html><html><body>'
+            . '<form id="record" action="/form"><input type="text" name="foo"></form>'
+            . '<form id="search" action="/search"><input type="text" name="q"></form>'
+            . '</body></html>';
+    }
+
+    private function requestState(): RequestState
+    {
+        return $this->context()->getContainer()->get(RequestState::class);
+    }
+
+    /**
+     * Publishes the request the action and its view would have left behind.
+     *
+     * @param array<string, mixed> $config
+     * @param array<string, mixed> $parameters
+     */
+    private function publishCurrent(array $config, array $parameters = [], string $method = 'GET'): void
+    {
+        $request = $this->makeIsolatedRequest()->withMethod($method)->withParameters($parameters);
+        if ($config !== []) {
+            $merged = FormPopulationConfig::merge($request, $config);
+            $this->assertInstanceOf(WebRequest::class, $merged);
+            $request = $merged;
+        }
+        $this->requestState()->publish($request);
+    }
+
+    private function populate(ServerRequestInterface $request, string $body, string $contentType = 'text/html'): string
+    {
+        $factory = new Psr17Factory();
+        $handler = new readonly class($factory, $body, $contentType) implements RequestHandlerInterface {
+            public function __construct(private Psr17Factory $factory, private string $body, private string $contentType) {}
+            public function handle(ServerRequestInterface $request): ResponseInterface
+            {
+                return $this->factory->createResponse(200)
+                    ->withHeader('Content-Type', $this->contentType)
+                    ->withBody($this->factory->createStream($this->body));
+            }
+        };
+
+        $response = (new FormPopulationMiddleware($this->controller))->process($request, $handler);
         $response->getBody()->rewind();
-        $response->getBody()->getContents(); // drain to mimic consumption
-
-        // WebRequest is immutable, so fetch the instance the middleware re-synced into the context.
-        $webRequest = $this->context()->getContainer()->get(\Quiote\Request\WebRequest::class);
-
-        // route_params must win over parsed body, which must win over query params.
-        $this->assertSame('route', $webRequest->getParameter('shared'));
-        $this->assertSame('q', $webRequest->getParameter('onlyQuery'));
-        $this->assertSame('b', $webRequest->getParameter('onlyBody'));
-        $this->assertSame('r', $webRequest->getParameter('onlyRoute'));
+        return $response->getBody()->getContents();
     }
 
     /**

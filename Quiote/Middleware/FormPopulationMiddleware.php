@@ -3,6 +3,7 @@
 namespace Quiote\Middleware;
 
 use Quiote\Controller\Controller;
+use Quiote\Request\RequestState;
 use Quiote\Request\WebRequest;
 use Quiote\Util\FormPopulationConfig;
 use Quiote\Util\FormPopulationEngine;
@@ -12,10 +13,13 @@ use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 
 /**
- * Applies the modernized form population engine to PSR-7 responses so
- * container-less requests still receive automatic form value and error message population.
+ * Fills the forms in a rendered HTML response with the values the action or its view asked for,
+ * such as an edit form prefilled from a stored record by {@see \Quiote\View\View::populateForm()}.
+ *
+ * Sits directly around {@see DispatchMiddleware}, inside {@see ValidationMiddleware}: a request
+ * that failed validation is answered, and repopulated from the submission, before it gets here.
  */
-#[\Quiote\Middleware\Attribute\Middleware(phase: 'after_action', after: 'AssetAggregationMiddleware', before: 'ExecutionTimeMiddleware')]
+#[\Quiote\Middleware\Attribute\Middleware(phase: 'action', after: 'SlotMiddleware', before: 'DispatchMiddleware')]
 class FormPopulationMiddleware implements MiddlewareInterface
 {
     private readonly FormPopulationEngine $engine;
@@ -27,40 +31,38 @@ class FormPopulationMiddleware implements MiddlewareInterface
     }
 
     /**
-     * Repopulates form fields and error messages in the rendered HTML response.
+     * Populates the forms in the response from the form population configuration on the current
+     * request, as the action and its view left it.
      *
-     * On the way in, the canonical WebRequest is resolved (from the
-     * `quiote.request_data` attribute, else from the container), given the
-     * merged query, parsed-body and route parameters — later sources winning
-     * on key conflicts — seeded with the engine's default configuration, then
-     * published to RequestState and re-attached to the request.
+     * Population happens only when that configuration asks for it: a `populate` value (a map of
+     * form id to values, a ParameterHolder for every form, or `true` for the request's own
+     * parameters), or a `methods` list naming the request's method, in which case the forms are
+     * filled from the request's parameters. With neither, the response is returned untouched.
+     * Those parameters are the current request's, so strict validation has already pruned them.
      *
-     * On the way out the response is returned untouched unless every gate
-     * passes: the Content-Type must look like HTML (a missing Content-Type is
-     * treated as HTML), the body must be non-empty, the controller's global
-     * response must still allow content mutation, and the body must actually
-     * contain a `<form` — the last check skips the DOM round-trip for the
-     * common form-free page. When population does run and changes the markup,
-     * a new body is installed and any stale `Content-Length` header is removed.
-     * The engine is reset even if population throws.
-     *
-     * @throws \RuntimeException If no canonical WebRequest can be resolved.
+     * The response is also returned untouched unless the Content-Type looks like HTML (a missing
+     * Content-Type is treated as HTML), the body contains a `<form`, and the controller's global
+     * response still allows content mutation. When population changes the markup, a new body is
+     * installed and any stale `Content-Length` header is removed. The engine is reset even if
+     * population throws.
      */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
-        $webRequest = $this->resolveWebRequest($request);
-        $webRequest = $this->ensureDefaultConfig($webRequest);
-        $this->controller->getContext()->getContainer()->get(\Quiote\Request\RequestState::class)->publish($webRequest);
-        $request = $request->withAttribute('quiote.request_data', $webRequest);
-
         $response = $handler->handle($request);
 
         if (!$this->isHtmlResponse($response)) {
             return $response;
         }
 
+        $requestState = $this->controller->getContext()->getContainer()->get(RequestState::class);
+        $webRequest = $requestState->current();
+        if (!$this->populationRequested(FormPopulationConfig::get($webRequest))) {
+            return $response;
+        }
+
         $content = $this->extractBody($response);
-        if ($content === '') {
+        // Skip the DOM round-trip when there is no form to populate.
+        if ($content === '' || stripos($content, '<form') === false) {
             return $response;
         }
 
@@ -70,19 +72,13 @@ class FormPopulationMiddleware implements MiddlewareInterface
         }
 
         $webRequest = $this->applyRuntimeConfig($webRequest, $request);
-        // Re-sync now: previously this only happened as a side effect of
-        // engine->populate() reaching its 'orphaned_errors' bookkeeping, which
-        // never ran when population was skipped below.
-        $this->controller->getContext()->getContainer()->get(\Quiote\Request\RequestState::class)->publish($webRequest);
-
-        // Skip the DOM round-trip entirely when there's no form to populate --
-        // the overwhelmingly common case for plain GETs -- instead of paying for
-        // a full DOMDocument::loadHTML/loadXML + XPath pass just to find nothing.
-        if (stripos($content, '<form') === false) {
-            return $response;
-        }
+        $requestState->publish($webRequest);
 
         $globalResponse->setContent($content);
+        // The engine gates on the response's output type, so it must carry this request's rather
+        // than whatever it last held, which under a long-running worker may be another request's.
+        $outputType = $request->getAttribute('output_type');
+        $globalResponse->setOutputType($this->controller->getOutputType(is_string($outputType) ? $outputType : null));
 
         try {
             $this->engine->populate($globalResponse, $webRequest);
@@ -104,40 +100,21 @@ class FormPopulationMiddleware implements MiddlewareInterface
         return $response;
     }
 
-    private function resolveWebRequest(ServerRequestInterface $request): WebRequest
+    /**
+     * Whether the configuration names something to populate: a `populate` source other than
+     * `false`, or a non-empty `methods` list.
+     *
+     * @param array<string, mixed> $config
+     */
+    private function populationRequested(array $config): bool
     {
-        $rd = $request->getAttribute('quiote.request_data');
-        if (!$rd instanceof WebRequest) {
-            try {
-                $rd = $this->controller->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class);
-            } catch (\Throwable) {
-                $rd = null;
-            }
+        $populate = $config['populate'] ?? null;
+        if ($populate !== null && $populate !== false) {
+            return true;
         }
-        if (!$rd instanceof WebRequest) {
-            throw new \RuntimeException('Canonical WebRequest not initialized before FormPopulationMiddleware (unexpected).');
-        }
-        // No need to attachPsrRequest - WebRequest IS the PSR-7 request.
-        // Merge query + body + route params into one array (later sources win on
-        // key conflict, same precedence as the old sequential setParameter() loop)
-        // and apply them in a single withParameters() call instead of cloning the
-        // request and rebuilding its parameter store once per key.
-        $params = $request->getQueryParams();
-        $body = $request->getParsedBody();
-        if (is_array($body)) {
-            $params = array_merge($params, $body);
-        }
-        $routeParams = $request->getAttribute('route_params');
-        if (is_array($routeParams)) {
-            $params = array_merge($params, $routeParams);
-        }
-        return $rd->withParameters($params);
-    }
 
-    private function ensureDefaultConfig(WebRequest $request): WebRequest
-    {
-        $updated = FormPopulationConfig::seed($request, $this->engine->getDefaults());
-        return $updated instanceof WebRequest ? $updated : $request;
+        $methods = $config['methods'] ?? null;
+        return is_array($methods) ? $methods !== [] : is_string($methods) && $methods !== '';
     }
 
     private function applyRuntimeConfig(WebRequest $webRequest, ServerRequestInterface $psrRequest): WebRequest
@@ -167,8 +144,7 @@ class FormPopulationMiddleware implements MiddlewareInterface
      * setContent()) for responses that plainly aren't HTML, so a large JSON or
      * binary response doesn't pay for two full-body string materializations
      * for nothing. Absent a Content-Type header we can't tell either way, so
-     * fall through and let the engine's own gates decide, same as before this
-     * check existed.
+     * fall through and let the engine's own gates decide.
      */
     private function isHtmlResponse(ResponseInterface $response): bool
     {
@@ -192,7 +168,9 @@ class FormPopulationMiddleware implements MiddlewareInterface
                 $contents = (string) $body;
             }
             return (string) $contents;
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            // An unreadable body is served as it is, so its forms go out unpopulated.
+            \Quiote\Logging\Log::for($this)->warning('could not read the response body, serving it without form population: ' . $e->getMessage());
             return '';
         }
     }
