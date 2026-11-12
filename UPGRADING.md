@@ -58,6 +58,21 @@ values its error view supplies. Publishing a configuration yourself with
 attribute the action or its view published while it ran. Previously it replaced them with the
 attributes the request had before dispatch.
 
+### An action's error view reads the errors the action reported
+
+**No action for applications**, unless you construct `ActionExecutor` yourself. An action that
+passes validation, reports a business-rule error with `getValidationManager()->addIncident()`
+and returns its `Error` view now finds that error in the view's `getReport()`. Previously the
+view read a fresh, empty manager. The action also keeps the manager that validation ran with, so
+its own `getReport()` shows validation's results.
+
+`ActionExecutor`'s constructor no longer takes a `ValidationService`. It was the source of the
+empty manager. A caller that passed later arguments by position must drop that one; arguments
+passed by name are unaffected.
+
+`HttpTestCase` now dispatches a `WebRequest`, as production's `WorkerRequestFactory` does, so
+middleware that only acts on a `WebRequest` behaves the same in full-pipeline tests.
+
 ## 4.5.0 → 4.5.1
 
 ### Array parameters now carry validated values, and strict mode prunes inside them

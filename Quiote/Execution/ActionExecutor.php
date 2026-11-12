@@ -6,7 +6,6 @@ use Quiote\Controller\Controller;
 use Quiote\Action\Action;
 use Quiote\View\View;
 use Quiote\Request\RequestDataHolder; // legacy (deprecated)
-use Quiote\Execution\ValidationService;
 use Quiote\Execution\SecurityService; // still injected to keep signature stable (may be removed later)
 use Quiote\Execution\SecurityDecision;
 use Quiote\Execution\LightweightActionInitContext;
@@ -30,7 +29,6 @@ use Quiote\Request\WebRequest;
 final class ActionExecutor
 {
     private readonly ActionResolver $actionResolver;
-    private readonly ValidationService $validationService;
     private readonly ViewFactory $viewFactory;
     private readonly ViewNameResolver $viewNameResolver;
 
@@ -41,7 +39,6 @@ final class ActionExecutor
     public function __construct(
         private readonly Controller $controller,
         ?ActionResolver $actionResolver = null,
-        ?ValidationService $validationService = null,
         ?SecurityService $securityService = null,
         ?ViewFactory $viewFactory = null,
         ?ViewNameResolver $viewNameResolver = null,
@@ -50,7 +47,6 @@ final class ActionExecutor
         // Initialize services, falling back to defaults when not injected (e.g. in tests).
         $this->viewNameResolver = $viewNameResolver ?? new ViewNameResolver();
         $this->actionResolver = $actionResolver ?? new ActionResolver();
-        $this->validationService = $validationService ?? new ValidationService();
         $this->securityService ??= $securityService ?? new SecurityService($controller);
         $this->viewFactory = $viewFactory ?? new ViewFactory($controller);
     }
@@ -248,6 +244,10 @@ final class ActionExecutor
         }
         // No need to attachPsrRequest - WebRequest IS the PSR-7 request
 
+        // The validation manager validation ran with, which a pre-instantiated action already
+        // carries. The action keeps it, so what it reports lands where its view reads.
+        $validationManager = $action->getInitContext()?->getValidationManager();
+
         // Initialize action with lightweight context
         $lwCtx = new LightweightActionInitContext(
             $this->controller->getContext(),
@@ -258,6 +258,9 @@ final class ActionExecutor
             $actionRequest,
             $this->controller->getGlobalResponse()
         );
+        if ($validationManager !== null) {
+            $lwCtx->setValidationManager($validationManager);
+        }
         $action->initialize($lwCtx);
 
         // SECURITY: Executor is security-agnostic. Only minimal guard remains.
@@ -319,7 +322,7 @@ final class ActionExecutor
         }
 
         [$vm, $vn] = $this->viewNameResolver->resolve($desc->module, $desc->action, $rawView);
-        [$view, $content] = $this->renderView($vm, $vn, $desc, $actionRequest, $attributeSnapshot, $dbg, $logger);
+        [$view, $content] = $this->renderView($vm, $vn, $desc, $actionRequest, $attributeSnapshot, $lwCtx->getValidationManager(), $dbg, $logger);
         $state->securityDecision = SecurityDecision::Allow;
         $state->viewModule = $vm;
         $state->viewName = $vn;
@@ -342,10 +345,12 @@ final class ActionExecutor
      * {@see execute()}. Gated by the
      * same `telemetry.spans.action` toggle; when `$vn` is `View::NONE` no
      * span is opened at all, since there is nothing to render.
+     * The view gets the action's validation manager, so it reads the errors the action reported.
+     *
      * @param array<array-key, mixed> $attributeSnapshot
      * @return array{0: ?View, 1: string} [$view, $content]
      */
-    private function renderView(?string $vm, ?string $vn, ActionDescriptor $desc, WebRequest $actionRequest, array $attributeSnapshot, bool $dbg, \Quiote\Logging\CategoryLogger $logger): array
+    private function renderView(?string $vm, ?string $vn, ActionDescriptor $desc, WebRequest $actionRequest, array $attributeSnapshot, ?\Quiote\Validator\ValidationManager $validationManager, bool $dbg, \Quiote\Logging\CategoryLogger $logger): array
     {
         if ($vn === View::NONE || $vm === null) {
             if ($dbg) {
@@ -358,7 +363,7 @@ final class ActionExecutor
             ? \Quiote\Telemetry\Trace::span('Quiote.View', $vm . ':' . $vn, ['quiote.view.module' => $vm, 'quiote.view.name' => $vn])
             : \Quiote\Telemetry\NoopSpanHandle::instance();
         try {
-            $view = $this->viewFactory->create($vm, $vn, $desc->module, $desc->action, strtolower($this->controller->getOutputType()->getName()), $actionRequest, $attributeSnapshot, $this->validationService->getValidationManager());
+            $view = $this->viewFactory->create($vm, $vn, $desc->module, $desc->action, strtolower($this->controller->getOutputType()->getName()), $actionRequest, $attributeSnapshot, $validationManager);
             $content = '';
             $method = $this->selectViewMethod($view, $desc->outputType);
             $res = $view->$method($actionRequest);
