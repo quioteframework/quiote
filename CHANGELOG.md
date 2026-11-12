@@ -1,3 +1,19 @@
+## [4.6.0-beta8] - 2026-11-12
+
+### 🚀 Features
+
+- *(view)* Add View::populateForm() to prefill a form
+- *(introspection)* Report discarded populate statements as DISCARDED_POPULATE
+
+### 🐛 Bug Fixes
+
+- *(middleware)* Keep what the action published across DispatchMiddleware's final publish
+- *(middleware)* Run FormPopulationMiddleware around DispatchMiddleware
+
+### 🚜 Refactor
+
+- *(validation)* Drop the unreachable null-view branch from the error view render
+
 ## [4.6.0-beta7] - 2026-11-11
 
 ### 🐛 Bug Fixes
