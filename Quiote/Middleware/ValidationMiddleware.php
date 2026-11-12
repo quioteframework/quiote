@@ -249,6 +249,11 @@ class ValidationMiddleware implements MiddlewareInterface
         $this->controller->getContext()->getContainer()->get(\Quiote\Request\RequestState::class)->publish($webRequest);
     }
 
+    private function currentRequest(): WebRequest
+    {
+        return $this->controller->getContext()->getContainer()->get(\Quiote\Request\RequestState::class)->current();
+    }
+
     /**
      * Fold whatever the pipeline did to the request into the canonical WebRequest.
      *
@@ -538,7 +543,9 @@ class ValidationMiddleware implements MiddlewareInterface
         [$content, $problemJson] = $this->executeErrorView($view, $outputType, $webRequest, $errors, $request);
 
         if ($outputType === 'html' && is_string($content) && $content !== '') {
-            $content = $this->repopulateForm($content, $outputType, $controller, $webRequest);
+            // The request as the error view left it, so the population options it published
+            // (include_hidden_inputs, skip, ...) apply to the repopulation.
+            $content = $this->repopulateForm($content, $outputType, $controller, $this->currentRequest());
         }
 
         $request = $request->withAttribute('validation.error.content', (string) $content);
@@ -608,6 +615,9 @@ class ValidationMiddleware implements MiddlewareInterface
      * value that failed even one of several validators registered against the same field is
      * scrubbed from the request by design, which is right for business logic but would
      * redisplay the field blank instead of showing what the user typed.
+     *
+     * The submission wins over any values the error view supplied with populateForm(); every
+     * other population option on $webRequest (include_hidden_inputs, skip, ...) applies.
      *
      * HTML only -- an API client holds its own submitted state, and the DOM rewriting this
      * performs only makes sense for markup.
