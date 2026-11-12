@@ -21,6 +21,7 @@ final class Diagnostic
 	public const CODE_MISSING_VIEW = 'MISSING_VIEW';
 	public const CODE_MISSING_TEMPLATE = 'MISSING_TEMPLATE';
 	public const CODE_MISSING_VALIDATOR = 'MISSING_VALIDATOR';
+	public const CODE_DISCARDED_POPULATE = 'DISCARDED_POPULATE';
 
 	public function __construct(
 		public readonly string $severity,

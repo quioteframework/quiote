@@ -76,6 +76,9 @@ final class AppIntrospectionCompiler
 		foreach ((new TriadDiagnosticsScanner($this->views, $scannerController))->scan($entries) as $diagnostic) {
 			$diagnostics[] = $diagnostic;
 		}
+		foreach ((new DiscardedPopulateScanner())->scan($moduleDirs) as $diagnostic) {
+			$diagnostics[] = $diagnostic;
+		}
 
 		$routing = Context::getInstance($context)->getContainer()->get(\Quiote\Routing\Routing::class);
 		$attributeRoutesByKey = $this->indexAttributeRoutes($plan->routes);
