@@ -33,6 +33,7 @@ final class ContextResidueReporterTest extends AbstractRectorTestCase
         // per-run: asserting the union would pass for a fixture that recorded nothing.
         match (basename($filePath)) {
             'reports_template_scope.php.inc' => $this->assertTemplateScope($reasons),
+            'reports_discarded_populate.php.inc' => $this->assertDiscardedPopulate($report->sites()),
             default => $this->assertEveryResidueShape($reasons),
         };
     }
@@ -68,6 +69,25 @@ final class ContextResidueReporterTest extends AbstractRectorTestCase
     {
         $this->assertSame(ResidueReport::REASON_NO_CLASS, $reasons['getTranslationManager'] ?? null);
         $this->assertSame(ResidueReport::REASON_NO_CLASS, $reasons['getService'] ?? null);
+    }
+
+    /**
+     * A dead `setAttribute('populate', ...)` statement is reported on its own line, whatever it is
+     * called on; one whose result is kept, and a different attribute, are not.
+     *
+     * @param      array<int, array{file: string, line: int, accessor: string, reason: string}> $sites
+     */
+    private function assertDiscardedPopulate(array $sites): void
+    {
+        $populateLines = [];
+        foreach ($sites as $site) {
+            if ($site['reason'] === ResidueReport::REASON_DISCARDED_POPULATE) {
+                $populateLines[] = $site['line'];
+            }
+        }
+        sort($populateLines);
+
+        $this->assertSame([16, 21], $populateLines);
     }
 
     /** @return \Iterator<array<string>> */

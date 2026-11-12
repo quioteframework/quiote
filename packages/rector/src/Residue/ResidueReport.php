@@ -67,6 +67,14 @@ final class ResidueReport
     public const string REASON_NOT_AN_ACCESSOR = 'not-an-accessor';
 
     /**
+     * A statement `->setAttribute('populate', ...)` whose result is thrown away, whatever it is
+     * called on. The request is immutable, so the call does nothing and the form it was meant to
+     * prefill renders empty. The replacement is `$this->populateForm($formId, $values)` in the
+     * view, one call per form.
+     */
+    public const string REASON_DISCARDED_POPULATE = 'discarded-populate';
+
+    /**
      * @var        array<string, array{file: string, line: int, accessor: string, reason: string}>
      *             Keyed by file:line:accessor, so a rule and the reporter seeing the same site once
      *             each does not double-count it.

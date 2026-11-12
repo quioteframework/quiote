@@ -6,11 +6,14 @@ namespace Quiote\Rector\Rector;
 
 use PhpParser\Node;
 use PhpParser\Node\Expr\MethodCall;
+use PhpParser\Node\Expr\NullsafeMethodCall;
 use PhpParser\Node\Expr\StaticCall;
 use PhpParser\Node\Identifier;
 use PhpParser\Node\Name;
+use PhpParser\Node\Scalar\String_;
 use PhpParser\Node\Stmt\Class_;
 use PhpParser\Node\Stmt\ClassLike;
+use PhpParser\Node\Stmt\Expression;
 use PhpParser\Node\Stmt\Namespace_;
 use Quiote\Rector\NodeAnalyzer\ContextCallAnalyzer;
 use Quiote\Rector\Residue\ResidueReport;
@@ -49,8 +52,7 @@ use Rector\Rector\AbstractRector;
  * - `nullable-accessor` — `getDatabaseConnection()`, whose replacement is a call on an injected
  *   database manager rather than the manager itself, so it is not a mapping entry in rule 2.
  * - `discarded-mutation` — a statement-level chain rooted in `getRequest()`. Already a no-op since
- *   the request became immutable; needs `FormPopulationConfig` and a `publish()`, which is a change
- *   of meaning.
+ *   the request became immutable; its result needs publishing, which is a change of meaning.
  * - `unresolvable-argument` — `getService($id)` with a variable or a plain string, where the target
  *   would have to be guessed.
  * - `unhandled-accessor` — a deleted Context accessor still being called. Every accessor is on that
@@ -64,6 +66,9 @@ use Rector\Rector\AbstractRector;
  *   may well be work; it just cannot be decided without reading the call site.
  * - `not-an-accessor` — the receiver is a Context and the method is not one it declares, which in
  *   practice means a PHPUnit mock builder on a mocked Context.
+ * - `discarded-populate` — a statement `->setAttribute('populate', ...)` whose result is thrown away,
+ *   on any receiver, `getRequest()` or `RequestState::current()` alike. It does nothing, so the form
+ *   it was meant to prefill renders empty; the view calls `populateForm()` instead.
  *
  * Written to `core.cache_dir`'s sibling by default, or wherever `QUIOTE_RECTOR_RESIDUE` points, on
  * process shutdown. A Rector rule has no reporting channel of its own, and printing into the diff
@@ -221,6 +226,12 @@ final class ContextResidueReporter extends AbstractRector
         $filePath = $this->getFile()->getFilePath();
 
         $this->traverseNodesWithCallable($statements, function (Node $subNode) use ($filePath, $blanketReason): null {
+            if ($subNode instanceof Expression && $this->isDiscardedPopulate($subNode)) {
+                $this->residueReport->add($filePath, $subNode->getStartLine(), "setAttribute('populate')", ResidueReport::REASON_DISCARDED_POPULATE);
+
+                return null;
+            }
+
             if ($subNode instanceof StaticCall) {
                 $this->recordStaticCall($subNode, $filePath, $blanketReason);
 
@@ -233,6 +244,31 @@ final class ContextResidueReporter extends AbstractRector
 
             return null;
         });
+    }
+
+    /**
+     * Whether a statement is a `setAttribute('populate', ...)` call whose result nothing keeps, with
+     * or without the attribute namespace Agavi passed as a third argument.
+     *
+     * Reported whatever the receiver is: the migrated form, `RequestState::current()->setAttribute()`,
+     * has no Context call left in it for the accessor checks to find, and is exactly as dead.
+     *
+     * @since      4.6.0
+     */
+    private function isDiscardedPopulate(Expression $statement): bool
+    {
+        $call = $statement->expr;
+        if (!$call instanceof MethodCall && !$call instanceof NullsafeMethodCall) {
+            return false;
+        }
+
+        if (!$call->name instanceof Identifier || strcasecmp($call->name->toString(), 'setAttribute') !== 0) {
+            return false;
+        }
+
+        $arguments = $call->getArgs();
+
+        return $arguments !== [] && $arguments[0]->value instanceof String_ && $arguments[0]->value->value === 'populate';
     }
 
     private function recordMethodCall(MethodCall $methodCall, string $filePath, ?string $blanketReason): void

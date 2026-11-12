@@ -47,8 +47,9 @@ use Quiote\Rector\NodeAnalyzer\ContextCallAnalyzer;
  *
  * Every `WebRequest` mutator returns a new instance, so that statement already does nothing.
  * Rewriting it to `$this->requestState->current()->setAttribute(...)` would be identically broken
- * but look deliberate, in freshly reviewed code. Those sites need `FormPopulationConfig` and a
- * `publish()` -- a change of meaning, so they belong to a human and to the residue reporter.
+ * but look deliberate, in freshly reviewed code. A view prefilling a form calls
+ * `$this->populateForm($formId, $values)` instead; any other site needs its result published.
+ * Either is a change of meaning, so they belong to a human, and the residue reporter lists them.
  *
  * @since      4.0.0
  */
