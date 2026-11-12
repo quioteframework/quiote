@@ -26,6 +26,38 @@ action returns it from `getDefaultViewName()`.
 `ViewFactory::create()` now returns `View` rather than `?View`. A subclass that overrides it
 must narrow its return type to match, and must throw rather than return `null`.
 
+### Views prefill forms with `populateForm()`, and form population runs
+
+**Action required if a view prefills a form.** The Agavi idiom, and what a port turns it into,
+does nothing:
+
+```php
+$this->getContext()->getRequest()->setAttribute('populate', ['integrationForm' => $holder], 'org.agavi.filter.FormPopulationFilter');
+$this->requestState->current()->setAttribute('populate', ['integrationForm' => $holder]);
+```
+
+The request is immutable, so the call returns a new request that nothing keeps, and the edit
+page renders every field empty. Replace each with one call per form:
+
+```php
+$this->populateForm('integrationForm', $holder);   // an array or a ParameterHolder
+```
+
+To find them, run `quiote routes:compile`, which reports each one as a `DISCARDED_POPULATE`
+warning, or read the `discarded-populate` section of the `quioteframework/rector` residue report.
+
+`FormPopulationMiddleware` now runs. It used to be ordered after `DispatchMiddleware`, which is
+terminal, so it never ran at all. It now wraps `DispatchMiddleware`, inside
+`ValidationMiddleware`, and fills a page's forms only when the action or view asked for it. A page
+that asks for nothing goes out exactly as rendered, as before. A request that failed validation is
+still repopulated from the submission by `ValidationMiddleware`, ahead of any `populateForm()`
+values its error view supplies. Publishing a configuration yourself with
+`FormPopulationConfig::merge()` and `RequestState::publish()` takes effect now as well.
+
+`DispatchMiddleware` publishes its request after the action has run. That request now keeps every
+attribute the action or its view published while it ran. Previously it replaced them with the
+attributes the request had before dispatch.
+
 ## 4.5.0 → 4.5.1
 
 ### Array parameters now carry validated values, and strict mode prunes inside them

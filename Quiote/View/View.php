@@ -737,6 +737,46 @@ abstract class View implements ResetInterface
 	}
 
 	/**
+	 * Fill the form whose `id` is $formId with $values when the page is rendered, as an edit
+	 * page does with the record it edits.
+	 *
+	 * Each call adds one form, and a later call for the same id replaces its values. Forms not
+	 * named by any call keep the markup the view rendered, so a populate source an action set for
+	 * every form (a ParameterHolder, or `true` for the request's parameters) gives way to the
+	 * forms named here.
+	 *
+	 * A request that failed validation is repopulated from what the user submitted instead, so an
+	 * error view can call this unconditionally.
+	 *
+	 * @param      array<string, mixed>|\Quiote\Util\ParameterHolder $values Field values keyed by
+	 *             input name, with nested arrays for bracketed names such as `items[0][qty]`.
+	 * @throws     \InvalidArgumentException If $formId is empty.
+	 * @throws     ViewException If the view has not been initialized.
+	 * @since      4.6.0
+	 */
+	public function populateForm(string $formId, array|\Quiote\Util\ParameterHolder $values): void
+	{
+		if ($formId === '') {
+			throw new \InvalidArgumentException('populateForm() needs the id of the form to fill.');
+		}
+		$context = $this->getContext();
+		if ($context === null) {
+			throw new ViewException(sprintf('View "%s" cannot populate form "%s" before it is initialized.', static::class, $formId));
+		}
+
+		$requestState = $context->getContainer()->get(\Quiote\Request\RequestState::class);
+		$current = $requestState->current();
+		$populate = \Quiote\Util\FormPopulationConfig::getScopedValue($current, 'populate');
+		$forms = is_array($populate) ? $populate : [];
+		$forms[$formId] = $values instanceof \Quiote\Util\ParameterHolder ? $values : new \Quiote\Util\ParameterHolder($values);
+
+		$updated = \Quiote\Util\FormPopulationConfig::merge($current, ['populate' => $forms]);
+		if ($updated instanceof WebRequest) {
+			$requestState->publish($updated);
+		}
+	}
+
+	/**
 	 * Drops the per-request state so the view instance can be reused.
 	 *
 	 * Releases both the initialization context and the current context along
