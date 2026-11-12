@@ -1,3 +1,9 @@
+## [4.6.0-beta9] - 2026-11-12
+
+### 🐛 Bug Fixes
+
+- *(validation)* Apply the error view's population options when repopulating a failed submission
+
 ## [4.6.0-beta8] - 2026-11-12
 
 ### 🚀 Features
