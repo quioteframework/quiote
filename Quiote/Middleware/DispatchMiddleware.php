@@ -416,6 +416,10 @@ class DispatchMiddleware implements MiddlewareInterface
                 return $this->validationFailedResponse($request, $actionDesc, null);
             }
         }
+        $requestState = $this->controller->getContext()->getContainer()->tryGet(\Quiote\Request\RequestState::class);
+        $attributesBeforeDispatch = $requestState instanceof \Quiote\Request\RequestState
+            ? $requestState->current()->getAttributes()
+            : [];
         $resp = $actionDesc->isSimple ? $this->processSimple($request, $actionDesc) : $this->processNonSimple($request, $actionDesc);
         if (!$actionDesc->isSimple && $execState->validationDecision) {
             $resp = $resp->withHeader('X-Quiote-Validation-State', $execState->validationDecision->state);
@@ -430,11 +434,39 @@ class DispatchMiddleware implements MiddlewareInterface
         // own publish() calls -- a simple action with no forward is exactly that case. tryGet(),
         // not get(): a test double's fabricated Context/Container legitimately has no RequestState
         // bound, and that must stay a no-op rather than a crash.
-        $requestState = $this->controller->getContext()->getContainer()->tryGet(\Quiote\Request\RequestState::class);
         if ($requestState instanceof \Quiote\Request\RequestState) {
-            $requestState->publish($request);
+            $requestState->publish($this->withAttributesPublishedDuringDispatch(
+                $request,
+                $attributesBeforeDispatch,
+                $requestState->current()->getAttributes(),
+            ));
         }
         return $resp;
+    }
+
+    /**
+     * Carries onto the request this middleware publishes every attribute the action or its view
+     * published while it ran, such as a view's form population values.
+     *
+     * An attribute counts as published during dispatch when it is new, or holds a different value,
+     * compared with the current request before dispatch. The correlation id, the
+     * {@see ExecutionState} and the {@see ActionDescriptor} stay this middleware's own.
+     *
+     * @param array<string, mixed> $before The current request's attributes before dispatch.
+     * @param array<string, mixed> $after The current request's attributes after dispatch.
+     */
+    private function withAttributesPublishedDuringDispatch(ServerRequestInterface $request, array $before, array $after): ServerRequestInterface
+    {
+        foreach ($after as $name => $value) {
+            if ($name === 'quiote.rid' || $name === ExecutionState::class || $name === ActionDescriptor::class) {
+                continue;
+            }
+            if (array_key_exists($name, $before) && $before[$name] === $value) {
+                continue;
+            }
+            $request = $request->withAttribute($name, $value);
+        }
+        return $request;
     }
 
     // appendTrace removed; centralised in FrameworkMiddlewarePipeline
