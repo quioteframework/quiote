@@ -7,6 +7,7 @@ use Quiote\Context;
 use Quiote\Http\Psr17;
 use Quiote\Middleware\MiddlewareCatalog;
 use Quiote\Plugin\PluginManager;
+use Quiote\Request\WebRequest;
 use Quiote\Testing\Http\TestResponse;
 
 /**
@@ -14,6 +15,10 @@ use Quiote\Testing\Http\TestResponse;
  * request and dispatches it through {@see Context::handle()} (the same
  * entry point production traffic uses), returning an assertable
  * {@see TestResponse}.
+ *
+ * The request reaches the pipeline as a {@see WebRequest}, as production's
+ * WorkerRequestFactory hands it over, so middleware that only acts on a
+ * WebRequest behaves here as it does in production.
  */
 abstract class HttpTestCase extends PhpUnitTestCase
 {
@@ -138,14 +143,14 @@ abstract class HttpTestCase extends PhpUnitTestCase
     /** @param array<string, string> $headers */
     private function dispatch(string $method, string $uri, array $headers): TestResponse
     {
-        $request = new ServerRequest($method, $uri, $headers);
+        $request = WebRequest::fromPsr(new ServerRequest($method, $uri, $headers));
         return new TestResponse($this->getContext()->getRequestHandler()->handle($request));
     }
 
     /** @param array<string, string> $headers */
     private function dispatchWithBody(string $method, string $uri, \Psr\Http\Message\StreamInterface $body, array $headers): TestResponse
     {
-        $request = (new ServerRequest($method, $uri, $headers))->withBody($body);
+        $request = WebRequest::fromPsr((new ServerRequest($method, $uri, $headers))->withBody($body));
         return new TestResponse($this->getContext()->getRequestHandler()->handle($request));
     }
 }

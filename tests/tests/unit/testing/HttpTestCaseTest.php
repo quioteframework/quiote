@@ -57,6 +57,7 @@ class HttpTestCaseTest extends HttpTestCase
                     'body' => (string)$request->getBody(),
                     'contentType' => $request->getHeaderLine('Content-Type'),
                     'testHeader' => $request->getHeaderLine('X-Test-Header'),
+                    'requestClass' => $request::class,
                 ]);
                 return new Response(200, ['Content-Type' => 'application/json'], (string)$payload);
             }
@@ -110,6 +111,19 @@ class HttpTestCaseTest extends HttpTestCase
         $encodedBody = $body['body'];
         $this->assertIsString($encodedBody);
         $this->assertSame(['name' => 'Ada'], json_decode($encodedBody, true));
+    }
+
+    /**
+     * Production hands the pipeline a WebRequest (WorkerRequestFactory), so middleware that only
+     * acts on one, such as a bridge that sets a parameter, must see one in these tests too.
+     */
+    public function testEveryHelperDispatchesAWebRequestAsProductionDoes(): void
+    {
+        $this->replaceStackWithEcho();
+
+        $this->assertSame(\Quiote\Request\WebRequest::class, $this->get('/attr-routing')->json()['requestClass']);
+        $this->assertSame(\Quiote\Request\WebRequest::class, $this->post('/attr-routing', ['a' => '1'])->json()['requestClass']);
+        $this->assertSame(\Quiote\Request\WebRequest::class, $this->json('POST', '/attr-routing', ['a' => 1])->json()['requestClass']);
     }
 
     public function testCustomHeadersAreSent(): void
