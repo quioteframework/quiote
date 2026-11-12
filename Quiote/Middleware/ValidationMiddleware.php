@@ -535,17 +535,6 @@ class ValidationMiddleware implements MiddlewareInterface
         );
 
         $factory = \Quiote\Http\Psr17::factory();
-        if (!$view) {
-            \Quiote\Logging\Log::for($this)->warning(
-                '[ValidationMiddleware] view creation returned null for ' . $viewModule . ':' . $viewName
-            );
-            $resp = $factory->createResponse(400)
-                ->withHeader('X-Quiote-Validation', 'failed')
-                ->withHeader('X-Quiote-Validation-Reason', 'view_not_created');
-
-            return $resp->withBody($factory->createStream($viewName));
-        }
-
         [$content, $problemJson] = $this->executeErrorView($view, $outputType, $webRequest, $errors, $request);
 
         if ($outputType === 'html' && is_string($content) && $content !== '') {

@@ -173,6 +173,45 @@ class ValidationMiddlewareErrorViewExportTest extends UnitTestCase
         $this->assertStringContainsString('value="12345"', $body, 'Submitted value must be repopulated into the redisplayed form despite failing one of two validators');
     }
 
+    public function testAnErrorViewThatCannotBeCreatedAnswersAsAFailedViewRender(): void
+    {
+        $controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
+        $actionDesc = new ActionDescriptor('Snapshot', 'FormRepopulationAction', 'write', 'html', false);
+
+        $request = (new ServerRequest('POST', '/form-repopulation'))
+            ->withParsedBody(['name' => '12345'])
+            ->withAttribute(ActionDescriptor::class, $actionDesc)
+            ->withAttribute('module', 'Snapshot')
+            ->withAttribute('action', 'FormRepopulationAction');
+
+        $action = new class extends FormRepopulationAction {
+            #[\Override]
+            public function handleError(\Quiote\Request\WebRequest $rd): string
+            {
+                return 'Missing';
+            }
+        };
+        $action->initialize(new \Quiote\Execution\LightweightActionInitContext(
+            $controller->getContext(),
+            'Snapshot',
+            'FormRepopulationAction',
+            $actionDesc->method,
+            $actionDesc->outputType,
+            $request,
+            $controller->getGlobalResponse()
+        ));
+        $request = $request->withAttribute('quiote.preinstantiated_action', $action);
+
+        $finalHandler = new class implements RequestHandlerInterface {
+            public function handle(ServerRequestInterface $r): ResponseInterface { return new Psr7Response(200); }
+        };
+
+        $response = (new ValidationMiddleware($controller))->process($request, $finalHandler);
+
+        $this->assertSame(400, $response->getStatusCode());
+        $this->assertSame('view_creation_exception', $response->getHeaderLine('X-Quiote-Validation-Reason'));
+    }
+
     /**
      * Regression guard: SlotMiddleware normally runs AFTER ValidationMiddleware
      * (see MiddlewareAttributeOrderingTest), but the validation-failure path
