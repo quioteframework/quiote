@@ -1,3 +1,10 @@
+## [4.6.0-beta10] - 2026-11-12
+
+### 🐛 Bug Fixes
+
+- *(execution)* Give an action's view the validation manager the action wrote to
+- *(testing)* Dispatch a WebRequest from HttpTestCase as production does
+
 ## [4.6.0-beta9] - 2026-11-12
 
 ### 🐛 Bug Fixes
